@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TopBar, Eyebrow, Icon } from '../components';
-import { TouchableOpacity } from 'react-native';
 import { C } from '../theme';
 export default function HomeFeed() {
   const insets = useSafeAreaInsets();
