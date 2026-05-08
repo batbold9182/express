@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFB547"></stop>
+      <stop offset="100%" stop-color="#FF3FA4"></stop>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="60" fill="url(#g)"></circle>
+  <text x="60" y="74" text-anchor="middle" font-family="Space Grotesk, Inter, sans-serif" font-weight="700" font-size="40" fill="#0B0816" letter-spacing="-0.02em">ZN</text>
+</svg>

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="600" y2="600" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3A0A23"></stop>
+      <stop offset="100%" stop-color="#160510"></stop>
+    </linearGradient>
+    <radialGradient id="g1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"></stop>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>
+    </radialGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"></feTurbulence>
+      <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.08 0"></feColorMatrix>
+      <feComposite in2="SourceGraphic" operator="in"></feComposite>
+    </filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"></rect>
+  <g opacity="0.9">
+    <circle cx="220" cy="220" r="120" fill="#FF6FBA" opacity="0.7"></circle>
+    <circle cx="380" cy="380" r="160" fill="#FF6FBA" opacity="0.45"></circle>
+    <circle cx="450" cy="180" r="40" fill="#FF6FBA"></circle>
+  </g>
+  <rect x="0" y="0" width="600" height="600" filter="url(#grain)"></rect>
+  <rect width="600" height="600" fill="url(#g1)"></rect>
+</svg>

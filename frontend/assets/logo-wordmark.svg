@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" fill="none">
+  <defs>
+    <linearGradient id="wm-grad" x1="0" y1="0" x2="320" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D9FF"></stop>
+      <stop offset="50%" stop-color="#B14EFF"></stop>
+      <stop offset="100%" stop-color="#FF3FA4"></stop>
+    </linearGradient>
+    <linearGradient id="wm-mark" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D9FF"></stop>
+      <stop offset="100%" stop-color="#B14EFF"></stop>
+    </linearGradient>
+  </defs>
+  
+  <circle cx="32" cy="32" r="26" stroke="url(#wm-mark)" stroke-width="3" fill="none"></circle>
+  <circle cx="32" cy="32" r="14" stroke="url(#wm-mark)" stroke-width="2" fill="none" opacity="0.55"></circle>
+  <circle cx="32" cy="32" r="4" fill="#FF3FA4"></circle>
+  <path d="M 32 6 A 26 26 0 0 1 58 32" stroke="#FF3FA4" stroke-width="3" stroke-linecap="round" fill="none"></path>
+  
+  <text x="76" y="42" font-family="Space Grotesk, Inter, sans-serif" font-weight="700" font-size="32" letter-spacing="-0.02em" fill="url(#wm-grad)">rotation</text>
+</svg>
