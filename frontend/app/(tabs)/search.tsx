@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Eyebrow, Icon } from '../components';
 import { C, R } from '../theme';
 import { useAuth } from '../context/auth';
+import { useRate } from '../context/rate';
 import { api } from '../lib/api';
 
 type Track  = { id: string; name: string; artists: { name: string }[]; album: { images: { url: string }[] } };
@@ -21,23 +23,50 @@ export default function Search() {
   const [albums, setAlbums]     = useState<Album[]>([]);
   const [artists, setArtists]   = useState<Artist[]>([]);
   const { token } = useAuth();
+  const { setItem } = useRate();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  function selectTrack(t: Track) {
+    setItem({
+      spotifyTrackId: t.id,
+      trackName:  t.name,
+      artistName: t.artists.map(a => a.name).join(', '),
+      albumArt:   t.album?.images?.[0]?.url ?? '',
+    });
+    router.push('/(tabs)/rate');
+  }
+
+  function selectAlbum(a: Album) {
+    setItem({
+      spotifyAlbumId: a.id,
+      trackName:  a.name,
+      artistName: a.artists.map(ar => ar.name).join(', '),
+      albumArt:   a.images?.[0]?.url ?? '',
+    });
+    router.push('/(tabs)/rate');
+  }
+
   useEffect(() => {
     if (!q.trim() || !token) { setTracks([]); setAlbums([]); setArtists([]); return; }
+    const controller = new AbortController();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const data = await api.get(`/search?q=${encodeURIComponent(q)}&type=${TYPE_MAP[scope]}`, token);
+        const data = await api.get(`/search?q=${encodeURIComponent(q)}&type=${TYPE_MAP[scope]}`, token, controller.signal);
         setTracks(data.tracks?.items ?? []);
         setAlbums(data.albums?.items ?? []);
         setArtists(data.artists?.items ?? []);
+      } catch (e: any) {
+        if (e.name === 'AbortError') return;
+        setTracks([]); setAlbums([]); setArtists([]);
       } finally {
         setLoading(false);
       }
     }, 400);
+    return () => { controller.abort(); if (timer.current) clearTimeout(timer.current); };
   }, [q, scope, token]);
 
   const hasResults = tracks.length > 0 || albums.length > 0 || artists.length > 0;
@@ -97,8 +126,8 @@ export default function Search() {
             <Eyebrow>Songs</Eyebrow>
             <View style={{ gap: 6, marginTop: 8, marginBottom: 20 }}>
               {tracks.map(t => (
-                <TouchableOpacity key={t.id} activeOpacity={0.85} style={s.row}>
-                  {t.album.images[2]?.url
+                <TouchableOpacity key={t.id} activeOpacity={0.85} style={s.row} onPress={() => selectTrack(t)}>
+                  {t.album?.images?.[2]?.url
                     ? <Image source={{ uri: t.album.images[2].url }} style={s.thumb} />
                     : <View style={[s.thumb, { backgroundColor: C.glass }]} />}
                   <View style={{ flex: 1 }}>
@@ -116,13 +145,13 @@ export default function Search() {
             <Eyebrow>Albums</Eyebrow>
             <View style={{ gap: 6, marginTop: 8, marginBottom: 20 }}>
               {albums.map(a => (
-                <TouchableOpacity key={a.id} activeOpacity={0.85} style={s.row}>
-                  {a.images[2]?.url
+                <TouchableOpacity key={a.id} activeOpacity={0.85} style={s.row} onPress={() => selectAlbum(a)}>
+                  {a.images?.[2]?.url
                     ? <Image source={{ uri: a.images[2].url }} style={s.thumb} />
                     : <View style={[s.thumb, { backgroundColor: C.glass }]} />}
                   <View style={{ flex: 1 }}>
                     <Text style={s.rowTitle} numberOfLines={1}>{a.name}</Text>
-                    <Text style={s.rowSub} numberOfLines={1}>{a.artists.map(ar => ar.name).join(', ')}</Text>
+                    <Text style={s.rowSub} numberOfLines={1}>{a.artists?.map(ar => ar.name).join(', ')}</Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -136,12 +165,12 @@ export default function Search() {
             <View style={{ gap: 6, marginTop: 8, marginBottom: 20 }}>
               {artists.map(a => (
                 <TouchableOpacity key={a.id} activeOpacity={0.85} style={s.row}>
-                  {a.images[2]?.url
+                  {a.images?.[2]?.url
                     ? <Image source={{ uri: a.images[2].url }} style={[s.thumb, { borderRadius: 20 }]} />
                     : <View style={[s.thumb, { borderRadius: 20, backgroundColor: C.glass }]} />}
                   <View style={{ flex: 1 }}>
                     <Text style={s.rowTitle} numberOfLines={1}>{a.name}</Text>
-                    {a.genres[0] && <Text style={s.rowSub} numberOfLines={1}>{a.genres[0]}</Text>}
+                    {a.genres?.[0] && <Text style={s.rowSub} numberOfLines={1}>{a.genres[0]}</Text>}
                   </View>
                 </TouchableOpacity>
               ))}

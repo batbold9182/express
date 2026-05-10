@@ -1,11 +1,112 @@
-const BASE = "http://127.0.0.1:3000";
+const BASE = process.env.EXPO_PUBLIC_API_BASE;
 
-async function get(path: string, token: string) {
-    const res = await fetch(`${BASE}${path}`, {
-        headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error(`${res.status} ${path}`);
-    return res.json();
+type RefreshConfig = {
+  spotifyId: string;
+  onNewToken: (token: string) => void;
+  onAuthFailure: () => void;
+};
+
+let _refresh: RefreshConfig | null = null;
+
+export function configureRefresh(cfg: RefreshConfig) {
+  _refresh = cfg;
 }
 
-export const api = { get };
+async function tryRefresh(): Promise<string | null> {
+  if (!_refresh) return null;
+  try {
+    const res = await fetch(`${BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spotifyId: _refresh.spotifyId }),
+    });
+    if (!res.ok) return null;
+    const { access_token } = await res.json();
+    _refresh.onNewToken(access_token);
+    return access_token;
+  } catch {
+    return null;
+  }
+}
+
+async function get(path: string, token: string, signal?: AbortSignal) {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal,
+  });
+  if (res.status === 401) {
+    const newToken = await tryRefresh();
+    if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
+    const retry = await fetch(`${BASE}${path}`, {
+      headers: { Authorization: `Bearer ${newToken}` },
+      signal,
+    });
+    if (!retry.ok) throw new Error(`${retry.status} ${path}`);
+    return retry.json();
+  }
+  if (!res.ok) throw new Error(`${res.status} ${path}`);
+  return res.json();
+}
+
+async function post(path: string, token: string, body: object) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) {
+    const newToken = await tryRefresh();
+    if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
+    const retry = await fetch(`${BASE}${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${newToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!retry.ok) throw new Error(`${retry.status} ${path}`);
+    return retry.json();
+  }
+  if (!res.ok) throw new Error(`${res.status} ${path}`);
+  return res.json();
+}
+
+async function put(path: string, token: string, body: object) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) {
+    const newToken = await tryRefresh();
+    if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
+    const retry = await fetch(`${BASE}${path}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${newToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!retry.ok) throw new Error(`${retry.status} ${path}`);
+    return retry.json();
+  }
+  if (!res.ok) throw new Error(`${res.status} ${path}`);
+  return res.json();
+}
+
+async function del(path: string, token: string) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    const newToken = await tryRefresh();
+    if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
+    const retry = await fetch(`${BASE}${path}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${newToken}` },
+    });
+    if (!retry.ok) throw new Error(`${retry.status} ${path}`);
+    return retry.json();
+  }
+  if (!res.ok) throw new Error(`${res.status} ${path}`);
+  return res.json();
+}
+
+export const api = { get, post, put, del };

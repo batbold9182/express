@@ -5,20 +5,23 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { NavIcon } from '../components';
 import { C, R } from '../theme';
 
-const TAB_ITEMS = [
-  { name: 'index',  label: 'Home',    icon: 'home' },
-  { name: 'search', label: 'Search',  icon: 'search' },
-  { name: 'rate',   label: 'Rate',    icon: 'plus',     special: true },
-  { name: 'feed',   label: 'Feed',    icon: 'activity' },
-  { name: 'me',     label: 'Profile', icon: 'user' },
-];
+const TAB_ORDER = ['index', 'search', 'rate', 'feed/index', 'me'];
+
+const TAB_ITEMS: Record<string, { label: string; icon: string; special?: boolean }> = {
+  index:        { label: 'Home',    icon: 'home' },
+  search:       { label: 'Search',  icon: 'search' },
+  rate:         { label: 'Rate',    icon: 'plus', special: true },
+  'feed/index': { label: 'Feed',    icon: 'activity' },
+  me:           { label: 'Profile', icon: 'user' },
+};
 
 function RotationTabBar({ state, navigation }: BottomTabBarProps) {
   return (
     <View style={s.bar}>
-      {state.routes.map((route, i) => {
-        const item = TAB_ITEMS[i];
-        const active = state.index === i;
+      {[...state.routes].sort((a, b) => TAB_ORDER.indexOf(a.name) - TAB_ORDER.indexOf(b.name)).map((route) => {
+        const item = TAB_ITEMS[route.name];
+        const originalIndex = state.routes.findIndex(r => r.key === route.key);
+        const active = state.index === originalIndex;
         const color = active ? C.violet : C.fg3;
 
         const onPress = () => {
@@ -54,7 +57,7 @@ export default function TabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="search" />
       <Tabs.Screen name="rate" />
-      <Tabs.Screen name="feed" />
+      <Tabs.Screen name="feed/index" />
       <Tabs.Screen name="me" />
     </Tabs>
   );

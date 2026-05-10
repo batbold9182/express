@@ -35,12 +35,12 @@ export default function Profile() {
     ]).then(([u, a]) => {
       setUser(u);
       setTopArtists(a.items ?? []);
-    }).finally(() => setLoading(false));
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [token]);
 
   // Build genre breakdown from top artists
   const genreMap: Record<string, number> = {};
-  topArtists.forEach(a => a.genres.slice(0, 2).forEach(g => { genreMap[g] = (genreMap[g] ?? 0) + 1; }));
+  topArtists.forEach(a => (a.genres ?? []).slice(0, 2).forEach(g => { genreMap[g] = (genreMap[g] ?? 0) + 1; }));
   const topGenres = Object.entries(genreMap).sort((a, b) => b[1] - a[1]).slice(0, 4);
   const maxCount = topGenres[0]?.[1] ?? 1;
 
@@ -89,7 +89,7 @@ export default function Profile() {
 
         {/* Stats */}
         <GCard style={{ padding: 14, flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 }}>
-          {([['followers', user?.followers.total.toLocaleString()]] as [string, string | number | undefined][]).map(([l, v]) => (
+          {([['followers', user?.followers?.total?.toLocaleString()]] as [string, string | number | undefined][]).map(([l, v]) => (
             <View key={l} style={{ alignItems: 'center', gap: 2 }}>
               <Text style={s.statVal}>{v ?? '—'}</Text>
               <Text style={s.statLbl}>{l}</Text>
@@ -129,7 +129,7 @@ export default function Profile() {
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={s.artistName}>{a.name}</Text>
-                    <Text style={s.artistGenre} numberOfLines={1}>{a.genres[0]}</Text>
+                    {a.genres?.[0] && <Text style={s.artistGenre} numberOfLines={1}>{a.genres[0]}</Text>}
                   </View>
                 </GCard>
               ))}

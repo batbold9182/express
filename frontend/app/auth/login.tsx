@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
 import { C, R } from "../theme";
 
-const SPOTIFY_AUTH_URL = "http://127.0.0.1:3000/auth/login";
+const SPOTIFY_AUTH_URL = `${process.env.EXPO_PUBLIC_API_BASE}/auth/login`;
 
 function SpotifyIcon() {
     return (

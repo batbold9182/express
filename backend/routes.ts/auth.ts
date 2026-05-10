@@ -50,12 +50,11 @@ router.get('/callback', async (req: Request, res: Response) => {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
 
-  console.log('Profile response status:', profileRes.status);
-  const profileText = await profileRes.text();
-  console.log('Profile response body:', profileText);
+  let spotifyId = '';
   try {
-    const profile = JSON.parse(profileText) as { id: string; display_name: string; email: string; images: { url: string }[] };
-    const user = await User.findOneAndUpdate(
+    const profile = await profileRes.json() as { id: string; display_name: string; email: string; images: { url: string }[] };
+    spotifyId = profile.id;
+    await User.findOneAndUpdate(
       { spotifyId: profile.id },
       {
         spotifyId:      profile.id,
@@ -67,14 +66,13 @@ router.get('/callback', async (req: Request, res: Response) => {
         tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
         updatedAt:      new Date(),
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
-    console.log('✅ User saved:', user?.spotifyId);
   } catch (err) {
     console.error('❌ Could not save user to DB:', err);
   }
 
-  res.redirect(`http://localhost:8081/auth/success?access_token=${tokens.access_token}`);
+  res.redirect(`http://${process.env.IP_ADDRESS}:8081/auth/success?access_token=${tokens.access_token}&spotify_id=${spotifyId}`);
 });
 
 router.post('/refresh', async (req: Request, res: Response) => {

@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useEffect } from 'react';
 import { C } from './theme';
 import { AuthProvider, useAuth } from './context/auth';
+import { RateProvider } from './context/rate';
 
 function Guard() {
   const { token, loading } = useAuth();
@@ -26,6 +27,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.bg }}>
       <SafeAreaProvider>
         <AuthProvider>
+          <RateProvider>
           <StatusBar style="light" />
           <Guard />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
@@ -34,6 +36,7 @@ export default function RootLayout() {
             <Stack.Screen name="auth/success" />
             <Stack.Screen name="song" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           </Stack>
+          </RateProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

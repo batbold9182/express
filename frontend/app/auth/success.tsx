@@ -5,7 +5,7 @@ import { C } from "../theme";
 import { useAuth } from "../context/auth";
 
 export default function AuthSuccess() {
-    const { access_token } = useLocalSearchParams<{ access_token: string }>();
+    const { access_token, spotify_id } = useLocalSearchParams<{ access_token: string; spotify_id: string }>();
     const { saveToken } = useAuth();
     const router = useRouter();
 
@@ -14,7 +14,7 @@ export default function AuthSuccess() {
             router.replace("/auth/login");
             return;
         }
-        saveToken(access_token).then(() => router.replace("/(tabs)"));
+        saveToken(access_token, spotify_id ?? '').then(() => router.replace("/(tabs)"));
     }, [access_token]);
 
     return (
