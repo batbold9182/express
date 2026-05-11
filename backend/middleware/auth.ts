@@ -5,6 +5,21 @@ export interface AuthRequest extends Request {
   user?: typeof User.prototype;
 }
 
+export async function optionalAuth(req: AuthRequest, _res: Response, next: NextFunction) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (token) {
+    try {
+      const r = await fetch('https://api.spotify.com/v1/me', { headers: { Authorization: `Bearer ${token}` } });
+      if (r.ok) {
+        const { id } = await r.json() as { id: string };
+        const user = await User.findOne({ spotifyId: id });
+        if (user) req.user = user;
+      }
+    } catch {}
+  }
+  next();
+}
+
 export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) { res.status(401).json({ error: 'Missing token' }); return; }

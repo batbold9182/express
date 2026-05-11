@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity, Linking } from 'react-native';
+import { useRouter } from 'expo-router';
 import { GCard, Icon } from '../../components';
 import { C, R, scoreColor } from '../../theme';
 import { api } from '../../lib/api';
@@ -18,6 +19,7 @@ function formatTime(iso: string) {
 type Props = { item: FeedItem; token: string; myId: string; onDelete: () => void };
 
 export function ReviewCard({ item, token, myId, onDelete }: Props) {
+  const router = useRouter();
   const [showActions, setShowActions] = useState(false);
   const [editing, setEditing]         = useState(false);
   const [editText, setEditText]       = useState(item.text);
@@ -40,7 +42,9 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
         {item.userId.avatarUrl
           ? <Image source={{ uri: item.userId.avatarUrl }} style={s.avatar} />
           : <View style={[s.avatar, { backgroundColor: C.glass }]} />}
-        <Text style={s.username}>{item.userId.displayName}</Text>
+        <TouchableOpacity onPress={() => router.push(`/profile/${item.userId.spotifyId}` as any)} activeOpacity={0.7} style={{ flex: 1 }}>
+          <Text style={s.username}>{item.userId.displayName}</Text>
+        </TouchableOpacity>
         <Text style={s.time}>{formatTime(item.createdAt)}</Text>
         {isOwn && (
           <TouchableOpacity onPress={() => { setShowActions(v => !v); setEditing(false); }} activeOpacity={0.7}>
@@ -102,7 +106,23 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
             </View>
           ))}
         </View>
-        <LikeButton reviewId={item._id} likes={item.likes ?? []} token={token} myId={myId} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {(item.spotifyTrackId || item.spotifyAlbumId) && (
+            <TouchableOpacity
+              onPress={() => {
+                const url = item.type === 'album' && item.spotifyAlbumId
+                  ? `https://open.spotify.com/album/${item.spotifyAlbumId}`
+                  : `https://open.spotify.com/track/${item.spotifyTrackId}`;
+                Linking.openURL(url);
+              }}
+              activeOpacity={0.7}
+              style={s.spotifyBtn}
+            >
+              <Text style={s.spotifyTxt}>▶ Spotify</Text>
+            </TouchableOpacity>
+          )}
+          <LikeButton reviewId={item._id} likes={item.likes ?? []} token={token} myId={myId} />
+        </View>
       </View>
 
       <CommentSection reviewId={item._id} initial={item.comments ?? []} token={token} myId={myId} />
@@ -112,7 +132,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
 
 const s = StyleSheet.create({
   avatar:   { width: 28, height: 28, borderRadius: 14 },
-  username: { flex: 1, fontSize: 12, fontWeight: '600', color: C.fg },
+  username: { fontSize: 12, fontWeight: '600', color: C.fg },
   time:     { fontSize: 10, color: C.fg3 },
 
   art:    { width: 48, height: 48, borderRadius: R.r2 },
@@ -124,6 +144,12 @@ const s = StyleSheet.create({
 
   moodChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
   moodTxt:  { fontSize: 10, color: C.fg3 },
+
+  spotifyBtn: {
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: R.pill,
+    backgroundColor: '#1DB954', alignItems: 'center', justifyContent: 'center',
+  },
+  spotifyTxt: { fontSize: 10, fontWeight: '700', color: '#000', letterSpacing: 0.4 },
 
   editRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

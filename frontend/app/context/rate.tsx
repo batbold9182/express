@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 
 export type RateItem = {
+  type?: 'track' | 'album';
   spotifyTrackId?: string;
   spotifyAlbumId?: string;
   trackName: string;

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 const reviewSchema = new mongoose.Schema({
 userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  type: { type: String, enum: ['track', 'album'], default: 'track' },
   spotifyTrackId: { type: String },
   spotifyAlbumId: { type: String },
   trackName: { type: String, required: true },

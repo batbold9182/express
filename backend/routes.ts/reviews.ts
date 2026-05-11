@@ -4,8 +4,72 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
+const POPULATE = [
+  { path: 'userId', select: '_id displayName avatarUrl spotifyId' },
+  { path: 'comments.userId', select: '_id displayName avatarUrl' },
+];
+
+// GET /reviews/trending — most liked public reviews in the last 7 days
+router.get('/trending', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const offset = parseInt(req.query.offset as string) || 0;
+    const limit  = 15;
+    const since  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const docs   = await Review.aggregate([
+      { $match: { shareToFeed: true, createdAt: { $gte: since } } },
+      { $addFields: { likeCount: { $size: '$likes' } } },
+      { $sort: { likeCount: -1, createdAt: -1 } },
+      { $skip: offset },
+      { $limit: limit },
+    ]);
+    const items = await Review.populate(docs, POPULATE);
+    res.json({ items, myId: req.user!._id.toString(), hasMore: items.length === limit });
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch trending' });
+  }
+});
+
+// GET /reviews/top — highest scored public reviews
+router.get('/top', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const offset = parseInt(req.query.offset as string) || 0;
+    const limit  = 15;
+    const docs   = await Review.aggregate([
+      { $match: { shareToFeed: true, score: { $gte: 7 } } },
+      { $sort: { score: -1, createdAt: -1 } },
+      { $skip: offset },
+      { $limit: limit },
+    ]);
+    const items = await Review.populate(docs, POPULATE);
+    res.json({ items, myId: req.user!._id.toString(), hasMore: items.length === limit });
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch top' });
+  }
+});
+
+// GET /reviews/mine — lightweight list of current user's reviewed IDs
+router.get('/mine', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const reviews = await Review.find({ userId: req.user!._id })
+      .select('spotifyTrackId spotifyAlbumId type')
+      .lean();
+    res.json(reviews);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch reviews' });
+  }
+});
+
 router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
+    const { type, spotifyTrackId, spotifyAlbumId } = req.body;
+    const isAlbum = type === 'album';
+    const existing = isAlbum
+      ? await Review.findOne({ userId: req.user!._id, spotifyAlbumId, type: 'album' })
+      : await Review.findOne({ userId: req.user!._id, spotifyTrackId });
+    if (existing) {
+      res.status(409).json({ error: isAlbum ? 'You already reviewed this album' : 'You already reviewed this track' });
+      return;
+    }
     const review = await Review.create({ ...req.body, userId: req.user!._id });
     res.status(201).json(review);
   } catch (err) {

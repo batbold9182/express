@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Score, Cover, TopBar, Eyebrow, GCard, Icon } from '../components';
+import { TopBar, Eyebrow, GCard, Icon } from '../components';
 import { C, R } from '../theme';
 import { useAuth } from '../context/auth';
 import { api } from '../lib/api';
+import { ProfileReviewCard, type ProfileReview } from '../profile/ReviewCard';
 
 type SpotifyUser = {
   display_name: string;
   id: string;
-  followers: { total: number };
   images: { url: string }[];
 };
 
@@ -20,25 +21,36 @@ type SpotifyArtist = {
   genres: string[];
 };
 
+type AppUser = {
+  followerCount: number;
+  followingCount: number;
+};
+
 export default function Profile() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { token, clearToken } = useAuth();
-  const [user, setUser] = useState<SpotifyUser | null>(null);
+  const { token, spotifyId, clearToken } = useAuth();
+  const [user, setUser]           = useState<SpotifyUser | null>(null);
+  const [appUser, setAppUser]     = useState<AppUser | null>(null);
   const [topArtists, setTopArtists] = useState<SpotifyArtist[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [reviews, setReviews]     = useState<ProfileReview[]>([]);
+  const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !spotifyId) return;
     Promise.all([
       api.get('/me', token),
       api.get('/me/top/artists', token),
-    ]).then(([u, a]) => {
+      api.get(`/users/${spotifyId}`, token),
+      api.get(`/users/${spotifyId}/reviews`, token),
+    ]).then(([u, a, au, revs]) => {
       setUser(u);
       setTopArtists(a.items ?? []);
+      setAppUser(au);
+      setReviews(revs);
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [token]);
+  }, [token, spotifyId]);
 
-  // Build genre breakdown from top artists
   const genreMap: Record<string, number> = {};
   topArtists.forEach(a => (a.genres ?? []).slice(0, 2).forEach(g => { genreMap[g] = (genreMap[g] ?? 0) + 1; }));
   const topGenres = Object.entries(genreMap).sort((a, b) => b[1] - a[1]).slice(0, 4);
@@ -89,11 +101,20 @@ export default function Profile() {
 
         {/* Stats */}
         <GCard style={{ padding: 14, flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 }}>
-          {([['followers', user?.followers?.total?.toLocaleString()]] as [string, string | number | undefined][]).map(([l, v]) => (
-            <View key={l} style={{ alignItems: 'center', gap: 2 }}>
-              <Text style={s.statVal}>{v ?? '—'}</Text>
-              <Text style={s.statLbl}>{l}</Text>
-            </View>
+          <View style={{ alignItems: 'center', gap: 2 }}>
+            <Text style={s.statVal}>{reviews.length}</Text>
+            <Text style={s.statLbl}>reviews</Text>
+          </View>
+          {(['followers', 'following'] as const).map(type => (
+            <TouchableOpacity
+              key={type}
+              onPress={() => router.push({ pathname: '/profile/follow-list', params: { id: spotifyId, type } } as any)}
+              activeOpacity={0.7}
+              style={{ alignItems: 'center', gap: 2 }}
+            >
+              <Text style={s.statVal}>{type === 'followers' ? appUser?.followerCount ?? 0 : appUser?.followingCount ?? 0}</Text>
+              <Text style={[s.statLbl, { color: C.violet }]}>{type}</Text>
+            </TouchableOpacity>
           ))}
         </GCard>
 
@@ -118,7 +139,7 @@ export default function Profile() {
         {topArtists.length > 0 && (
           <>
             <Eyebrow>Top artists</Eyebrow>
-            <View style={{ gap: 8, marginTop: 8 }}>
+            <View style={{ gap: 8, marginTop: 8, marginBottom: 20 }}>
               {topArtists.map((a, i) => (
                 <GCard key={a.id} style={{ padding: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Text style={s.artistRank}>{i + 1}</Text>
@@ -136,6 +157,19 @@ export default function Profile() {
             </View>
           </>
         )}
+
+        {/* Own reviews */}
+        <Eyebrow>My reviews</Eyebrow>
+        {reviews.length === 0 ? (
+          <View style={s.empty}>
+            <Icon name="activity" size={28} color={C.fg4} />
+            <Text style={s.emptyTxt}>No reviews yet</Text>
+          </View>
+        ) : (
+          <View style={{ gap: 10, marginTop: 8 }}>
+            {reviews.map(r => <ProfileReviewCard key={r._id} r={r} />)}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -143,10 +177,7 @@ export default function Profile() {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  glow: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 260,
-    backgroundColor: 'rgba(177,78,255,0.08)',
-  },
+  glow: { position: 'absolute', top: 0, left: 0, right: 0, height: 260, backgroundColor: 'rgba(177,78,255,0.08)' },
   scroll: { flex: 1 },
 
   identity: { alignItems: 'center', gap: 8, paddingBottom: 20 },
@@ -158,14 +189,24 @@ const s = StyleSheet.create({
   statLbl: { fontSize: 9, fontWeight: '500', color: C.fg3, letterSpacing: 1.2, textTransform: 'uppercase' },
 
   genreName: { width: 120, fontSize: 12, fontWeight: '500', color: C.fg },
-  barTrack: {
-    flex: 1, height: 8, borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden',
-  },
-  barFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 4 },
+  barTrack:  { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' },
+  barFill:   { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 4 },
 
   artistRank:  { width: 24, fontSize: 18, fontWeight: '600', color: C.fg3, letterSpacing: -0.5 },
   artistImg:   { width: 40, height: 40, borderRadius: 20 },
   artistName:  { fontSize: 14, fontWeight: '600', color: C.fg },
   artistGenre: { fontSize: 11, color: C.fg3, marginTop: 1 },
+
+  art:        { width: 48, height: 48, borderRadius: R.r2 },
+  track:      { fontSize: 14, fontWeight: '600', color: C.fg },
+  artist:     { fontSize: 11, color: C.fg2 },
+  score:      { fontSize: 22, fontWeight: '600', letterSpacing: -0.5 },
+  reviewText: { fontSize: 13, color: C.fg2, lineHeight: 19 },
+  moodChip:   { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
+  moodTxt:    { fontSize: 10, color: C.fg3 },
+  spotifyBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: R.pill, backgroundColor: '#1DB954' },
+  spotifyTxt: { fontSize: 10, fontWeight: '700', color: '#000', letterSpacing: 0.4 },
+
+  empty:    { alignItems: 'center', gap: 10, paddingTop: 24 },
+  emptyTxt: { fontSize: 13, color: C.fg3 },
 });

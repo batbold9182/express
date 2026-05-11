@@ -1,18 +1,64 @@
 import { Router, Response } from 'express';
 import { Review } from '../models/review';
 import { User } from '../models/User';
-import { requireAuth, AuthRequest } from '../middleware/auth';
+import { requireAuth, optionalAuth, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
+// GET /users/search?q= — search users by display name
+router.get('/search', optionalAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const q = (req.query.q as string)?.trim();
+    if (!q) { res.json([]); return; }
+    const users = await User.find({
+      displayName: { $regex: q, $options: 'i' },
+      ...(req.user ? { _id: { $ne: req.user._id } } : {}),
+    }).select('spotifyId displayName avatarUrl _id').limit(20);
+    const myFollowing = req.user?.following ?? [];
+    res.json(users.map(u => ({ ...u.toObject(), isFollowing: myFollowing.some((id: any) => id.equals(u._id)) })));
+  } catch {
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 // GET /users/:id — get a user profile
-router.get('/:id', async (req: AuthRequest, res: Response) => {
+router.get('/:id', optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findOne({ spotifyId: req.params.id }).select('-accessToken -refreshToken');
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
-    res.json(user);
+    const followerCount = await User.countDocuments({ following: user._id });
+    const followingCount = user.following?.length ?? 0;
+    const isFollowing = req.user
+      ? (req.user.following ?? []).some((id: any) => id.equals(user._id))
+      : false;
+    res.json({ ...user.toObject(), followerCount, followingCount, isFollowing });
   } catch {
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// GET /users/:id/followers
+router.get('/:id/followers', optionalAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findOne({ spotifyId: req.params.id });
+    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+    const followers = await User.find({ following: user._id }).select('spotifyId displayName avatarUrl _id');
+    const myFollowing = req.user?.following ?? [];
+    res.json(followers.map(f => ({ ...f.toObject(), isFollowing: myFollowing.some((id: any) => id.equals(f._id)) })));
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch followers' });
+  }
+});
+
+// GET /users/:id/following
+router.get('/:id/following', optionalAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findOne({ spotifyId: req.params.id }).populate('following', 'spotifyId displayName avatarUrl _id');
+    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+    const myFollowing = req.user?.following ?? [];
+    res.json((user.following as any[]).map(f => ({ ...f.toObject(), isFollowing: myFollowing.some((id: any) => id.equals(f._id)) })));
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch following' });
   }
 });
 
@@ -21,7 +67,10 @@ router.get('/:id/reviews', async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findOne({ spotifyId: req.params.id });
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
-    const reviews = await Review.find({ userId: user._id }).sort({ createdAt: -1 });
+    const reviews = await Review.find({ userId: user._id })
+      .sort({ createdAt: -1 })
+      .populate('userId', '_id displayName avatarUrl spotifyId')
+      .populate('comments.userId', '_id displayName avatarUrl');
     res.json(reviews);
   } catch {
     res.status(500).json({ error: 'Failed to fetch reviews' });

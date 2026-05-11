@@ -1,135 +1,142 @@
 # Backend Plan
 
 ## Current State (as of 2026-05-10)
-- ✅ MongoDB connecting via direct connection string
-- ✅ `server.ts` split into route files
-- ✅ `models/User.ts` — complete
-- ✅ `models/review.ts` — complete (includes likes, comments)
-- ✅ `routes.ts/auth.ts` — login, callback, refresh
-- ✅ `routes.ts/spotify.ts` — /me, /me/top/artists, /me/top/tracks, /search
-- ✅ `routes.ts/reviews.ts` — POST, GET, DELETE, PUT (edit), likes, comments
-- ✅ `routes.ts/user.ts` — GET /users/:id, GET /users/:id/reviews, follow/unfollow, feed
-- ✅ `middleware/auth.ts` — built and wired to protected routes
-- ✅ Spotify Premium acquired — /me endpoint unblocked
-- ✅ User saving to DB on login
-- ✅ Feed route: GET /users/feed/me
-- ✅ Follow/unfollow: POST/DELETE /users/:id/follow
-- ✅ Review likes: POST/DELETE /reviews/:id/like
+- ✅ MongoDB, Express, route structure
+- ✅ Spotify OAuth + user saved to DB on login
+- ✅ Auth middleware wired to all protected routes
+- ✅ Reviews — POST, GET, DELETE, PUT, likes, comments
+- ✅ Feed — GET /users/feed/me (followed users + own posts)
+- ✅ Follow/unfollow — POST/DELETE /users/:id/follow
 - ✅ Comment CRUD + likes
-- ❌ Token refresh not wired on frontend yet
-- ❌ Pagination on feed/reviews
+- ✅ "Play on Spotify" deep link in feed cards
 
 ---
 
-## Phase 1 — Fix foundations ✅ DONE
-- ✅ MongoDB connection confirmed working
-- ✅ User model built
-- ✅ Token refresh endpoint built (`POST /auth/refresh`)
-- ✅ User saved to DB on `/auth/callback`
+## Up Next — Priority Order
 
----
-
-## Phase 2 — Structure the backend ✅ DONE
-```
-backend/
-  routes.ts/
-    auth.ts       ✅ /auth/login, /auth/callback, /auth/refresh
-    spotify.ts    ✅ /me, /me/top/artists, /me/top/tracks, /search
-    reviews.ts    ✅ POST /reviews, GET /reviews/:id, DELETE /reviews/:id, PUT (edit), likes, comments
-    user.ts       ✅ GET /users/:id, GET /users/:id/reviews, follow/unfollow, feed
-  middleware/
-    auth.ts       ✅
-  models/
-    User.ts       ✅
-    review.ts     ✅
-  server.ts       ✅ just mounts routes
-```
-
----
-
-## Phase 3 — Auth middleware ✅ DONE
-
-### 3.1 Build auth middleware ✅
-File: `middleware/auth.ts`
-- Extract token from `Authorization: Bearer <token>` header
-- Call Spotify `/me` to verify token is valid
-- Look up user in MongoDB by `spotifyId`
-- Attach `req.user` for downstream routes
-- Return 401 if token missing, invalid, or user not in DB
-
-### 3.2 Wire middleware to protected routes ✅
-- `POST /reviews` — auth required
-- `DELETE /reviews/:id` — auth required (own review only)
-- `GET /users/feed/me` — auth required
-- `POST /users/:id/follow` — auth required
-- `DELETE /users/:id/follow` — auth required
-- `POST /reviews/:id/like` — auth required
-
----
-
-## Phase 4 — App-specific routes ✅ DONE
-
-### 4.1 Feed routes ✅
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/users/feed/me` | Reviews from people you follow |
-| `POST` | `/users/:id/follow` | Follow a user |
-| `DELETE` | `/users/:id/follow` | Unfollow a user |
-
-### 4.2 Likes ✅
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/reviews/:id/like` | Like a review |
-| `DELETE` | `/reviews/:id/like` | Unlike a review |
-
-### 4.3 Comments ✅
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/reviews/:id/comments` | Add a comment |
-| `PUT` | `/reviews/:id/comments/:cid` | Edit own comment |
-| `DELETE` | `/reviews/:id/comments/:cid` | Delete own comment |
-| `POST` | `/reviews/:id/comments/:cid/like` | Like a comment |
-| `DELETE` | `/reviews/:id/comments/:cid/like` | Unlike a comment |
-
----
-
-## Phase 5 — Frontend wiring
-
-### 5.1 Token refresh on 401 ❌ (do next cant wait 1 hour)
+### 1. Token refresh on 401 (do first — silent reliability bug) [x] done implemented
+**Frontend:**
 - Store `spotifyId` in AsyncStorage alongside `access_token`
 - Update `lib/api.ts` to catch 401 responses
 - Auto-call `POST /auth/refresh` with `spotifyId`
 - Retry the original request with the new token
 - If refresh fails → clear token → redirect to login
 
-### 5.2 Post a review ✅
-- Rate tab wired to `POST /reviews`
-- On success → clear form → confirmation
+---
 
-### 5.3 Feed tab ✅
-- Fetches `GET /users/feed/me` → renders ReviewCards
-- Like button, comments, edit/delete for own posts
-- Pull-to-refresh
+### 2. Profile page [x] done
+**Frontend:**
+- Me tab: show own reviews list below Spotify stats
+- Add follower / following counts
+- When viewing another user's profile: show Follow/Unfollow button
+
+**Backend:**
+- `GET /users/:id` already returns profile — add `followerCount`, `followingCount` to response
+- `GET /users/:id/reviews` already exists
 
 ---
 
-## Phase 6 — Nice to have (later)
+### 3. Search for users [x] done 
+**Frontend:**
+- Add "People" tab inside Search screen
+- Debounced search against backend
+
+**Backend:**
+- `GET /users/search?q=` — search by displayName (case-insensitive regex on MongoDB)
+
+---
+
+### 4. Explore / Discover page [x] done
+**Frontend:**
+- New tab or section: trending reviews, top-rated tracks across all users
+- Good for cold-start (no one to follow yet)
+
+**Backend:**
+- `GET /reviews/trending` — most liked reviews in last 7 days
+- `GET /reviews/top` — highest scored tracks with >= N reviews
+
+---
+
+### 5. Notifications
+**Frontend:**
+- Badge on profile tab for unread count
+- Notifications list screen
+
+**Backend:**
+- `models/Notification.ts` — type, from user, target review, read flag, createdAt
+- Create notification on: like, comment, follow
+- `GET /notifications/me` — fetch unread
+- `POST /notifications/read` — mark as read
+
+---
+
+### 6. Review from album view [x]
+**Frontend:**
+- From search, tap an album → see full tracklist
+- Tap any track → open rate modal pre-filled with that track
+
+**Backend:**
+- Proxy `GET /albums/:id/tracks` to Spotify API
+
+---
+
+### 7. Listening stats
+**Frontend:**
+- Me tab: top tracks / artists over 4 weeks / 6 months / all time (time range toggle)
+
+**Backend:**
+- Already proxied via `/me/top/tracks` and `/me/top/artists`
+- Add `?time_range=short_term|medium_term|long_term` param passthrough
+
+---
+
+### 8. Lists / Rankings
+**Frontend:**
+- "Create a list" — ordered list of tracks/albums with a title (e.g. "Top 10 of 2025")
+- Shareable, shows on profile
+
+**Backend:**
+- `models/List.ts` — userId, title, items: [{ spotifyTrackId, trackName, artistName, albumArt, rank }]
+- `POST /lists`, `GET /lists/:id`, `PUT /lists/:id`, `DELETE /lists/:id`
+- `GET /users/:id/lists`
+
+---
+
+### 9. Album-level reviews [x] done
+**Frontend:**
+- Rate an album as a whole (not just individual tracks)
+- From Search → tap album → Album detail screen showing:
+  - Album art, title, artist, release year
+  - Full tracklist (from Spotify API proxy)
+  - "Rate this album" button → opens rate modal pre-filled with album info
+  - Existing album-level reviews from other users (feed-style list)
+- Album score: aggregate of all album-type reviews (average)
+- Per-track scores shown inline if any track reviews exist
+- Album review card looks similar to track card but shows album art + "Album review" label
+
+**Backend:**
+- Extend `Review` model:
+  - Add `type: 'track' | 'album'` field (default `'track'` for backwards compat)
+  - Add `spotifyAlbumId?: string` field
+- New route: `GET /albums/:id` — proxy album metadata from Spotify
+- New route: `GET /albums/:id/tracks` — proxy tracklist from Spotify
+- New route: `GET /albums/:id/reviews` — fetch all reviews where `spotifyAlbumId === id`, compute avg score
+- Existing `POST /reviews` already handles creation — just pass `type: 'album'` + `spotifyAlbumId`
+
+---
+
+### 10. "Now playing" live badge
+**Frontend:**
+- Poll `/me/player` every 30s on profile screen
+- Show "🎵 Listening now: Track — Artist" badge on profile
+
+**Backend:**
+- Proxy `GET /me/player/currently-playing` to Spotify
+
+---
+
+## Nice to have (later)
 - Rate limiting (prevent Spotify API abuse)
-- Pagination on `/users/feed/me` and `/users/:id/reviews`
+- Pagination on feed and review lists
 - Cache Spotify track/album data in MongoDB
 - Deploy backend to Render
-
----
-
-## Priority order
-1. ✅ MongoDB connection
-2. ✅ User model + save tokens on login
-3. ✅ Token refresh endpoint
-4. ✅ Split server.ts into route files
-5. ✅ Review model
-6. ✅ Auth middleware
-7. ✅ Wire Post button in Rate tab
-8. ✅ Follow/unfollow + feed
-9. ✅ Likes + comments
-10. → Token refresh on frontend (auto-retry on 401)
-11. → Pagination

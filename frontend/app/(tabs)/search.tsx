@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Eyebrow, Icon } from '../components';
@@ -11,57 +11,138 @@ import { api } from '../lib/api';
 type Track  = { id: string; name: string; artists: { name: string }[]; album: { images: { url: string }[] } };
 type Album  = { id: string; name: string; artists: { name: string }[]; images: { url: string }[] };
 type Artist = { id: string; name: string; images: { url: string }[]; genres: string[] };
+type UserResult = { _id: string; spotifyId: string; displayName: string; avatarUrl: string; isFollowing: boolean };
 
-const SCOPES = ['All', 'Songs', 'Albums', 'Artists'];
+const SCOPES   = ['All', 'Songs', 'Albums', 'Artists', 'People'];
 const TYPE_MAP = ['track,album,artist', 'track', 'album', 'artist'];
 
-export default function Search() {
-  const [q, setQ]               = useState('');
-  const [scope, setScope]       = useState(0);
-  const [loading, setLoading]   = useState(false);
-  const [tracks, setTracks]     = useState<Track[]>([]);
-  const [albums, setAlbums]     = useState<Album[]>([]);
-  const [artists, setArtists]   = useState<Artist[]>([]);
-  const { token } = useAuth();
-  const { setItem } = useRate();
+function ReviewedBadge() {
+  return (
+    <View style={s.reviewedBadge}>
+      <Text style={s.reviewedTxt}>Reviewed</Text>
+    </View>
+  );
+}
+
+function UserRow({ user, token, myId }: { user: UserResult; token: string; myId: string }) {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [following, setFollowing] = useState(user.isFollowing);
+  const [busy, setBusy] = useState(false);
+  const isOwn = user.spotifyId === myId;
+
+  async function toggle() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (following) {
+        await api.del(`/users/${user.spotifyId}/follow`, token);
+        setFollowing(false);
+      } else {
+        await api.post(`/users/${user.spotifyId}/follow`, token, {});
+        setFollowing(true);
+      }
+    } catch {} finally { setBusy(false); }
+  }
+
+  return (
+    <TouchableOpacity
+      onPress={() => router.push(`/profile/${user.spotifyId}` as any)}
+      activeOpacity={0.85}
+      style={s.userRow}
+    >
+      {user.avatarUrl
+        ? <Image source={{ uri: user.avatarUrl }} style={s.userAvatar} />
+        : <View style={[s.userAvatar, { backgroundColor: C.glass }]} />}
+      <View style={{ flex: 1 }}>
+        <Text style={s.rowTitle} numberOfLines={1}>{user.displayName}</Text>
+        <Text style={s.rowSub} numberOfLines={1}>@{user.spotifyId}</Text>
+      </View>
+      {!isOwn && (
+        <TouchableOpacity
+          onPress={toggle}
+          activeOpacity={0.7}
+          disabled={busy}
+          style={[s.followBtn, following && s.followingBtn]}
+        >
+          {busy
+            ? <ActivityIndicator size="small" color={following ? C.violet : C.ink900} />
+            : <Text style={[s.followTxt, following && s.followingTxt]}>
+                {following ? 'Following' : 'Follow'}
+              </Text>}
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+export default function Search() {
+  const [q, setQ]             = useState('');
+  const [scope, setScope]     = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [tracks, setTracks]   = useState<Track[]>([]);
+  const [albums, setAlbums]   = useState<Album[]>([]);
+  const [artists, setArtists] = useState<Artist[]>([]);
+  const [users, setUsers]     = useState<UserResult[]>([]);
+  const [reviewedTrackIds, setReviewedTrackIds] = useState<Set<string>>(new Set());
+  const [reviewedAlbumIds, setReviewedAlbumIds] = useState<Set<string>>(new Set());
+  const { token, spotifyId }  = useAuth();
+  const { setItem }           = useRate();
+  const router                = useRouter();
+  const insets                = useSafeAreaInsets();
+  const timer                 = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isPeople = scope === 4;
+
+  useEffect(() => {
+    if (!token) return;
+    api.get('/reviews/mine', token).then((data: any[]) => {
+      const trackIds = new Set<string>();
+      const albumIds = new Set<string>();
+      data.forEach(r => {
+        if (r.type === 'album' && r.spotifyAlbumId) albumIds.add(r.spotifyAlbumId);
+        else if (r.spotifyTrackId) trackIds.add(r.spotifyTrackId);
+      });
+      setReviewedTrackIds(trackIds);
+      setReviewedAlbumIds(albumIds);
+    }).catch(() => {});
+  }, [token]);
 
   function selectTrack(t: Track) {
-    setItem({
-      spotifyTrackId: t.id,
-      trackName:  t.name,
-      artistName: t.artists.map(a => a.name).join(', '),
-      albumArt:   t.album?.images?.[0]?.url ?? '',
-    });
+    if (reviewedTrackIds.has(t.id)) {
+      Alert.alert('Already reviewed', 'You\'ve already rated this track. Delete your existing review to post a new one.');
+      return;
+    }
+    setItem({ spotifyTrackId: t.id, trackName: t.name, artistName: t.artists.map(a => a.name).join(', '), albumArt: t.album?.images?.[0]?.url ?? '' });
     router.push('/(tabs)/rate');
   }
 
   function selectAlbum(a: Album) {
-    setItem({
-      spotifyAlbumId: a.id,
-      trackName:  a.name,
-      artistName: a.artists.map(ar => ar.name).join(', '),
-      albumArt:   a.images?.[0]?.url ?? '',
-    });
-    router.push('/(tabs)/rate');
+    router.push(`/album/${a.id}` as any);
   }
 
   useEffect(() => {
-    if (!q.trim() || !token) { setTracks([]); setAlbums([]); setArtists([]); return; }
+    if (!q.trim() || !token) {
+      setTracks([]); setAlbums([]); setArtists([]); setUsers([]);
+      return;
+    }
     const controller = new AbortController();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const data = await api.get(`/search?q=${encodeURIComponent(q)}&type=${TYPE_MAP[scope]}`, token, controller.signal);
-        setTracks(data.tracks?.items ?? []);
-        setAlbums(data.albums?.items ?? []);
-        setArtists(data.artists?.items ?? []);
+        if (isPeople) {
+          const data = await api.get(`/users/search?q=${encodeURIComponent(q)}`, token, controller.signal);
+          setUsers(data);
+        } else {
+          const data = await api.get(`/search?q=${encodeURIComponent(q)}&type=${TYPE_MAP[scope]}`, token, controller.signal);
+          setTracks(data.tracks?.items ?? []);
+          setAlbums(data.albums?.items ?? []);
+          setArtists(data.artists?.items ?? []);
+          setUsers([]);
+        }
       } catch (e: any) {
         if (e.name === 'AbortError') return;
-        setTracks([]); setAlbums([]); setArtists([]);
+        setTracks([]); setAlbums([]); setArtists([]); setUsers([]);
       } finally {
         setLoading(false);
       }
@@ -69,7 +150,7 @@ export default function Search() {
     return () => { controller.abort(); if (timer.current) clearTimeout(timer.current); };
   }, [q, scope, token]);
 
-  const hasResults = tracks.length > 0 || albums.length > 0 || artists.length > 0;
+  const hasSpotifyResults = tracks.length > 0 || albums.length > 0 || artists.length > 0;
 
   return (
     <View style={s.screen}>
@@ -81,7 +162,7 @@ export default function Search() {
           <TextInput
             value={q}
             onChangeText={setQ}
-            placeholder="Search songs, albums, artists"
+            placeholder={isPeople ? 'Search people by name' : 'Search songs, albums, artists'}
             placeholderTextColor={C.fg3}
             style={s.input}
             returnKeyType="search"
@@ -111,55 +192,82 @@ export default function Search() {
         {!loading && !q && (
           <View style={s.emptyWrap}>
             <Icon name="search" size={32} color={C.fg4} />
-            <Text style={s.emptyTxt}>Search Spotify to find something to rate.</Text>
+            <Text style={s.emptyTxt}>{isPeople ? 'Find people to follow.' : 'Search Spotify to find something to rate.'}</Text>
           </View>
         )}
 
-        {!loading && !!q && !hasResults && (
+        {!loading && !!q && !hasSpotifyResults && !isPeople && (
           <View style={s.emptyWrap}>
             <Text style={s.emptyTxt}>No results for &quot;{q}&quot;</Text>
           </View>
         )}
 
-        {!loading && tracks.length > 0 && (scope === 0 || scope === 1) && (
+        {!loading && !!q && isPeople && users.length === 0 && (
+          <View style={s.emptyWrap}>
+            <Text style={s.emptyTxt}>No users found for &quot;{q}&quot;</Text>
+          </View>
+        )}
+
+        {/* People results */}
+        {!loading && isPeople && users.length > 0 && (
+          <>
+            <Eyebrow>People</Eyebrow>
+            <View style={{ gap: 6, marginTop: 8 }}>
+              {users.map(u => <UserRow key={u._id} user={u} token={token!} myId={spotifyId!} />)}
+            </View>
+          </>
+        )}
+
+        {/* Songs */}
+        {!loading && !isPeople && tracks.length > 0 && (scope === 0 || scope === 1) && (
           <>
             <Eyebrow>Songs</Eyebrow>
             <View style={{ gap: 6, marginTop: 8, marginBottom: 20 }}>
-              {tracks.map(t => (
-                <TouchableOpacity key={t.id} activeOpacity={0.85} style={s.row} onPress={() => selectTrack(t)}>
-                  {t.album?.images?.[2]?.url
-                    ? <Image source={{ uri: t.album.images[2].url }} style={s.thumb} />
-                    : <View style={[s.thumb, { backgroundColor: C.glass }]} />}
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.rowTitle} numberOfLines={1}>{t.name}</Text>
-                    <Text style={s.rowSub} numberOfLines={1}>{t.artists.map(a => a.name).join(', ')}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {tracks.map(t => {
+                const reviewed = reviewedTrackIds.has(t.id);
+                return (
+                  <TouchableOpacity key={t.id} activeOpacity={0.85} style={s.row} onPress={() => selectTrack(t)}>
+                    {t.album?.images?.[2]?.url
+                      ? <Image source={{ uri: t.album.images[2].url }} style={s.thumb} />
+                      : <View style={[s.thumb, { backgroundColor: C.glass }]} />}
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rowTitle} numberOfLines={1}>{t.name}</Text>
+                      <Text style={s.rowSub} numberOfLines={1}>{t.artists.map(a => a.name).join(', ')}</Text>
+                    </View>
+                    {reviewed && <ReviewedBadge />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </>
         )}
 
-        {!loading && albums.length > 0 && (scope === 0 || scope === 2) && (
+        {/* Albums */}
+        {!loading && !isPeople && albums.length > 0 && (scope === 0 || scope === 2) && (
           <>
             <Eyebrow>Albums</Eyebrow>
             <View style={{ gap: 6, marginTop: 8, marginBottom: 20 }}>
-              {albums.map(a => (
-                <TouchableOpacity key={a.id} activeOpacity={0.85} style={s.row} onPress={() => selectAlbum(a)}>
-                  {a.images?.[2]?.url
-                    ? <Image source={{ uri: a.images[2].url }} style={s.thumb} />
-                    : <View style={[s.thumb, { backgroundColor: C.glass }]} />}
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.rowTitle} numberOfLines={1}>{a.name}</Text>
-                    <Text style={s.rowSub} numberOfLines={1}>{a.artists?.map(ar => ar.name).join(', ')}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {albums.map(a => {
+                const reviewed = reviewedAlbumIds.has(a.id);
+                return (
+                  <TouchableOpacity key={a.id} activeOpacity={0.85} style={s.row} onPress={() => selectAlbum(a)}>
+                    {a.images?.[2]?.url
+                      ? <Image source={{ uri: a.images[2].url }} style={s.thumb} />
+                      : <View style={[s.thumb, { backgroundColor: C.glass }]} />}
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rowTitle} numberOfLines={1}>{a.name}</Text>
+                      <Text style={s.rowSub} numberOfLines={1}>{a.artists?.map(ar => ar.name).join(', ')}</Text>
+                    </View>
+                    {reviewed && <ReviewedBadge />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </>
         )}
 
-        {!loading && artists.length > 0 && (scope === 0 || scope === 3) && (
+        {/* Artists */}
+        {!loading && !isPeople && artists.length > 0 && (scope === 0 || scope === 3) && (
           <>
             <Eyebrow>Artists</Eyebrow>
             <View style={{ gap: 6, marginTop: 8, marginBottom: 20 }}>
@@ -195,21 +303,27 @@ const s = StyleSheet.create({
     padding: 12, borderRadius: R.r3,
     backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke,
   },
-  input: { flex: 1, fontSize: 14, color: C.fg, height: 20 },
-  scopeChip: {
-    paddingVertical: 6, paddingHorizontal: 10, borderRadius: R.pill,
-    backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke,
-  },
-  scopeActive: { backgroundColor: 'rgba(177,78,255,0.12)', borderColor: 'rgba(177,78,255,0.4)' },
-  scopeTxt: { fontSize: 10, fontWeight: '600', letterSpacing: 1.0, textTransform: 'uppercase' },
-  scroll: { flex: 1 },
-  emptyWrap: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 12 },
-  emptyTxt:  { fontSize: 13, color: C.fg3, textAlign: 'center' },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10,
-    borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke,
-  },
+  input:      { flex: 1, fontSize: 14, color: C.fg, height: 20 },
+  scopeChip:  { paddingVertical: 6, paddingHorizontal: 10, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
+  scopeActive:{ backgroundColor: 'rgba(177,78,255,0.12)', borderColor: 'rgba(177,78,255,0.4)' },
+  scopeTxt:   { fontSize: 10, fontWeight: '600', letterSpacing: 1.0, textTransform: 'uppercase' },
+  scroll:     { flex: 1 },
+  emptyWrap:  { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 12 },
+  emptyTxt:   { fontSize: 13, color: C.fg3, textAlign: 'center' },
+
+  row:      { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke },
   thumb:    { width: 44, height: 44, borderRadius: 6 },
   rowTitle: { fontSize: 14, fontWeight: '600', color: C.fg },
   rowSub:   { fontSize: 11, color: C.fg3, marginTop: 2 },
+
+  reviewedBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: 'rgba(177,78,255,0.15)', borderWidth: 1, borderColor: 'rgba(177,78,255,0.4)' },
+  reviewedTxt:   { fontSize: 10, fontWeight: '600', color: C.violet, letterSpacing: 0.4 },
+
+  userRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke },
+  userAvatar: { width: 44, height: 44, borderRadius: 22 },
+
+  followBtn:     { paddingHorizontal: 14, paddingVertical: 7, borderRadius: R.pill, backgroundColor: C.violet },
+  followingBtn:  { backgroundColor: 'transparent', borderWidth: 1, borderColor: C.violet },
+  followTxt:     { fontSize: 12, fontWeight: '600', color: C.ink900 },
+  followingTxt:  { color: C.violet },
 });

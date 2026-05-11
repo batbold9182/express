@@ -30,6 +30,7 @@ export default function ReviewCreate() {
     setPosting(true);
     try {
       await api.post('/reviews', token, {
+        type:          item.type ?? 'track',
         spotifyTrackId: item.spotifyTrackId ?? '',
         spotifyAlbumId: item.spotifyAlbumId ?? '',
         trackName:  item.trackName,
@@ -44,8 +45,12 @@ export default function ReviewCreate() {
       setText('');
       setMoods(new Set());
       setScore(8.0);
-    } catch {
-      Alert.alert('Failed to post', 'Check your connection and try again.');
+    } catch (err: any) {
+      if (err?.message?.startsWith('409')) {
+        Alert.alert('Already reviewed', `You've already rated this ${item?.type === 'album' ? 'album' : 'track'}. Delete your existing review to post a new one.`);
+      } else {
+        Alert.alert('Failed to post', 'Check your connection and try again.');
+      }
     } finally {
       setPosting(false);
     }

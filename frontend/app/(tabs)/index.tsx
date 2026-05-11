@@ -1,29 +1,145 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TopBar, Eyebrow, Icon } from '../components';
-import { C } from '../theme';
-export default function HomeFeed() {
+import { TopBar } from '../components';
+import { C, R } from '../theme';
+import { useAuth } from '../context/auth';
+import { api } from '../lib/api';
+import type { FeedItem } from './feed/types';
+import { ReviewCard } from './feed/ReviewCard';
+
+const TABS = [
+  { key: 'trending', label: '🔥 Trending this week', endpoint: '/reviews/trending' },
+  { key: 'top',      label: '⭐ Top rated',          endpoint: '/reviews/top' },
+] as const;
+
+type Tab = typeof TABS[number]['key'];
+
+const LIMIT = 15;
+
+export default function Home() {
   const insets = useSafeAreaInsets();
+  const { token } = useAuth();
+
+  const [activeTab, setActiveTab] = useState<Tab>('trending');
+  const [items, setItems]         = useState<FeedItem[]>([]);
+  const [myId, setMyId]           = useState('');
+  const [loading, setLoading]     = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore]     = useState(true);
+
+  const offsetRef = useRef(0);
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
+  const endpoint = TABS.find(t => t.key === activeTab)!.endpoint;
+
+  const load = useCallback(async (opts: { refresh?: boolean; more?: boolean } = {}) => {
+    if (!token) return;
+    const { refresh, more } = opts;
+
+    if (more && (!hasMore || loadingMore)) return;
+
+    if (refresh) { setRefreshing(true); offsetRef.current = 0; }
+    else if (more) setLoadingMore(true);
+    else { setLoading(true); offsetRef.current = 0; }
+
+    try {
+      const data = await api.get(`${endpoint}?offset=${offsetRef.current}&limit=${LIMIT}`, token);
+      if (refresh || !more) {
+        setItems(data.items);
+      } else {
+        setItems(prev => [...prev, ...data.items]);
+      }
+
+      setMyId(data.myId);
+      setHasMore(data.hasMore);
+      offsetRef.current += data.items.length;
+    } catch {
+      if (!more) setItems([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  }, [token, endpoint, hasMore, loadingMore]);
+
+  // Reset and reload when tab changes
+  useEffect(() => {
+    setItems([]);
+    setHasMore(true);
+    setLoading(true);
+    offsetRef.current = 0;
+    load();
+  }, [activeTab, token]);
+
+  function switchTab(key: Tab) {
+    if (key === activeTab) return;
+    setActiveTab(key);
+  }
+
+  const header = (
+    <View style={[s.topSection, { paddingTop: insets.top + 12 }]}>
+      <TopBar title={<Text style={s.wordmark}>rotation</Text>} large />
+      <View style={s.tabs}>
+        {TABS.map(t => (
+          <TouchableOpacity
+            key={t.key}
+            onPress={() => switchTab(t.key)}
+            activeOpacity={0.7}
+            style={[s.tab, activeTab === t.key && s.tabActive]}
+          >
+            <Text style={[s.tabTxt, activeTab === t.key && s.tabTxtActive]}>{t.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  if (loading) {
+    return (
+      <View style={s.screen}>
+        <View style={s.glow} pointerEvents="none" />
+        {header}
+        <View style={s.center}><ActivityIndicator color={C.violet} size="large" /></View>
+      </View>
+    );
+  }
 
   return (
     <View style={s.screen}>
       <View style={s.glow} pointerEvents="none" />
-      <TopBar
-        pt={insets.top + 12}
-        title={<Text style={s.wordmark}>rotation</Text>}
-        large
-        leading={
-          <TouchableOpacity activeOpacity={0.7}>
-            <Icon name="flame" size={22} color={C.fg2} />
-          </TouchableOpacity>
+      <FlatList
+        data={items}
+        keyExtractor={item => item._id}
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={header}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => load({ refresh: true })} tintColor={C.violet} />
         }
-        trailing={<Icon name="bookmark" size={22} color={C.fg2} />}
+        onEndReached={() => load({ more: true })}
+        onEndReachedThreshold={0.4}
+        ListEmptyComponent={
+          <View style={s.empty}>
+            <Text style={s.emptyTxt}>Nothing here yet — be the first to post a review!</Text>
+          </View>
+        }
+        ListFooterComponent={
+          loadingMore ? <ActivityIndicator color={C.violet} style={{ marginTop: 16 }} /> : null
+        }
+        renderItem={({ item }) => (
+          <View style={{ marginBottom: 12 }}>
+            <ReviewCard
+              item={item}
+              token={token!}
+              myId={myId}
+              onDelete={() => setItems(prev => prev.filter(r => r._id !== item._id))}
+            />
+          </View>
+        )}
       />
-      <View style={s.center}>
-        <Eyebrow>Your feed</Eyebrow>
-        <Text style={s.empty}>Follow people to see their reviews here.</Text>
-      </View>
     </View>
   );
 }
@@ -32,6 +148,16 @@ const s = StyleSheet.create({
   screen:   { flex: 1, backgroundColor: C.bg },
   glow:     { position: 'absolute', top: 0, left: 0, right: 0, height: 280, backgroundColor: 'rgba(177,78,255,0.08)' },
   wordmark: { fontSize: 22, fontWeight: '700', color: C.violet, letterSpacing: -0.5 },
-  center:   { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
-  empty:    { fontSize: 14, color: C.fg3, textAlign: 'center', lineHeight: 21 },
+  center:   { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  topSection: { backgroundColor: 'rgba(11,8,22,0.92)', borderBottomWidth: 1, borderBottomColor: C.stroke, marginBottom: 16 },
+
+  tabs:       { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  tab:        { flex: 1, paddingVertical: 8, borderRadius: R.pill, alignItems: 'center', backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
+  tabActive:  { backgroundColor: 'rgba(177,78,255,0.15)', borderColor: 'rgba(177,78,255,0.5)' },
+  tabTxt:     { fontSize: 11, fontWeight: '600', color: C.fg3, letterSpacing: 0.2 },
+  tabTxtActive:{ color: C.violet },
+
+  empty:    { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
+  emptyTxt: { fontSize: 13, color: C.fg3, textAlign: 'center', lineHeight: 20 },
 });

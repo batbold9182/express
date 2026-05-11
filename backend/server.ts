@@ -6,6 +6,7 @@ import authRoutes    from './routes.ts/auth';
 import spotifyRoutes from './routes.ts/spotify';
 import reviewRoutes  from './routes.ts/reviews';
 import userRoutes    from './routes.ts/user';
+import albumRoutes   from './routes.ts/albums';
 
 dotenv.config();
 connectDB();
@@ -19,6 +20,7 @@ app.use('/auth',    authRoutes);
 app.use('/',        spotifyRoutes);
 app.use('/reviews', reviewRoutes);
 app.use('/users',   userRoutes);
+app.use('/albums',  albumRoutes);
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on http://localhost:${process.env.PORT}`);
