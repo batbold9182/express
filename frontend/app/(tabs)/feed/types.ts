@@ -3,9 +3,10 @@ export type Comment = { _id: string; userId: ReviewUser; text: string; likes: st
 export type FeedItem = {
   _id: string;
   userId: ReviewUser;
-  type?: 'track' | 'album';
+  type?: 'track' | 'album' | 'artist';
   spotifyTrackId?: string;
   spotifyAlbumId?: string;
+  spotifyArtistId?: string;
   trackName: string;
   artistName: string;
   albumArt: string;

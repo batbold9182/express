@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { Review } from '../models/review';
 import { User } from '../models/User';
+import { List } from '../models/List';
 import { requireAuth, optionalAuth, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -62,12 +63,32 @@ router.get('/:id/following', optionalAuth, async (req: AuthRequest, res: Respons
   }
 });
 
-// GET /users/:id/reviews — get all reviews by a user
+// GET /users/:id/reviews/counts — count per type (must be before /:id/reviews)
+router.get('/:id/reviews/counts', async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findOne({ spotifyId: req.params.id });
+    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+    const [artist, album, track] = await Promise.all([
+      Review.countDocuments({ userId: user._id, type: 'artist' }),
+      Review.countDocuments({ userId: user._id, type: 'album' }),
+      Review.countDocuments({ userId: user._id, $or: [{ type: 'track' }, { type: { $exists: false } }] }),
+    ]);
+    res.json({ artist, album, track });
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch counts' });
+  }
+});
+
+// GET /users/:id/reviews — get reviews by a user, optionally filtered by ?type=track|album|artist
 router.get('/:id/reviews', async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findOne({ spotifyId: req.params.id });
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
-    const reviews = await Review.find({ userId: user._id })
+    const type = req.query.type as string | undefined;
+    const filter: any = { userId: user._id };
+    if (type === 'album' || type === 'artist') filter.type = type;
+    else if (type === 'track') filter.$or = [{ type: 'track' }, { type: { $exists: false } }];
+    const reviews = await Review.find(filter)
       .sort({ createdAt: -1 })
       .populate('userId', '_id displayName avatarUrl spotifyId')
       .populate('comments.userId', '_id displayName avatarUrl');
@@ -99,6 +120,18 @@ router.delete('/:id/follow', requireAuth, async (req: AuthRequest, res: Response
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: 'Failed to unfollow' });
+  }
+});
+
+// GET /users/:id/lists
+router.get('/:id/lists', async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findOne({ spotifyId: req.params.id });
+    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+    const lists = await List.find({ userId: user._id }).sort({ updatedAt: -1 });
+    res.json(lists);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch lists' });
   }
 });
 

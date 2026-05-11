@@ -83,8 +83,9 @@ export default function Search() {
   const [albums, setAlbums]   = useState<Album[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [users, setUsers]     = useState<UserResult[]>([]);
-  const [reviewedTrackIds, setReviewedTrackIds] = useState<Set<string>>(new Set());
-  const [reviewedAlbumIds, setReviewedAlbumIds] = useState<Set<string>>(new Set());
+  const [reviewedTrackIds, setReviewedTrackIds]   = useState<Set<string>>(new Set());
+  const [reviewedAlbumIds, setReviewedAlbumIds]   = useState<Set<string>>(new Set());
+  const [reviewedArtistIds, setReviewedArtistIds] = useState<Set<string>>(new Set());
   const { token, spotifyId }  = useAuth();
   const { setItem }           = useRate();
   const router                = useRouter();
@@ -96,14 +97,17 @@ export default function Search() {
   useEffect(() => {
     if (!token) return;
     api.get('/reviews/mine', token).then((data: any[]) => {
-      const trackIds = new Set<string>();
-      const albumIds = new Set<string>();
+      const trackIds  = new Set<string>();
+      const albumIds  = new Set<string>();
+      const artistIds = new Set<string>();
       data.forEach(r => {
-        if (r.type === 'album' && r.spotifyAlbumId) albumIds.add(r.spotifyAlbumId);
+        if (r.type === 'artist' && r.spotifyArtistId) artistIds.add(r.spotifyArtistId);
+        else if (r.type === 'album' && r.spotifyAlbumId) albumIds.add(r.spotifyAlbumId);
         else if (r.spotifyTrackId) trackIds.add(r.spotifyTrackId);
       });
       setReviewedTrackIds(trackIds);
       setReviewedAlbumIds(albumIds);
+      setReviewedArtistIds(artistIds);
     }).catch(() => {});
   }, [token]);
 
@@ -271,17 +275,26 @@ export default function Search() {
           <>
             <Eyebrow>Artists</Eyebrow>
             <View style={{ gap: 6, marginTop: 8, marginBottom: 20 }}>
-              {artists.map(a => (
-                <TouchableOpacity key={a.id} activeOpacity={0.85} style={s.row}>
-                  {a.images?.[2]?.url
-                    ? <Image source={{ uri: a.images[2].url }} style={[s.thumb, { borderRadius: 20 }]} />
-                    : <View style={[s.thumb, { borderRadius: 20, backgroundColor: C.glass }]} />}
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.rowTitle} numberOfLines={1}>{a.name}</Text>
-                    {a.genres?.[0] && <Text style={s.rowSub} numberOfLines={1}>{a.genres[0]}</Text>}
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {artists.map(a => {
+                const reviewed = reviewedArtistIds.has(a.id);
+                return (
+                  <TouchableOpacity
+                    key={a.id}
+                    activeOpacity={0.85}
+                    style={s.row}
+                    onPress={() => router.push(`/artist/${a.id}` as any)}
+                  >
+                    {a.images?.[2]?.url
+                      ? <Image source={{ uri: a.images[2].url }} style={[s.thumb, { borderRadius: 20 }]} />
+                      : <View style={[s.thumb, { borderRadius: 20, backgroundColor: C.glass }]} />}
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rowTitle} numberOfLines={1}>{a.name}</Text>
+                      {a.genres?.[0] && <Text style={s.rowSub} numberOfLines={1}>{a.genres[0]}</Text>}
+                    </View>
+                    {reviewed && <ReviewedBadge />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </>
         )}

@@ -30,9 +30,10 @@ export default function ReviewCreate() {
     setPosting(true);
     try {
       await api.post('/reviews', token, {
-        type:          item.type ?? 'track',
-        spotifyTrackId: item.spotifyTrackId ?? '',
-        spotifyAlbumId: item.spotifyAlbumId ?? '',
+        type:            item.type ?? 'track',
+        spotifyTrackId:  item.spotifyTrackId ?? '',
+        spotifyAlbumId:  item.spotifyAlbumId ?? '',
+        spotifyArtistId: item.spotifyArtistId ?? '',
         trackName:  item.trackName,
         artistName: item.artistName,
         albumArt:   item.albumArt,
@@ -47,7 +48,8 @@ export default function ReviewCreate() {
       setScore(8.0);
     } catch (err: any) {
       if (err?.message?.startsWith('409')) {
-        Alert.alert('Already reviewed', `You've already rated this ${item?.type === 'album' ? 'album' : 'track'}. Delete your existing review to post a new one.`);
+        const label = item?.type === 'album' ? 'album' : item?.type === 'artist' ? 'artist' : 'track';
+        Alert.alert('Already reviewed', `You've already rated this ${label}. Delete your existing review to post a new one.`);
       } else {
         Alert.alert('Failed to post', 'Check your connection and try again.');
       }

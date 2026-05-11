@@ -5,9 +5,10 @@ import { C, R, scoreColor } from '../theme';
 
 export type ProfileReview = {
   _id: string;
-  type?: 'track' | 'album';
+  type?: 'track' | 'album' | 'artist';
   spotifyTrackId?: string;
   spotifyAlbumId?: string;
+  spotifyArtistId?: string;
   trackName: string;
   artistName: string;
   albumArt?: string;
@@ -41,12 +42,14 @@ export function ProfileReviewCard({ r }: { r: ProfileReview }) {
           ))}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {(r.spotifyTrackId || r.spotifyAlbumId) && (
+          {(r.spotifyTrackId || r.spotifyAlbumId || r.spotifyArtistId) && (
             <TouchableOpacity
               onPress={() => {
-                const url = r.type === 'album' && r.spotifyAlbumId
-                  ? `https://open.spotify.com/album/${r.spotifyAlbumId}`
-                  : `https://open.spotify.com/track/${r.spotifyTrackId}`;
+                const url = r.type === 'artist' && r.spotifyArtistId
+                  ? `https://open.spotify.com/artist/${r.spotifyArtistId}`
+                  : r.type === 'album' && r.spotifyAlbumId
+                    ? `https://open.spotify.com/album/${r.spotifyAlbumId}`
+                    : `https://open.spotify.com/track/${r.spotifyTrackId}`;
                 Linking.openURL(url);
               }}
               activeOpacity={0.7}

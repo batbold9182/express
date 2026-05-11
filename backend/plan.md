@@ -80,7 +80,7 @@
 
 ---
 
-### 7. Listening stats
+### 7. Listening stats 
 **Frontend:**
 - Me tab: top tracks / artists over 4 weeks / 6 months / all time (time range toggle)
 
@@ -90,7 +90,7 @@
 
 ---
 
-### 8. Lists / Rankings
+### 8. Lists / Rankings [x] done
 **Frontend:**
 - "Create a list" — ordered list of tracks/albums with a title (e.g. "Top 10 of 2025")
 - Shareable, shows on profile
@@ -125,7 +125,7 @@
 
 ---
 
-### 10. "Now playing" live badge
+### 10. "Now playing" live badge [x] done 
 **Frontend:**
 - Poll `/me/player` every 30s on profile screen
 - Show "🎵 Listening now: Track — Artist" badge on profile

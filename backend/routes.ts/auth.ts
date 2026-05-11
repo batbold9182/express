@@ -9,7 +9,7 @@ router.get('/login', (_req: Request, res: Response) => {
     client_id: process.env.CLIENT_ID!,
     response_type: 'code',
     redirect_uri: process.env.REDIRECT_URI!,
-    scope: 'user-read-private user-read-email user-top-read',
+    scope: 'user-read-private user-read-email user-top-read user-read-currently-playing user-read-playback-state',
   });
   res.redirect(`https://accounts.spotify.com/authorize?${params}`);
 });

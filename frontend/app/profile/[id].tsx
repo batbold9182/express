@@ -26,6 +26,7 @@ export default function UserProfile() {
 
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [reviews, setReviews] = useState<ProfileReview[]>([]);
+  const [lists, setLists]     = useState<{ _id: string; title: string; items: any[] }[]>([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -37,10 +38,12 @@ export default function UserProfile() {
     Promise.all([
       api.get(`/users/${id}`, token),
       api.get(`/users/${id}/reviews`, token),
-    ]).then(([user, revs]) => {
+      api.get(`/users/${id}/lists`, token),
+    ]).then(([user, revs, ls]) => {
       setProfile(user);
       setFollowing(user.isFollowing);
       setReviews(revs);
+      setLists(ls);
     }).catch(() => {}).finally(() => setLoading(false));
   }, [id, token]);
 
@@ -126,6 +129,26 @@ export default function UserProfile() {
           </TouchableOpacity>
         )}
 
+        {lists.length > 0 && (
+          <>
+            <View style={{ marginTop: 20, marginBottom: 8 }}><Eyebrow>Lists</Eyebrow></View>
+            <View style={{ gap: 8, marginBottom: 8 }}>
+              {lists.map(l => (
+                <TouchableOpacity key={l._id} onPress={() => router.push(`/list/${l._id}` as any)} activeOpacity={0.85}>
+                  <GCard style={{ padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Icon name="list" size={18} color={C.violet} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.listTitle} numberOfLines={1}>{l.title}</Text>
+                      <Text style={s.listMeta}>{l.items.length} {l.items.length === 1 ? 'item' : 'items'}</Text>
+                    </View>
+                    <Icon name="arrow-left" size={16} color={C.fg3} />
+                  </GCard>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
         {reviews.length > 0 ? (
           <>
             <View style={{ marginTop: 20, marginBottom: 8 }}><Eyebrow>Reviews</Eyebrow></View>
@@ -165,6 +188,9 @@ const s = StyleSheet.create({
   followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: C.violet },
   followTxt:    { fontSize: 14, fontWeight: '600', color: C.ink900 },
   followingTxt: { color: C.violet },
+
+  listTitle: { fontSize: 14, fontWeight: '600', color: C.fg },
+  listMeta:  { fontSize: 11, color: C.fg3, marginTop: 1 },
 
   empty:    { alignItems: 'center', gap: 10, paddingTop: 40 },
   emptyTxt: { fontSize: 14, color: C.fg3 },

@@ -51,7 +51,7 @@ router.get('/top', requireAuth, async (req: AuthRequest, res: Response) => {
 router.get('/mine', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const reviews = await Review.find({ userId: req.user!._id })
-      .select('spotifyTrackId spotifyAlbumId type')
+      .select('spotifyTrackId spotifyAlbumId spotifyArtistId type')
       .lean();
     res.json(reviews);
   } catch {
@@ -61,15 +61,20 @@ router.get('/mine', requireAuth, async (req: AuthRequest, res: Response) => {
 
 router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { type, spotifyTrackId, spotifyAlbumId } = req.body;
-    const isAlbum = type === 'album';
-    const existing = isAlbum
-      ? await Review.findOne({ userId: req.user!._id, spotifyAlbumId, type: 'album' })
-      : await Review.findOne({ userId: req.user!._id, spotifyTrackId });
-    if (existing) {
-      res.status(409).json({ error: isAlbum ? 'You already reviewed this album' : 'You already reviewed this track' });
-      return;
+    const { type, spotifyTrackId, spotifyAlbumId, spotifyArtistId } = req.body;
+    let existing = null;
+    let errorMsg = '';
+    if (type === 'artist') {
+      existing = await Review.findOne({ userId: req.user!._id, spotifyArtistId, type: 'artist' });
+      errorMsg = 'You already reviewed this artist';
+    } else if (type === 'album') {
+      existing = await Review.findOne({ userId: req.user!._id, spotifyAlbumId, type: 'album' });
+      errorMsg = 'You already reviewed this album';
+    } else {
+      existing = await Review.findOne({ userId: req.user!._id, spotifyTrackId });
+      errorMsg = 'You already reviewed this track';
     }
+    if (existing) { res.status(409).json({ error: errorMsg }); return; }
     const review = await Review.create({ ...req.body, userId: req.user!._id });
     res.status(201).json(review);
   } catch (err) {

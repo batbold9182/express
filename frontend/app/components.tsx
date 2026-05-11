@@ -118,7 +118,12 @@ export function Icon({ name, size = 20, color = C.fg, strokeWidth = 1.75, fill }
     case 'search':     return <Svg viewBox="0 0 24 24" {...wh}><Circle cx="11" cy="11" r="7" {...sp} /><Path d="M20 20l-3.5-3.5" {...sp} /></Svg>;
     case 'settings':   return <Svg viewBox="0 0 24 24" {...wh}><Circle cx="12" cy="12" r="3" {...sp} /><Path d="M19.4 15a1.6 1.6 0 0 0 .3 1.7l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.7-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.7.3l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.7 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.7l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.7.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.7-.3l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.7V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" {...sp} /></Svg>;
     case 'mic':        return <Svg viewBox="0 0 24 24" {...wh}><Rect x="9" y="3" width="6" height="11" rx="3" {...sp} /><Path d="M5 11a7 7 0 0 0 14 0M12 18v3" {...sp} /></Svg>;
-    case 'bookmark':   return <Svg viewBox="0 0 24 24" {...wh}><Path d="M6 3h12a1 1 0 0 1 1 1v18l-7-4-7 4V4a1 1 0 0 1 1-1z" {...sp} /></Svg>;
+    case 'bookmark':     return <Svg viewBox="0 0 24 24" {...wh}><Path d="M6 3h12a1 1 0 0 1 1 1v18l-7-4-7 4V4a1 1 0 0 1 1-1z" {...sp} /></Svg>;
+    case 'star':         return <Svg viewBox="0 0 24 24" {...wh}><Path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8l-6.2 3.2L7 14.2 2 9.3l6.9-1z" {...sp} /></Svg>;
+    case 'edit':         return <Svg viewBox="0 0 24 24" {...wh}><Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" {...sp} /><Path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z" {...sp} /></Svg>;
+    case 'chevron-up':   return <Svg viewBox="0 0 24 24" {...wh}><Path d="M18 15l-6-6-6 6" {...sp} /></Svg>;
+    case 'chevron-down': return <Svg viewBox="0 0 24 24" {...wh}><Path d="M6 9l6 6 6-6" {...sp} /></Svg>;
+    case 'list':         return <Svg viewBox="0 0 24 24" {...wh}><Path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" {...sp} /></Svg>;
     default: return null;
   }
 }

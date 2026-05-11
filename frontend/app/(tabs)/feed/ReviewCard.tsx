@@ -107,12 +107,14 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
           ))}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {(item.spotifyTrackId || item.spotifyAlbumId) && (
+          {(item.spotifyTrackId || item.spotifyAlbumId || item.spotifyArtistId) && (
             <TouchableOpacity
               onPress={() => {
-                const url = item.type === 'album' && item.spotifyAlbumId
-                  ? `https://open.spotify.com/album/${item.spotifyAlbumId}`
-                  : `https://open.spotify.com/track/${item.spotifyTrackId}`;
+                const url = item.type === 'artist' && item.spotifyArtistId
+                  ? `https://open.spotify.com/artist/${item.spotifyArtistId}`
+                  : item.type === 'album' && item.spotifyAlbumId
+                    ? `https://open.spotify.com/album/${item.spotifyAlbumId}`
+                    : `https://open.spotify.com/track/${item.spotifyTrackId}`;
                 Linking.openURL(url);
               }}
               activeOpacity={0.7}
