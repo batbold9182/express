@@ -124,6 +124,9 @@ export function Icon({ name, size = 20, color = C.fg, strokeWidth = 1.75, fill }
     case 'chevron-up':   return <Svg viewBox="0 0 24 24" {...wh}><Path d="M18 15l-6-6-6 6" {...sp} /></Svg>;
     case 'chevron-down': return <Svg viewBox="0 0 24 24" {...wh}><Path d="M6 9l6 6 6-6" {...sp} /></Svg>;
     case 'list':         return <Svg viewBox="0 0 24 24" {...wh}><Path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" {...sp} /></Svg>;
+    case 'activity':     return <Svg viewBox="0 0 24 24" {...wh}><Path d="M22 12h-4l-3 9-6-18-3 9H2" {...sp} /></Svg>;
+    case 'plus':         return <Svg viewBox="0 0 24 24" {...wh}><Path d="M12 5v14M5 12h14" {...sp} /></Svg>;
+    case 'arrow-right':  return <Svg viewBox="0 0 24 24" {...wh}><Path d="M9 18l6-6-6-6" {...sp} /></Svg>;
     default: return null;
   }
 }

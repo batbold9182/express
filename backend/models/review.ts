@@ -24,4 +24,13 @@ userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   createdAt: { type: Date, default: Date.now }
 })
 
+reviewSchema.index({ userId: 1 });
+reviewSchema.index({ spotifyTrackId: 1 });
+reviewSchema.index({ spotifyAlbumId: 1, type: 1 });
+reviewSchema.index({ spotifyArtistId: 1, type: 1 });
+reviewSchema.index({ userId: 1, spotifyTrackId: 1 });
+reviewSchema.index({ userId: 1, spotifyAlbumId: 1, type: 1 });
+reviewSchema.index({ userId: 1, spotifyArtistId: 1, type: 1 });
+reviewSchema.index({ shareToFeed: 1, createdAt: -1 });
+
 export const Review = mongoose.model("Review", reviewSchema)

@@ -7,6 +7,7 @@ type RefreshConfig = {
 };
 
 let _refresh: RefreshConfig | null = null;
+let _refreshPromise: Promise<string | null> | null = null;
 
 export function configureRefresh(cfg: RefreshConfig) {
   _refresh = cfg;
@@ -14,19 +15,25 @@ export function configureRefresh(cfg: RefreshConfig) {
 
 async function tryRefresh(): Promise<string | null> {
   if (!_refresh) return null;
-  try {
-    const res = await fetch(`${BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spotifyId: _refresh.spotifyId }),
-    });
-    if (!res.ok) return null;
-    const { access_token } = await res.json();
-    _refresh.onNewToken(access_token);
-    return access_token;
-  } catch {
-    return null;
-  }
+  if (_refreshPromise) return _refreshPromise;
+  _refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spotifyId: _refresh!.spotifyId }),
+      });
+      if (!res.ok) return null;
+      const { access_token } = await res.json();
+      _refresh!.onNewToken(access_token);
+      return access_token;
+    } catch {
+      return null;
+    } finally {
+      _refreshPromise = null;
+    }
+  })();
+  return _refreshPromise;
 }
 
 async function get(path: string, token: string, signal?: AbortSignal) {

@@ -36,19 +36,20 @@ export default function Profile() {
 
   useEffect(() => {
     if (!token || !spotifyId) return;
-    Promise.all([
+    Promise.allSettled([
       api.get('/me', token),
       api.get('/me/top/artists', token),
       api.get(`/users/${spotifyId}`, token),
       api.get(`/users/${spotifyId}/lists`, token),
       api.get(`/users/${spotifyId}/reviews/counts`, token),
     ]).then(([u, a, au, ls, c]) => {
-      setUser(u);
-      setTopArtists(a.items ?? []);
-      setAppUser(au);
-      setLists(ls);
-      setCounts(c);
-    }).catch(() => {}).finally(() => setLoading(false));
+      const ok = (r: PromiseSettledResult<any>) => r.status === 'fulfilled' ? r.value : null;
+      setUser(ok(u));
+      setTopArtists(ok(a)?.items ?? []);
+      setAppUser(ok(au));
+      setLists(ok(ls) ?? []);
+      setCounts(ok(c) ?? { track: 0, album: 0, artist: 0 });
+    }).finally(() => setLoading(false));
   }, [token, spotifyId]);
 
   useEffect(() => {
@@ -215,7 +216,7 @@ export default function Profile() {
                     <Text style={s.listTitle} numberOfLines={1}>{l.title}</Text>
                     <Text style={s.listMeta}>{l.items.length} {l.items.length === 1 ? 'item' : 'items'}</Text>
                   </View>
-                  <Icon name="arrow-left" size={16} color={C.fg3} />
+                  <Icon name="arrow-right" size={16} color={C.fg3} />
                 </GCard>
               </TouchableOpacity>
             ))}

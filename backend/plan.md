@@ -1,142 +1,95 @@
-# Backend Plan
+# Tunelog — Roadmap
 
-## Current State (as of 2026-05-10)
-- ✅ MongoDB, Express, route structure
-- ✅ Spotify OAuth + user saved to DB on login
-- ✅ Auth middleware wired to all protected routes
-- ✅ Reviews — POST, GET, DELETE, PUT, likes, comments
-- ✅ Feed — GET /users/feed/me (followed users + own posts)
-- ✅ Follow/unfollow — POST/DELETE /users/:id/follow
-- ✅ Comment CRUD + likes
-- ✅ "Play on Spotify" deep link in feed cards
+## In Progress / Up Next
 
----
-
-## Up Next — Priority Order
-
-### 1. Token refresh on 401 (do first — silent reliability bug) [x] done implemented
-**Frontend:**
-- Store `spotifyId` in AsyncStorage alongside `access_token`
-- Update `lib/api.ts` to catch 401 responses
-- Auto-call `POST /auth/refresh` with `spotifyId`
-- Retry the original request with the new token
-- If refresh fails → clear token → redirect to login
-
----
-
-### 2. Profile page [x] done
-**Frontend:**
-- Me tab: show own reviews list below Spotify stats
-- Add follower / following counts
-- When viewing another user's profile: show Follow/Unfollow button
-
+### 1. Notifications
 **Backend:**
-- `GET /users/:id` already returns profile — add `followerCount`, `followingCount` to response
-- `GET /users/:id/reviews` already exists
-
----
-
-### 3. Search for users [x] done 
-**Frontend:**
-- Add "People" tab inside Search screen
-- Debounced search against backend
-
-**Backend:**
-- `GET /users/search?q=` — search by displayName (case-insensitive regex on MongoDB)
-
----
-
-### 4. Explore / Discover page [x] done
-**Frontend:**
-- New tab or section: trending reviews, top-rated tracks across all users
-- Good for cold-start (no one to follow yet)
-
-**Backend:**
-- `GET /reviews/trending` — most liked reviews in last 7 days
-- `GET /reviews/top` — highest scored tracks with >= N reviews
-
----
-
-### 5. Notifications
-**Frontend:**
-- Badge on profile tab for unread count
-- Notifications list screen
-
-**Backend:**
-- `models/Notification.ts` — type, from user, target review, read flag, createdAt
+- `models/Notification.ts` — type, fromUserId, targetReviewId, read flag, createdAt
 - Create notification on: like, comment, follow
 - `GET /notifications/me` — fetch unread
-- `POST /notifications/read` — mark as read
+- `POST /notifications/read` — mark all as read
+
+**Frontend:**
+- Badge on notification tab for unread count
+- Notifications list screen (currently `notification.tsx` is empty)
 
 ---
 
-### 6. Review from album view [x]
-**Frontend:**
-- From search, tap an album → see full tracklist
-- Tap any track → open rate modal pre-filled with that track
+### 2. Listening stats time range toggle
+Backend already proxies `/me/top/tracks` and `/me/top/artists` with `?time_range=`. Frontend just needs the UI.
+
+**Frontend (`me.tsx`):**
+- Add 3 toggle pills: 4 weeks / 6 months / All time
+- Pass `time_range=short_term|medium_term|long_term` to the API calls
+- Re-fetch top artists + recalculate genre bars on toggle
+
+---
+
+### 3. Spotify response cache (backend)
+Every artist/album page hits Spotify even for repeat visits. Artist metadata and discography almost never change.
 
 **Backend:**
-- Proxy `GET /albums/:id/tracks` to Spotify API
+- In-memory `Map<url, { data, expiresAt }>` — same pattern as auth token cache
+- TTLs: artist info 24h, album info 24h, discography 6h, `/me` endpoints 5min
+- Skip cache for currently-playing (always real-time)
+- Cuts Spotify API calls to near-zero for repeat page views
 
 ---
 
-### 7. Listening stats 
+### 4. Review type label on cards
+`ProfileReviewCard` shows the same layout for track, album, and artist reviews — no visual distinction. On a profile with mixed review types it's confusing.
+
+**Frontend (`profile/ReviewCard.tsx`):**
+- Small pill label: "Album" / "Artist" / "Track" based on `r.type`
+- Tapping the card could navigate to the album or artist page
+
+---
+
+### 5. Error states + retry
+Currently any failed load shows a blank screen with a spinner that never resolves, or silently empty sections. Users have no way to know something went wrong or retry.
+
 **Frontend:**
-- Me tab: top tracks / artists over 4 weeks / 6 months / all time (time range toggle)
-
-**Backend:**
-- Already proxied via `/me/top/tracks` and `/me/top/artists`
-- Add `?time_range=short_term|medium_term|long_term` param passthrough
+- Artist/album page: show error message + "Try again" button if initial load fails
+- Feed: show "Failed to load" with pull-to-refresh hint instead of empty list
 
 ---
 
-### 8. Lists / Rankings [x] done
-**Frontend:**
-- "Create a list" — ordered list of tracks/albums with a title (e.g. "Top 10 of 2025")
-- Shareable, shows on profile
+### 6. Pre-emptive token refresh
+Currently tokens only refresh on 401. `tokenExpiresAt` is stored in DB — we can refresh before expiry to avoid any failed requests.
 
-**Backend:**
-- `models/List.ts` — userId, title, items: [{ spotifyTrackId, trackName, artistName, albumArt, rank }]
-- `POST /lists`, `GET /lists/:id`, `PUT /lists/:id`, `DELETE /lists/:id`
-- `GET /users/:id/lists`
+**Frontend (`context/auth.tsx`):**
+- On app load, check if `tokenExpiresAt` is within 5 minutes
+- If so, call `/auth/refresh` proactively before making any API requests
 
 ---
 
-### 9. Album-level reviews [x] done
-**Frontend:**
-- Rate an album as a whole (not just individual tracks)
-- From Search → tap album → Album detail screen showing:
-  - Album art, title, artist, release year
-  - Full tracklist (from Spotify API proxy)
-  - "Rate this album" button → opens rate modal pre-filled with album info
-  - Existing album-level reviews from other users (feed-style list)
-- Album score: aggregate of all album-type reviews (average)
-- Per-track scores shown inline if any track reviews exist
-- Album review card looks similar to track card but shows album art + "Album review" label
+## Nice to Have
 
-**Backend:**
-- Extend `Review` model:
-  - Add `type: 'track' | 'album'` field (default `'track'` for backwards compat)
-  - Add `spotifyAlbumId?: string` field
-- New route: `GET /albums/:id` — proxy album metadata from Spotify
-- New route: `GET /albums/:id/tracks` — proxy tracklist from Spotify
-- New route: `GET /albums/:id/reviews` — fetch all reviews where `spotifyAlbumId === id`, compute avg score
-- Existing `POST /reviews` already handles creation — just pass `type: 'album'` + `spotifyAlbumId`
+### 7. "Reviewed" badge navigation
+On album tracklist, tapping a "Reviewed" badge should open that review, not trigger a re-review alert.
 
----
+### 8. Infinite scroll on profile reviews
+Currently `GET /users/:id/reviews` returns all reviews at once. For prolific users this gets heavy.
+- Add `?type=&offset=&limit=` to the endpoint
+- Frontend loads 20 at a time with scroll-triggered loading (same pattern as artist discography)
 
-### 10. "Now playing" live badge [x] done 
-**Frontend:**
-- Poll `/me/player` every 30s on profile screen
-- Show "🎵 Listening now: Track — Artist" badge on profile
+### 9. Feed deduplication
+If a user you follow posts 5 reviews in a row, they dominate the feed. Consider grouping consecutive reviews from the same user into a single card.
 
-**Backend:**
-- Proxy `GET /me/player/currently-playing` to Spotify
+### 10. Artist page — navigate to artist from review cards
+`ProfileReviewCard` shows artist name as plain text. Tapping it could navigate to the artist page.
+
+### 11. Login screen cleanup
+The email/password fields and "Sign in" / "Forgot password" / "Sign up" buttons in `login.tsx` are non-functional placeholders. Either wire them up or remove them to avoid confusing users.
+
+### 12. Deploy
+- Backend → Render (free tier, auto-sleep on inactivity)
+- Switch `EXPO_PUBLIC_API_BASE` to the deployed URL
+- Set `REDIRECT_URI` to the deployed callback URL in Spotify dashboard
 
 ---
 
-## Nice to have (later)
-- Rate limiting (prevent Spotify API abuse)
-- Pagination on feed and review lists
-- Cache Spotify track/album data in MongoDB
-- Deploy backend to Render
+## Known Limits (Spotify API)
+- `/artists/{id}/top-tracks` — 403 for new/unreviewed apps, removed
+- `/artists/{id}/related-artists` — same restriction
+- Rate limits: ~1 req/sec per endpoint; auth and data APIs share quota

@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
-  TouchableOpacity, ActivityIndicator, Alert,
+  TouchableOpacity, ActivityIndicator, Alert, TextInput, Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GCard, Eyebrow, Icon } from '../components';
+import { Eyebrow, Icon } from '../components';
 import { C, R, scoreColor } from '../theme';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
@@ -20,26 +20,37 @@ type SpotifyArtist = {
   followers?: { total: number };
 };
 
-type SpotifyTrack = {
+type SpotifyAlbum = {
   id: string;
   name: string;
-  duration_ms: number;
-  album: { id: string; images: { url: string }[] };
-  artists: { name: string }[];
+  release_date: string;
+  images: { url: string }[];
+};
+
+type GroupData = {
+  items: SpotifyAlbum[];
+  total: number;
+  loading: boolean;
+  nextOffset: number | null;
 };
 
 type ArtistReview = ProfileReview & { type?: string };
-
-function msToMin(ms: number) {
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
 
 function formatFollowers(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
   return `${n}`;
 }
+
+const DISC_SECTIONS = [
+  { key: 'album',       label: 'Albums' },
+  { key: 'single',      label: 'Singles & EPs' },
+  { key: 'compilation', label: 'Compilations' },
+  { key: 'appears_on',  label: 'Appears On' },
+] as const;
+
+const PAGE_SIZE = 20;
+const CARD_WIDTH = Math.floor((Dimensions.get('window').width - 32 - 24) / 3);
 
 export default function ArtistDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -49,35 +60,69 @@ export default function ArtistDetail() {
   const insets = useSafeAreaInsets();
 
   const [artist, setArtist]     = useState<SpotifyArtist | null>(null);
-  const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
   const [reviews, setReviews]   = useState<ArtistReview[]>([]);
   const [avgScore, setAvgScore] = useState<number | null>(null);
   const [loading, setLoading]   = useState(true);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
-  const [reviewedTrackIds, setReviewedTrackIds] = useState<Set<string>>(new Set());
+
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const [groupData, setGroupData]     = useState<Record<string, GroupData>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch]   = useState(false);
 
   useEffect(() => {
     if (!token || !id) return;
-    Promise.all([
+    Promise.allSettled([
       api.get(`/artists/${id}`, token),
-      api.get(`/artists/${id}/top-tracks`, token),
       api.get(`/artists/${id}/reviews`, token),
       api.get('/reviews/mine', token),
-    ]).then(([art, tracksData, revData, mine]) => {
-      setArtist(art);
-      setTopTracks(tracksData.tracks ?? []);
-      setReviews(revData.reviews ?? []);
-      setAvgScore(revData.avgScore ?? null);
-      const trackIds = new Set<string>();
-      (mine as any[]).forEach(r => {
-        if (r.type !== 'album' && r.type !== 'artist' && r.spotifyTrackId) trackIds.add(r.spotifyTrackId);
-      });
-      setReviewedTrackIds(trackIds);
-      setAlreadyReviewed(
-        (mine as any[]).some(r => r.type === 'artist' && r.spotifyArtistId === id)
-      );
-    }).catch(() => {}).finally(() => setLoading(false));
+    ]).then((results) => {
+      const ok = (r: PromiseSettledResult<unknown>) => r.status === 'fulfilled' ? r.value as any : null;
+      const art     = ok(results[0]);
+      const revData = ok(results[1]);
+      const mine: any[] = ok(results[2]) ?? [];
+      if (art) setArtist(art);
+      if (revData) { setReviews(revData.reviews ?? []); setAvgScore(revData.avgScore ?? null); }
+      setAlreadyReviewed(mine.some((r: any) => r.type === 'artist' && r.spotifyArtistId === id));
+    }).finally(() => setLoading(false));
   }, [id, token]);
+
+  const loadGroup = useCallback(async (group: string, offset: number) => {
+    setGroupData(prev => ({
+      ...prev,
+      [group]: { items: prev[group]?.items ?? [], total: prev[group]?.total ?? 0, nextOffset: prev[group]?.nextOffset ?? null, loading: true },
+    }));
+    try {
+      const data = await api.get(`/artists/${id}/albums?group=${group}&limit=${PAGE_SIZE}&offset=${offset}`, token!);
+      setGroupData(prev => ({
+        ...prev,
+        [group]: {
+          items: offset === 0 ? (data.items ?? []) : [...(prev[group]?.items ?? []), ...(data.items ?? [])],
+          total: data.total ?? 0,
+          loading: false,
+          nextOffset: (data.items?.length ?? 0) === PAGE_SIZE ? offset + PAGE_SIZE : null,
+        },
+      }));
+    } catch {
+      setGroupData(prev => ({ ...prev, [group]: { ...(prev[group] ?? { items: [], total: 0, nextOffset: null }), loading: false } }));
+    }
+  }, [id, token]);
+
+  function selectGroup(key: string) {
+    setSearchQuery('');
+    setShowSearch(false);
+    if (activeGroup === key) { setActiveGroup(null); return; }
+    setActiveGroup(key);
+    if (!groupData[key]?.items.length && !groupData[key]?.loading) loadGroup(key, 0);
+  }
+
+  function onScroll({ nativeEvent }: any) {
+    const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+    if (layoutMeasurement.height + contentOffset.y < contentSize.height - 200) return;
+    if (!activeGroup) return;
+    const gd = groupData[activeGroup];
+    if (gd && !gd.loading && gd.nextOffset !== null) loadGroup(activeGroup, gd.nextOffset);
+  }
 
   function rateArtist() {
     if (!artist) return;
@@ -95,23 +140,10 @@ export default function ArtistDetail() {
     router.push('/(tabs)/rate');
   }
 
-  function rateTrack(track: SpotifyTrack) {
-    if (!artist) return;
-    if (reviewedTrackIds.has(track.id)) {
-      Alert.alert('Already reviewed', "You've already rated this track. Delete your existing review to post a new one.");
-      return;
-    }
-    setItem({
-      type: 'track',
-      spotifyTrackId: track.id,
-      spotifyAlbumId: track.album.id,
-      spotifyArtistId: artist.id,
-      trackName: track.name,
-      artistName: track.artists.map(a => a.name).join(', '),
-      albumArt: track.album.images[0]?.url ?? '',
-    });
-    router.push('/(tabs)/rate');
-  }
+  const activeData = activeGroup ? groupData[activeGroup] : null;
+  const filteredItems = (activeData?.items ?? []).filter(a =>
+    !searchQuery.trim() || a.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -145,6 +177,8 @@ export default function ArtistDetail() {
         style={s.scroll}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={200}
       >
         {/* Hero */}
         <View style={s.hero}>
@@ -158,11 +192,10 @@ export default function ArtistDetail() {
           {(artist.followers?.total ?? 0) > 0 && (
             <Text style={s.followers}>{formatFollowers(artist.followers!.total)} followers</Text>
           )}
-
           {avgScore !== null && (
             <View style={s.scoreRow}>
               <Text style={[s.avgScore, { color: scoreColor(avgScore) }]}>{avgScore.toFixed(1)}</Text>
-              <Text style={s.avgLabel}>avg from {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</Text>
+              <Text style={s.avgLabel}>avg · {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</Text>
             </View>
           )}
         </View>
@@ -179,39 +212,86 @@ export default function ArtistDetail() {
           </Text>
         </TouchableOpacity>
 
-        {/* Top tracks */}
-        {topTracks.length > 0 && (
-          <>
-            <View style={{ marginTop: 24, marginBottom: 8 }}><Eyebrow>Top tracks</Eyebrow></View>
-            <GCard style={{ padding: 4 }}>
-              {topTracks.map((track, i) => {
-                const reviewed = reviewedTrackIds.has(track.id);
-                return (
-                  <TouchableOpacity
-                    key={track.id}
-                    activeOpacity={0.75}
-                    onPress={() => rateTrack(track)}
-                    style={[s.trackRow, i > 0 && s.trackRowBorder]}
-                  >
-                    <Text style={s.trackNum}>{i + 1}</Text>
-                    {track.album.images?.[2]?.url
-                      ? <Image source={{ uri: track.album.images[2].url }} style={s.trackArt} />
-                      : <View style={[s.trackArt, { backgroundColor: C.glass }]} />}
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.trackName} numberOfLines={1}>{track.name}</Text>
-                    </View>
-                    {reviewed
-                      ? <View style={s.reviewedBadge}><Text style={s.reviewedTxt}>Reviewed</Text></View>
-                      : <Text style={s.trackDur}>{msToMin(track.duration_ms)}</Text>}
-                  </TouchableOpacity>
-                );
-              })}
-            </GCard>
-          </>
-        )}
+        {/* Discography */}
+        <View style={{ marginTop: 28 }}>
+          <View style={s.discHeader}>
+            <Eyebrow>Discography</Eyebrow>
+            {activeGroup && (
+              <TouchableOpacity onPress={() => { setShowSearch(v => !v); setSearchQuery(''); }} activeOpacity={0.7}>
+                <Icon name="search" size={16} color={showSearch ? C.violet : C.fg3} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
+            {DISC_SECTIONS.map(({ key, label }) => {
+              const active = activeGroup === key;
+              const total  = groupData[key]?.total;
+              return (
+                <TouchableOpacity key={key} onPress={() => selectGroup(key)} activeOpacity={0.7}
+                  style={[s.discTab, active && s.discTabActive]}>
+                  <Text style={[s.discTabTxt, active && s.discTabTxtActive]}>{label}</Text>
+                  {total != null && <Text style={[s.discTabCount, active && s.discTabCountActive]}> · {total}</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {activeGroup && showSearch && (
+            <View style={s.searchBox}>
+              <Icon name="search" size={14} color={C.fg3} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search releases…"
+                placeholderTextColor={C.fg3}
+                style={{ flex: 1, fontSize: 13, color: C.fg, height: 18 }}
+                autoFocus
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              {!!searchQuery && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+                  <Icon name="x" size={14} color={C.fg3} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {activeGroup && (
+            activeData?.loading && !activeData.items.length
+              ? <ActivityIndicator color={C.violet} style={{ marginTop: 24 }} />
+              : (
+                <>
+                  <View style={s.albumGrid}>
+                    {filteredItems.map(album => (
+                      <TouchableOpacity
+                        key={album.id}
+                        activeOpacity={0.8}
+                        style={s.albumCard}
+                        onPress={() => router.push(`/album/${album.id}` as any)}
+                      >
+                        {album.images?.[1]?.url
+                          ? <Image source={{ uri: album.images[1].url }} style={s.albumCover} />
+                          : <View style={[s.albumCover, { backgroundColor: C.glass }]} />}
+                        <Text style={s.albumName} numberOfLines={2}>{album.name}</Text>
+                        <Text style={s.albumMeta}>{album.release_date?.slice(0, 4)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  {activeData?.loading && activeData.items.length > 0 && (
+                    <ActivityIndicator color={C.violet} style={{ marginTop: 16 }} />
+                  )}
+                  {!activeData?.loading && activeData?.nextOffset === null && activeData.items.length > 0 && !searchQuery && (
+                    <Text style={s.endTxt}>All {activeData.total} releases loaded</Text>
+                  )}
+                </>
+              )
+          )}
+        </View>
 
         {/* Reviews */}
-        <View style={{ marginTop: 24, marginBottom: 8 }}><Eyebrow>Reviews</Eyebrow></View>
+        <View style={{ marginTop: 28, marginBottom: 10 }}><Eyebrow>Reviews</Eyebrow></View>
         {reviews.length === 0 ? (
           <View style={s.empty}>
             <Icon name="activity" size={28} color={C.fg4} />
@@ -251,16 +331,28 @@ const s = StyleSheet.create({
   rateTxt:         { fontSize: 15, fontWeight: '700', color: C.ink900 },
   rateTxtReviewed: { color: C.violet },
 
-  trackRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10 },
-  trackRowBorder: { borderTopWidth: 1, borderTopColor: C.stroke },
-  trackNum:       { width: 20, fontSize: 13, color: C.fg3, textAlign: 'right' },
-  trackArt:       { width: 40, height: 40, borderRadius: R.r2 },
-  trackName:      { fontSize: 14, fontWeight: '500', color: C.fg },
-  trackDur:       { fontSize: 12, color: C.fg3 },
+  discHeader:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  discTab:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 14, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
+  discTabActive:    { backgroundColor: 'rgba(177,78,255,0.15)', borderColor: 'rgba(177,78,255,0.5)' },
+  discTabTxt:       { fontSize: 12, fontWeight: '600', color: C.fg3 },
+  discTabTxtActive: { color: C.violet },
+  discTabCount:     { fontSize: 11, color: C.fg4 },
+  discTabCountActive: { color: C.violet },
 
-  reviewedBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: 'rgba(177,78,255,0.15)', borderWidth: 1, borderColor: 'rgba(177,78,255,0.4)' },
-  reviewedTxt:   { fontSize: 10, fontWeight: '600', color: C.violet, letterSpacing: 0.4 },
+  searchBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.glass, borderRadius: R.r2, borderWidth: 1,
+    borderColor: C.stroke, paddingHorizontal: 10, paddingVertical: 7,
+    marginBottom: 10,
+  },
 
+  albumGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
+  albumCard:  { width: CARD_WIDTH },
+  albumCover: { width: CARD_WIDTH, height: CARD_WIDTH, borderRadius: R.r3, marginBottom: 6 },
+  albumName:  { fontSize: 12, fontWeight: '600', color: C.fg, lineHeight: 17 },
+  albumMeta:  { fontSize: 11, color: C.fg3, marginTop: 2 },
+
+  endTxt:   { fontSize: 11, color: C.fg4, textAlign: 'center', marginTop: 16 },
   empty:    { alignItems: 'center', gap: 10, paddingTop: 24 },
   emptyTxt: { fontSize: 13, color: C.fg3 },
 });

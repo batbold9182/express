@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity, Linking, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { GCard, Icon } from '../../components';
 import { C, R, scoreColor } from '../../theme';
@@ -58,7 +58,10 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
           <TouchableOpacity onPress={() => setEditing(true)} activeOpacity={0.7}>
             <Text style={{ fontSize: 12, color: C.violet }}>Edit</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={async () => { await api.del(`/reviews/${item._id}`, token); onDelete(); }} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => Alert.alert('Delete review', 'This cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: async () => { await api.del(`/reviews/${item._id}`, token); onDelete(); } },
+          ])} activeOpacity={0.7}>
             <Text style={{ fontSize: 12, color: C.pink }}>Delete</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowActions(false)} activeOpacity={0.7}>

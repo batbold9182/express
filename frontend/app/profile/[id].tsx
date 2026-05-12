@@ -35,16 +35,17 @@ export default function UserProfile() {
 
   useEffect(() => {
     if (!token || !id) return;
-    Promise.all([
+    Promise.allSettled([
       api.get(`/users/${id}`, token),
       api.get(`/users/${id}/reviews`, token),
       api.get(`/users/${id}/lists`, token),
     ]).then(([user, revs, ls]) => {
-      setProfile(user);
-      setFollowing(user.isFollowing);
-      setReviews(revs);
-      setLists(ls);
-    }).catch(() => {}).finally(() => setLoading(false));
+      const ok = (r: PromiseSettledResult<any>) => r.status === 'fulfilled' ? r.value : null;
+      const u = ok(user);
+      if (u) { setProfile(u); setFollowing(u.isFollowing); }
+      setReviews(ok(revs) ?? []);
+      setLists(ok(ls) ?? []);
+    }).finally(() => setLoading(false));
   }, [id, token]);
 
   async function toggleFollow() {
@@ -141,7 +142,7 @@ export default function UserProfile() {
                       <Text style={s.listTitle} numberOfLines={1}>{l.title}</Text>
                       <Text style={s.listMeta}>{l.items.length} {l.items.length === 1 ? 'item' : 'items'}</Text>
                     </View>
-                    <Icon name="arrow-left" size={16} color={C.fg3} />
+                    <Icon name="arrow-right" size={16} color={C.fg3} />
                   </GCard>
                 </TouchableOpacity>
               ))}

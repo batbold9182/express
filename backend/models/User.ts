@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema({
     displayName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     avatarUrl: { type: String },
-    accessToken: { type: String, required: true },
+    accessToken: { type: String, required: true, index: true },
     refreshToken: { type: String, required: true },
     tokenExpiresAt: { type: Date },
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

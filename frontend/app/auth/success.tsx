@@ -10,11 +10,11 @@ export default function AuthSuccess() {
     const router = useRouter();
 
     useEffect(() => {
-        if (!access_token) {
+        if (!access_token || !spotify_id) {
             router.replace("/auth/login");
             return;
         }
-        saveToken(access_token, spotify_id ?? '').then(() => router.replace("/(tabs)"));
+        saveToken(access_token, spotify_id).then(() => router.replace("/(tabs)"));
     }, [access_token]);
 
     return (

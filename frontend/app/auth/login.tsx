@@ -1,11 +1,15 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, Linking } from "react-native";
+import * as ExpoLinking from "expo-linking";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
 import { C, R } from "../theme";
 
-const SPOTIFY_AUTH_URL = `${process.env.EXPO_PUBLIC_API_BASE}/auth/login`;
+function getSpotifyAuthURL() {
+    const redirectBase = ExpoLinking.createURL('').replace(/\/+$/, '');
+    return `${process.env.EXPO_PUBLIC_API_BASE}/auth/login?redirect=${encodeURIComponent(redirectBase)}`;
+}
 
 function SpotifyIcon() {
     return (
@@ -96,7 +100,7 @@ export default function Login() {
                 </View>
 
                 {/* Spotify login */}
-                <TouchableOpacity activeOpacity={0.8} style={s.btnSpotify} onPress={() => Linking.openURL(SPOTIFY_AUTH_URL)}>
+                <TouchableOpacity activeOpacity={0.8} style={s.btnSpotify} onPress={() => Linking.openURL(getSpotifyAuthURL())}>
                     <SpotifyIcon />
                     <Text style={s.btnSpotifyTxt}>Continue with Spotify</Text>
                 </TouchableOpacity>

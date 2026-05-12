@@ -53,23 +53,21 @@ export default function AlbumDetail() {
 
   useEffect(() => {
     if (!token || !id) return;
-    Promise.all([
+    Promise.allSettled([
       api.get(`/albums/${id}`, token),
       api.get(`/albums/${id}/reviews`, token),
       api.get('/reviews/mine', token),
     ]).then(([alb, revData, mine]) => {
-      setAlbum(alb);
-      setReviews(revData.reviews ?? []);
-      setAvgScore(revData.avgScore ?? null);
+      const ok = (r: PromiseSettledResult<any>) => r.status === 'fulfilled' ? r.value : null;
+      const a = ok(alb); const rd = ok(revData); const m: any[] = ok(mine) ?? [];
+      if (a) setAlbum(a);
+      setReviews(rd?.reviews ?? []);
+      setAvgScore(rd?.avgScore ?? null);
       const trackIds = new Set<string>();
-      (mine as any[]).forEach(r => {
-        if (r.type !== 'album' && r.spotifyTrackId) trackIds.add(r.spotifyTrackId);
-      });
+      m.forEach(r => { if (r.type !== 'album' && r.spotifyTrackId) trackIds.add(r.spotifyTrackId); });
       setReviewedTrackIds(trackIds);
-      setAlreadyReviewed(
-        (mine as any[]).some(r => r.type === 'album' && r.spotifyAlbumId === id)
-      );
-    }).catch(() => {}).finally(() => setLoading(false));
+      setAlreadyReviewed(m.some(r => r.type === 'album' && r.spotifyAlbumId === id));
+    }).finally(() => setLoading(false));
   }, [id, token]);
 
   function rateAlbum() {

@@ -75,7 +75,12 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
       errorMsg = 'You already reviewed this track';
     }
     if (existing) { res.status(409).json({ error: errorMsg }); return; }
-    const review = await Review.create({ ...req.body, userId: req.user!._id });
+    const { trackName, artistName, albumArt, score, text, moods, shareToFeed } = req.body;
+    const review = await Review.create({
+      userId: req.user!._id,
+      type, spotifyTrackId, spotifyAlbumId, spotifyArtistId,
+      trackName, artistName, albumArt, score, text, moods, shareToFeed,
+    });
     res.status(201).json(review);
   } catch (err) {
     res.status(400).json({ error: 'Failed to create review', detail: err });

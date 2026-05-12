@@ -1,32 +1,37 @@
 import { Router, Request, Response } from 'express';
 import { Review } from '../models/review';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { spotifyHeaders } from './_spotifyHeaders';
 
 const router = Router();
-
-function spotifyHeaders(req: Request) {
-  return { Authorization: `Bearer ${req.headers.authorization?.split(' ')[1]}` };
-}
 
 // GET /artists/:id — artist metadata from Spotify
 router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const r = await fetch(`https://api.spotify.com/v1/artists/${req.params.id}`, { headers: spotifyHeaders(req) });
-    const data = await r.json();
-    res.json(data);
-  } catch {
+    if (!r.ok) { const t = await r.text(); console.error('Spotify artist error:', r.status, t); res.status(r.status).json({ error: t }); return; }
+    res.json(await r.json());
+  } catch (err) {
+    console.error('artists/:id error:', err);
     res.status(500).json({ error: 'Failed to fetch artist' });
   }
 });
 
-// GET /artists/:id/top-tracks — top tracks from Spotify
-router.get('/:id/top-tracks', requireAuth, async (req: Request, res: Response) => {
+// GET /artists/:id/albums?group=album|single|compilation|appears_on
+router.get('/:id/albums', requireAuth, async (req: Request, res: Response) => {
   try {
-    const r = await fetch(`https://api.spotify.com/v1/artists/${req.params.id}/top-tracks?market=US`, { headers: spotifyHeaders(req) });
-    const data = await r.json();
-    res.json(data);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch top tracks' });
+    const group  = (req.query.group  as string) || 'album';
+    const limit  = Number(req.query.limit)  || 20;
+    const offset = Number(req.query.offset) || 0;
+    const r = await fetch(
+      `https://api.spotify.com/v1/artists/${req.params.id}/albums?include_groups=${group}&limit=${limit}&offset=${offset}`,
+      { headers: spotifyHeaders(req) }
+    );
+    if (!r.ok) { const t = await r.text(); console.error('Spotify albums error:', r.status, group, t); res.status(r.status).json({ error: t }); return; }
+    res.json(await r.json());
+  } catch (err) {
+    console.error('artists/:id/albums error:', err);
+    res.status(500).json({ error: 'Failed to fetch albums' });
   }
 });
 
