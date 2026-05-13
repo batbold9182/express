@@ -9,6 +9,7 @@ import userRoutes    from './routes.ts/user';
 import albumRoutes   from './routes.ts/albums';
 import listRoutes    from './routes.ts/lists';
 import artistRoutes  from './routes.ts/artists';
+import trackRoutes   from './routes.ts/tracks';
 
 dotenv.config();
 connectDB();
@@ -25,6 +26,7 @@ app.use('/users',   userRoutes);
 app.use('/albums',  albumRoutes);
 app.use('/lists',   listRoutes);
 app.use('/artists', artistRoutes);
+app.use('/tracks',  trackRoutes);
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on http://localhost:${process.env.PORT}`);

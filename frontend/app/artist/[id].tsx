@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
   TouchableOpacity, ActivityIndicator, Alert, TextInput, Dimensions,
@@ -63,31 +63,67 @@ export default function ArtistDetail() {
   const [reviews, setReviews]   = useState<ArtistReview[]>([]);
   const [avgScore, setAvgScore] = useState<number | null>(null);
   const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(false);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
 
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [groupData, setGroupData]     = useState<Record<string, GroupData>>({});
+  const loadingGroups = useRef(new Set<string>());
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch]   = useState(false);
+  const [reviewHasMore, setReviewHasMore] = useState(true);
+  const [revLoadingMore, setRevLoadingMore] = useState(false);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const reviewOffsetRef = useRef(0);
+  const reviewLoadingMoreRef = useRef(false);
 
-  useEffect(() => {
+  function load() {
     if (!token || !id) return;
+    setLoading(true);
+    setError(false);
+    reviewOffsetRef.current = 0;
     Promise.allSettled([
       api.get(`/artists/${id}`, token),
-      api.get(`/artists/${id}/reviews`, token),
+      api.get(`/artists/${id}/reviews?offset=0&limit=20`, token),
       api.get('/reviews/mine', token),
     ]).then((results) => {
+      if (results[0].status === 'rejected') { setError(true); return; }
       const ok = (r: PromiseSettledResult<unknown>) => r.status === 'fulfilled' ? r.value as any : null;
       const art     = ok(results[0]);
       const revData = ok(results[1]);
       const mine: any[] = ok(results[2]) ?? [];
       if (art) setArtist(art);
-      if (revData) { setReviews(revData.reviews ?? []); setAvgScore(revData.avgScore ?? null); }
+      if (revData) {
+        setReviews(revData.reviews ?? []);
+        setAvgScore(revData.avgScore ?? null);
+        setReviewHasMore(revData.hasMore ?? false);
+        setReviewTotal(revData.total ?? 0);
+        reviewOffsetRef.current = (revData.reviews ?? []).length;
+      }
       setAlreadyReviewed(mine.some((r: any) => r.type === 'artist' && r.spotifyArtistId === id));
     }).finally(() => setLoading(false));
-  }, [id, token]);
+  }
+
+  async function loadMoreReviews() {
+    if (!token || !id || !reviewHasMore || reviewLoadingMoreRef.current) return;
+    reviewLoadingMoreRef.current = true;
+    setRevLoadingMore(true);
+    try {
+      const data = await api.get(`/artists/${id}/reviews?offset=${reviewOffsetRef.current}&limit=20`, token);
+      setReviews(prev => [...prev, ...(data.reviews ?? [])]);
+      setReviewHasMore(data.hasMore ?? false);
+      reviewOffsetRef.current += (data.reviews ?? []).length;
+    } catch {} finally {
+      reviewLoadingMoreRef.current = false;
+      setRevLoadingMore(false);
+    }
+  }
+
+  useEffect(() => { load(); }, [id, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadGroup = useCallback(async (group: string, offset: number) => {
+    if (loadingGroups.current.has(group)) return;
+    loadingGroups.current.add(group);
     setGroupData(prev => ({
       ...prev,
       [group]: { items: prev[group]?.items ?? [], total: prev[group]?.total ?? 0, nextOffset: prev[group]?.nextOffset ?? null, loading: true },
@@ -105,6 +141,8 @@ export default function ArtistDetail() {
       }));
     } catch {
       setGroupData(prev => ({ ...prev, [group]: { ...(prev[group] ?? { items: [], total: 0, nextOffset: null }), loading: false } }));
+    } finally {
+      loadingGroups.current.delete(group);
     }
   }, [id, token]);
 
@@ -113,15 +151,17 @@ export default function ArtistDetail() {
     setShowSearch(false);
     if (activeGroup === key) { setActiveGroup(null); return; }
     setActiveGroup(key);
-    if (!groupData[key]?.items.length && !groupData[key]?.loading) loadGroup(key, 0);
+    if (!groupData[key]?.items.length && !loadingGroups.current.has(key)) loadGroup(key, 0);
   }
 
   function onScroll({ nativeEvent }: any) {
     const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-    if (layoutMeasurement.height + contentOffset.y < contentSize.height - 200) return;
-    if (!activeGroup) return;
-    const gd = groupData[activeGroup];
-    if (gd && !gd.loading && gd.nextOffset !== null) loadGroup(activeGroup, gd.nextOffset);
+    if (layoutMeasurement.height + contentOffset.y < contentSize.height - 300) return;
+    if (activeGroup) {
+      const gd = groupData[activeGroup];
+      if (gd && !gd.loading && gd.nextOffset !== null) loadGroup(activeGroup, gd.nextOffset);
+    }
+    if (reviewHasMore && !reviewLoadingMoreRef.current) loadMoreReviews();
   }
 
   function rateArtist() {
@@ -149,6 +189,18 @@ export default function ArtistDetail() {
     return (
       <View style={[s.screen, { alignItems: 'center', justifyContent: 'center' }]}>
         <ActivityIndicator color={C.violet} size="large" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[s.screen, { alignItems: 'center', justifyContent: 'center', gap: 12 }]}>
+        <Icon name="wifi-off" size={32} color={C.fg4} />
+        <Text style={{ color: C.fg, fontWeight: '600', fontSize: 16 }}>Something went wrong</Text>
+        <TouchableOpacity onPress={load} activeOpacity={0.7} style={s.retryBtn}>
+          <Text style={s.retryTxt}>Try again</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -195,7 +247,7 @@ export default function ArtistDetail() {
           {avgScore !== null && (
             <View style={s.scoreRow}>
               <Text style={[s.avgScore, { color: scoreColor(avgScore) }]}>{avgScore.toFixed(1)}</Text>
-              <Text style={s.avgLabel}>avg · {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</Text>
+              <Text style={s.avgLabel}>avg · {reviewTotal} {reviewTotal === 1 ? 'review' : 'reviews'}</Text>
             </View>
           )}
         </View>
@@ -302,6 +354,8 @@ export default function ArtistDetail() {
             {reviews.map(r => <ProfileReviewCard key={r._id} r={r} />)}
           </View>
         )}
+        {revLoadingMore && <ActivityIndicator color={C.violet} style={{ marginTop: 16 }} />}
+        {!reviewHasMore && reviews.length > 0 && <Text style={s.endTxt}>All {reviewTotal} reviews loaded</Text>}
       </ScrollView>
     </View>
   );
@@ -355,4 +409,7 @@ const s = StyleSheet.create({
   endTxt:   { fontSize: 11, color: C.fg4, textAlign: 'center', marginTop: 16 },
   empty:    { alignItems: 'center', gap: 10, paddingTop: 24 },
   emptyTxt: { fontSize: 13, color: C.fg3 },
+
+  retryBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: R.pill, backgroundColor: C.violet },
+  retryTxt: { fontSize: 14, fontWeight: '700', color: C.ink900 },
 });

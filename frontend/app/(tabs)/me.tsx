@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +31,12 @@ export default function Profile() {
   const [cache, setCache]         = useState<Partial<Record<ReviewType, ProfileReview[]>>>({});
   const [counts, setCounts]       = useState<Record<ReviewType, number>>({ track: 0, album: 0, artist: 0 });
   const [revLoading, setRevLoading] = useState(false);
+  const [hasMoreMap, setHasMoreMap] = useState<Partial<Record<ReviewType, boolean>>>({});
+  const [revLoadingMore, setRevLoadingMore] = useState(false);
+  const offsetMap      = useRef<Partial<Record<ReviewType, number>>>({});
+  const loadingMoreRef = useRef(false);
+  const [timeRange, setTimeRange] = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
+  const [artistsLoading, setArtistsLoading] = useState(false);
 
   const reviews = tab ? (cache[tab] ?? null) : null;
 
@@ -38,14 +44,12 @@ export default function Profile() {
     if (!token || !spotifyId) return;
     Promise.allSettled([
       api.get('/me', token),
-      api.get('/me/top/artists', token),
       api.get(`/users/${spotifyId}`, token),
       api.get(`/users/${spotifyId}/lists`, token),
       api.get(`/users/${spotifyId}/reviews/counts`, token),
-    ]).then(([u, a, au, ls, c]) => {
+    ]).then(([u, au, ls, c]) => {
       const ok = (r: PromiseSettledResult<any>) => r.status === 'fulfilled' ? r.value : null;
       setUser(ok(u));
-      setTopArtists(ok(a)?.items ?? []);
       setAppUser(ok(au));
       setLists(ok(ls) ?? []);
       setCounts(ok(c) ?? { track: 0, album: 0, artist: 0 });
@@ -73,17 +77,47 @@ export default function Profile() {
     return () => clearInterval(id);
   }, [token]);
 
+  useEffect(() => {
+    if (!token) return;
+    setArtistsLoading(true);
+    api.get(`/me/top/artists?time_range=${timeRange}`, token)
+      .then((data: any) => setTopArtists(data?.items ?? []))
+      .catch(() => setTopArtists([]))
+      .finally(() => setArtistsLoading(false));
+  }, [token, timeRange]);
+
   function selectTab(type: ReviewType) {
     if (tab === type) { setTab(null); return; }
     setTab(type);
     setQ('');
-    if (cache[type]) return; // already loaded
+    if (cache[type]) return;
+    offsetMap.current[type] = 0;
+    loadTabPage(type, 0);
+  }
+
+  async function loadTabPage(type: ReviewType, offset: number) {
     if (!token || !spotifyId) return;
-    setRevLoading(true);
-    api.get(`/users/${spotifyId}/reviews?type=${type}`, token)
-      .then((data: ProfileReview[]) => setCache(prev => ({ ...prev, [type]: data })))
-      .catch(() => setCache(prev => ({ ...prev, [type]: [] })))
-      .finally(() => setRevLoading(false));
+    if (offset === 0) setRevLoading(true);
+    else {
+      if (loadingMoreRef.current) return;
+      loadingMoreRef.current = true;
+      setRevLoadingMore(true);
+    }
+    try {
+      const data = await api.get(`/users/${spotifyId}/reviews?type=${type}&offset=${offset}&limit=20`, token) as { reviews: ProfileReview[]; hasMore: boolean };
+      if (offset === 0) {
+        setCache(prev => ({ ...prev, [type]: data.reviews }));
+      } else {
+        setCache(prev => ({ ...prev, [type]: [...(prev[type] ?? []), ...data.reviews] }));
+      }
+      offsetMap.current[type] = offset + data.reviews.length;
+      setHasMoreMap(prev => ({ ...prev, [type]: data.hasMore }));
+    } catch {
+      if (offset === 0) setCache(prev => ({ ...prev, [type]: [] }));
+    } finally {
+      if (offset === 0) setRevLoading(false);
+      else { loadingMoreRef.current = false; setRevLoadingMore(false); }
+    }
   }
 
   const genreMap: Record<string, number> = {};
@@ -121,7 +155,16 @@ export default function Profile() {
         }
       />
 
-      <ScrollView style={s.scroll} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        onScroll={({ nativeEvent: e }) => {
+          if (e.contentOffset.y + e.layoutMeasurement.height < e.contentSize.height - 300) return;
+          if (tab && hasMoreMap[tab] && !loadingMoreRef.current) loadTabPage(tab, offsetMap.current[tab] ?? 0);
+        }}
+        scrollEventThrottle={100}
+      >
 
         {/* Identity */}
         <View style={s.identity}>
@@ -174,25 +217,42 @@ export default function Profile() {
         )}
 
         {/* Top artists */}
-        {topArtists.length > 0 && (
-          <>
+        <>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <Eyebrow>Top artists</Eyebrow>
-            <View style={{ gap: 8, marginTop: 8, marginBottom: 20 }}>
-              {topArtists.map((a, i) => (
-                <GCard key={a.id} style={{ padding: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Text style={s.artistRank}>{i + 1}</Text>
-                  {a.images?.[2]?.url
-                    ? <Image source={{ uri: a.images[2].url }} style={s.artistImg} />
-                    : <View style={[s.artistImg, { backgroundColor: C.glass }]} />}
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.artistName}>{a.name}</Text>
-                    {a.genres?.[0] && <Text style={s.artistGenre} numberOfLines={1}>{a.genres[0]}</Text>}
-                  </View>
-                </GCard>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {([['short_term', '4 weeks'], ['medium_term', '6 months'], ['long_term', 'All time']] as const).map(([range, label]) => (
+                <TouchableOpacity
+                  key={range}
+                  onPress={() => setTimeRange(range)}
+                  activeOpacity={0.7}
+                  style={[s.rangePill, timeRange === range && s.rangePillActive]}
+                >
+                  <Text style={[s.rangeTxt, timeRange === range && s.rangeTxtActive]}>{label}</Text>
+                </TouchableOpacity>
               ))}
             </View>
-          </>
-        )}
+          </View>
+          {artistsLoading
+            ? <ActivityIndicator color={C.violet} style={{ marginTop: 8, marginBottom: 20 }} />
+            : topArtists.length > 0 && (
+              <View style={{ gap: 8, marginTop: 0, marginBottom: 20 }}>
+                {topArtists.map((a, i) => (
+                  <GCard key={a.id} style={{ padding: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Text style={s.artistRank}>{i + 1}</Text>
+                    {a.images?.[2]?.url
+                      ? <Image source={{ uri: a.images[2].url }} style={s.artistImg} />
+                      : <View style={[s.artistImg, { backgroundColor: C.glass }]} />}
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.artistName}>{a.name}</Text>
+                      {a.genres?.[0] && <Text style={s.artistGenre} numberOfLines={1}>{a.genres[0]}</Text>}
+                    </View>
+                  </GCard>
+                ))}
+              </View>
+            )
+          }
+        </>
 
         {/* My lists */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -236,13 +296,12 @@ export default function Profile() {
         <View style={s.boxes}>
           {([['artist', 'Artist'], ['album', 'Album'], ['track', 'Song']] as const).map(([key, label]) => {
             const active = tab === key;
-            const loaded = cache[key];
             return (
               <TouchableOpacity key={key} onPress={() => selectTab(key)} activeOpacity={0.75}
                 style={[s.box, active && s.boxActive]}>
                 <Text style={[s.boxLabel, active && s.boxLabelActive]}>{label}</Text>
                 <Text style={[s.boxCount, active && s.boxCountActive]}>
-                  {loaded ? loaded.length : counts[key]}
+                  {counts[key]}
                 </Text>
               </TouchableOpacity>
             );
@@ -276,6 +335,10 @@ export default function Profile() {
             : filtered && filtered.length === 0
               ? <View style={s.empty}><Icon name="activity" size={28} color={C.fg4} /><Text style={s.emptyTxt}>No reviews yet</Text></View>
               : <View style={{ gap: 10, marginTop: 8 }}>{filtered?.map(r => <ProfileReviewCard key={r._id} r={r} />)}</View>
+        )}
+        {revLoadingMore && <ActivityIndicator color={C.violet} style={{ marginTop: 16 }} />}
+        {tab && !revLoading && !revLoadingMore && hasMoreMap[tab] === false && (cache[tab]?.length ?? 0) > 0 && (
+          <Text style={s.endTxt}>All {counts[tab]} reviews loaded</Text>
         )}
 
       </ScrollView>
@@ -333,4 +396,10 @@ const s = StyleSheet.create({
 
   empty:    { alignItems: 'center', gap: 10, paddingTop: 24 },
   emptyTxt: { fontSize: 13, color: C.fg3 },
+  endTxt:   { fontSize: 11, color: C.fg4, textAlign: 'center', marginTop: 16, marginBottom: 8 },
+
+  rangePill:       { paddingHorizontal: 8, paddingVertical: 4, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
+  rangePillActive: { backgroundColor: 'rgba(177,78,255,0.15)', borderColor: 'rgba(177,78,255,0.5)' },
+  rangeTxt:        { fontSize: 10, fontWeight: '600', color: C.fg3 },
+  rangeTxtActive:  { color: C.violet },
 });

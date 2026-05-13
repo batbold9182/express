@@ -13,7 +13,7 @@ const POPULATE = [
 router.get('/trending', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const offset = parseInt(req.query.offset as string) || 0;
-    const limit  = 15;
+    const limit  = Math.min(parseInt(req.query.limit as string) || 15, 50);
     const since  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const docs   = await Review.aggregate([
       { $match: { shareToFeed: true, createdAt: { $gte: since } } },

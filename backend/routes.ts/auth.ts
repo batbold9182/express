@@ -96,7 +96,8 @@ router.get('/callback', async (req: Request, res: Response) => {
     }
   }
 
-  res.redirect(`${frontendBase}/auth/success?access_token=${tokens.access_token}&spotify_id=${spotifyId}`);
+  const expiresAt = Date.now() + tokens.expires_in * 1000;
+  res.redirect(`${frontendBase}/auth/success?access_token=${tokens.access_token}&spotify_id=${spotifyId}&expires_at=${expiresAt}`);
 });
 
 router.post('/refresh', async (req: Request, res: Response) => {
@@ -128,7 +129,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
     }
   );
 
-  res.json({ access_token: tokens.access_token });
+  res.json({ access_token: tokens.access_token, expires_in: tokens.expires_in });
 });
 
 export default router;

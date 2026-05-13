@@ -81,6 +81,8 @@ router.get('/:id/reviews/counts', async (req: AuthRequest, res: Response) => {
 
 // GET /users/:id/reviews — get reviews by a user, optionally filtered by ?type=track|album|artist
 router.get('/:id/reviews', async (req: AuthRequest, res: Response) => {
+  const offset = parseInt(req.query.offset as string) || 0;
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
   try {
     const user = await User.findOne({ spotifyId: req.params.id });
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
@@ -88,11 +90,13 @@ router.get('/:id/reviews', async (req: AuthRequest, res: Response) => {
     const filter: any = { userId: user._id };
     if (type === 'album' || type === 'artist') filter.type = type;
     else if (type === 'track') filter.$or = [{ type: 'track' }, { type: { $exists: false } }];
-    const reviews = await Review.find(filter)
-      .sort({ createdAt: -1 })
-      .populate('userId', '_id displayName avatarUrl spotifyId')
-      .populate('comments.userId', '_id displayName avatarUrl');
-    res.json(reviews);
+    const [total, reviews] = await Promise.all([
+      Review.countDocuments(filter),
+      Review.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit)
+        .populate('userId', '_id displayName avatarUrl spotifyId')
+        .populate('comments.userId', '_id displayName avatarUrl'),
+    ]);
+    res.json({ reviews, total, hasMore: offset + reviews.length < total });
   } catch {
     res.status(500).json({ error: 'Failed to fetch reviews' });
   }

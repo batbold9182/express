@@ -16,10 +16,24 @@ function formatTime(iso: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+const TYPE_LABEL: Record<string, { label: string; color: string }> = {
+  album:  { label: 'Album',  color: C.cyan },
+  artist: { label: 'Artist', color: C.pink },
+  track:  { label: 'Track',  color: C.fg3 },
+};
+
 type Props = { item: FeedItem; token: string; myId: string; onDelete: () => void };
 
 export function ReviewCard({ item, token, myId, onDelete }: Props) {
   const router = useRouter();
+  const typeCfg = TYPE_LABEL[item.type ?? 'track'];
+
+  function navigateToSubject() {
+    if (item.type === 'artist' && item.spotifyArtistId) router.push(`/artist/${item.spotifyArtistId}` as any);
+    else if (item.type === 'album' && item.spotifyAlbumId) router.push(`/album/${item.spotifyAlbumId}` as any);
+    else if (item.spotifyTrackId) router.push(`/song/${item.spotifyTrackId}` as any);
+    else if (item.spotifyAlbumId) router.push(`/album/${item.spotifyAlbumId}` as any);
+  }
   const [showActions, setShowActions] = useState(false);
   const [editing, setEditing]         = useState(false);
   const [editText, setEditText]       = useState(item.text);
@@ -88,16 +102,21 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
         </View>
       )}
 
-      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+      <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
         {item.albumArt
           ? <Image source={{ uri: item.albumArt }} style={s.art} />
           : <View style={[s.art, { backgroundColor: C.glass }]} />}
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={s.track} numberOfLines={1}>{item.trackName}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={[s.track, { flex: 1 }]} numberOfLines={1}>{item.trackName}</Text>
+            <View style={[s.typePill, { borderColor: typeCfg.color + '55', backgroundColor: typeCfg.color + '18' }]}>
+              <Text style={[s.typeTxt, { color: typeCfg.color }]}>{typeCfg.label}</Text>
+            </View>
+          </View>
           <Text style={s.artist} numberOfLines={1}>{item.artistName}</Text>
         </View>
         <Text style={[s.score, { color: scoreColor(item.score) }]}>{item.score.toFixed(1)}</Text>
-      </View>
+      </TouchableOpacity>
 
       {!!item.text && <Text style={s.reviewText}>{item.text}</Text>}
 
@@ -149,6 +168,9 @@ const s = StyleSheet.create({
 
   moodChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
   moodTxt:  { fontSize: 10, color: C.fg3 },
+
+  typePill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: R.pill, borderWidth: 1 },
+  typeTxt:  { fontSize: 9, fontWeight: '600', letterSpacing: 0.4 },
 
   spotifyBtn: {
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: R.pill,

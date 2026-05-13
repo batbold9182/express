@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
   TouchableOpacity, ActivityIndicator, Linking, Alert,
@@ -48,27 +48,55 @@ export default function AlbumDetail() {
   const [reviews, setReviews]   = useState<AlbumReview[]>([]);
   const [avgScore, setAvgScore] = useState<number | null>(null);
   const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(false);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
   const [reviewedTrackIds, setReviewedTrackIds] = useState<Set<string>>(new Set());
+  const [hasMore, setHasMore]   = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const offsetRef               = useRef(0);
+  const loadingMoreRef          = useRef(false);
 
-  useEffect(() => {
+  function load() {
     if (!token || !id) return;
+    setLoading(true);
+    setError(false);
+    offsetRef.current = 0;
     Promise.allSettled([
       api.get(`/albums/${id}`, token),
-      api.get(`/albums/${id}/reviews`, token),
+      api.get(`/albums/${id}/reviews?offset=0&limit=20`, token),
       api.get('/reviews/mine', token),
     ]).then(([alb, revData, mine]) => {
+      if (alb.status === 'rejected') { setError(true); return; }
       const ok = (r: PromiseSettledResult<any>) => r.status === 'fulfilled' ? r.value : null;
       const a = ok(alb); const rd = ok(revData); const m: any[] = ok(mine) ?? [];
       if (a) setAlbum(a);
       setReviews(rd?.reviews ?? []);
       setAvgScore(rd?.avgScore ?? null);
+      setHasMore(rd?.hasMore ?? false);
+      offsetRef.current = (rd?.reviews ?? []).length;
       const trackIds = new Set<string>();
       m.forEach(r => { if (r.type !== 'album' && r.spotifyTrackId) trackIds.add(r.spotifyTrackId); });
       setReviewedTrackIds(trackIds);
       setAlreadyReviewed(m.some(r => r.type === 'album' && r.spotifyAlbumId === id));
     }).finally(() => setLoading(false));
-  }, [id, token]);
+  }
+
+  async function loadMore() {
+    if (!token || !id || !hasMore || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const rd = await api.get(`/albums/${id}/reviews?offset=${offsetRef.current}&limit=20`, token);
+      setReviews(prev => [...prev, ...(rd.reviews ?? [])]);
+      setHasMore(rd.hasMore ?? false);
+      offsetRef.current += (rd.reviews ?? []).length;
+    } catch {} finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }
+
+  useEffect(() => { load(); }, [id, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function rateAlbum() {
     if (!album) return;
@@ -86,27 +114,23 @@ export default function AlbumDetail() {
     router.push('/(tabs)/rate');
   }
 
-  function rateTrack(track: SpotifyTrack) {
-    if (!album) return;
-    if (reviewedTrackIds.has(track.id)) {
-      Alert.alert('Already reviewed', "You've already rated this track. Delete your existing review to post a new one.");
-      return;
-    }
-    setItem({
-      type: 'track',
-      spotifyTrackId: track.id,
-      spotifyAlbumId: album.id,
-      trackName: track.name,
-      artistName: track.artists.map(a => a.name).join(', '),
-      albumArt: album.images[0]?.url ?? '',
-    });
-    router.push('/(tabs)/rate');
-  }
 
   if (loading) {
     return (
       <View style={[s.screen, { alignItems: 'center', justifyContent: 'center' }]}>
         <ActivityIndicator color={C.violet} size="large" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[s.screen, { alignItems: 'center', justifyContent: 'center', gap: 12 }]}>
+        <Icon name="wifi-off" size={32} color={C.fg4} />
+        <Text style={{ color: C.fg, fontWeight: '600', fontSize: 16 }}>Something went wrong</Text>
+        <TouchableOpacity onPress={load} activeOpacity={0.7} style={s.retryBtn}>
+          <Text style={s.retryTxt}>Try again</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -144,6 +168,10 @@ export default function AlbumDetail() {
         style={s.scroll}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        onScroll={({ nativeEvent: e }) => {
+          if (e.contentOffset.y + e.layoutMeasurement.height >= e.contentSize.height - 300) loadMore();
+        }}
+        scrollEventThrottle={100}
       >
         {/* Hero */}
         <View style={s.hero}>
@@ -185,7 +213,7 @@ export default function AlbumDetail() {
                   <TouchableOpacity
                     key={track.id}
                     activeOpacity={0.75}
-                    onPress={() => rateTrack(track)}
+                    onPress={() => router.push(`/song/${track.id}` as any)}
                     style={[s.trackRow, i > 0 && s.trackRowBorder]}
                   >
                     <Text style={s.trackNum}>{track.track_number}</Text>
@@ -217,6 +245,8 @@ export default function AlbumDetail() {
             {reviews.map(r => <ProfileReviewCard key={r._id} r={r} />)}
           </View>
         )}
+        {loadingMore && <ActivityIndicator color={C.violet} style={{ marginTop: 16 }} />}
+        {!hasMore && reviews.length > 0 && <Text style={s.endTxt}>All {reviews.length} reviews loaded</Text>}
       </ScrollView>
     </View>
   );
@@ -264,4 +294,8 @@ const s = StyleSheet.create({
 
   empty:    { alignItems: 'center', gap: 10, paddingTop: 24 },
   emptyTxt: { fontSize: 13, color: C.fg3 },
+  endTxt:   { fontSize: 11, color: C.fg4, textAlign: 'center', marginTop: 16, marginBottom: 8 },
+
+  retryBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: R.pill, backgroundColor: C.violet },
+  retryTxt: { fontSize: 14, fontWeight: '700', color: C.ink900 },
 });

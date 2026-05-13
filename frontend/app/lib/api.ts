@@ -2,7 +2,7 @@ const BASE = process.env.EXPO_PUBLIC_API_BASE;
 
 type RefreshConfig = {
   spotifyId: string;
-  onNewToken: (token: string) => void;
+  onNewToken: (token: string, expiresAt: number) => void;
   onAuthFailure: () => void;
 };
 
@@ -24,8 +24,9 @@ async function tryRefresh(): Promise<string | null> {
         body: JSON.stringify({ spotifyId: _refresh!.spotifyId }),
       });
       if (!res.ok) return null;
-      const { access_token } = await res.json();
-      _refresh!.onNewToken(access_token);
+      const { access_token, expires_in } = await res.json();
+      const expiresAt = Date.now() + (expires_in ?? 3600) * 1000;
+      _refresh!.onNewToken(access_token, expiresAt);
       return access_token;
     } catch {
       return null;

@@ -14,6 +14,7 @@ export default function Feed() {
   const [feed, setFeed]             = useState<{ items: FeedItem[]; myId: string }>({ items: [], myId: '' });
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError]           = useState(false);
   const { items, myId } = feed;
 
   async function load(isRefresh = false) {
@@ -22,8 +23,9 @@ export default function Feed() {
     try {
       const data = await api.get('/users/feed/me', token);
       setFeed({ items: data.items, myId: data.myId });
+      setError(false);
     } catch {
-      setFeed({ items: [], myId: '' });
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -39,6 +41,16 @@ export default function Feed() {
 
       {loading ? (
         <View style={s.center}><ActivityIndicator color={C.violet} size="large" /></View>
+      ) : error ? (
+        <ScrollView
+          style={s.scroll}
+          contentContainerStyle={s.center}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.violet} />}
+        >
+          <Icon name="wifi-off" size={32} color={C.fg4} />
+          <Text style={s.emptyTitle}>Failed to load feed</Text>
+          <Text style={s.empty}>Pull down to retry.</Text>
+        </ScrollView>
       ) : items.length === 0 ? (
         <View style={s.center}>
           <Icon name="search" size={32} color={C.fg4} />

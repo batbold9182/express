@@ -3,15 +3,25 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Eyebrow, Icon } from '../components';
-import { C, R } from '../theme';
+import { C, R, scoreColor } from '../theme';
 import { useAuth } from '../context/auth';
-import { useRate } from '../context/rate';
 import { api } from '../lib/api';
 
-type Track  = { id: string; name: string; artists: { name: string }[]; album: { images: { url: string }[] } };
+type Track  = { id: string; name: string; artists: { name: string }[]; album: { id: string; images: { url: string }[] } };
 type Album  = { id: string; name: string; artists: { name: string }[]; images: { url: string }[] };
 type Artist = { id: string; name: string; images: { url: string }[]; genres: string[] };
 type UserResult = { _id: string; spotifyId: string; displayName: string; avatarUrl: string; isFollowing: boolean };
+type TrendingItem = {
+  _id: string;
+  type?: 'track' | 'album' | 'artist';
+  trackName: string;
+  artistName: string;
+  albumArt: string;
+  score: number;
+  spotifyTrackId?: string;
+  spotifyAlbumId?: string;
+  spotifyArtistId?: string;
+};
 
 const SCOPES   = ['All', 'Songs', 'Albums', 'Artists', 'People'];
 const TYPE_MAP = ['track,album,artist', 'track', 'album', 'artist'];
@@ -83,11 +93,12 @@ export default function Search() {
   const [albums, setAlbums]   = useState<Album[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [users, setUsers]     = useState<UserResult[]>([]);
+  const [trending, setTrending] = useState<TrendingItem[]>([]);
+  const [recents, setRecents]   = useState<string[]>([]);
   const [reviewedTrackIds, setReviewedTrackIds]   = useState<Set<string>>(new Set());
   const [reviewedAlbumIds, setReviewedAlbumIds]   = useState<Set<string>>(new Set());
   const [reviewedArtistIds, setReviewedArtistIds] = useState<Set<string>>(new Set());
   const { token, spotifyId }  = useAuth();
-  const { setItem }           = useRate();
   const router                = useRouter();
   const insets                = useSafeAreaInsets();
   const timer                 = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,13 +122,28 @@ export default function Search() {
     }).catch(() => {});
   }, [token]);
 
+  useEffect(() => {
+    if (!token) return;
+    api.get('/reviews/trending?offset=0&limit=5', token)
+      .then((data: any) => setTrending(data.items ?? []))
+      .catch(() => {});
+  }, [token]);
+
+  function addRecent(term: string) {
+    const t = term.trim();
+    if (!t) return;
+    setRecents(prev => [t, ...prev.filter(r => r !== t)].slice(0, 5));
+  }
+
+  function navigateTrending(item: TrendingItem) {
+    if (item.type === 'artist' && item.spotifyArtistId) router.push(`/artist/${item.spotifyArtistId}` as any);
+    else if (item.type === 'album' && item.spotifyAlbumId) router.push(`/album/${item.spotifyAlbumId}` as any);
+    else if (item.spotifyTrackId) router.push(`/song/${item.spotifyTrackId}` as any);
+    else if (item.spotifyAlbumId) router.push(`/album/${item.spotifyAlbumId}` as any);
+  }
+
   function selectTrack(t: Track) {
-    if (reviewedTrackIds.has(t.id)) {
-      Alert.alert('Already reviewed', 'You\'ve already rated this track. Delete your existing review to post a new one.');
-      return;
-    }
-    setItem({ spotifyTrackId: t.id, trackName: t.name, artistName: t.artists.map(a => a.name).join(', '), albumArt: t.album?.images?.[0]?.url ?? '' });
-    router.push('/(tabs)/rate');
+    router.push(`/song/${t.id}` as any);
   }
 
   function selectAlbum(a: Album) {
@@ -144,6 +170,7 @@ export default function Search() {
           setArtists(data.artists?.items ?? []);
           setUsers([]);
         }
+        addRecent(q);
       } catch (e: any) {
         if (e.name === 'AbortError') return;
         setTracks([]); setAlbums([]); setArtists([]); setUsers([]);
@@ -193,10 +220,57 @@ export default function Search() {
       <ScrollView style={s.scroll} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {loading && <ActivityIndicator color={C.violet} style={{ marginTop: 40 }} />}
 
-        {!loading && !q && (
+        {/* Empty state — recents + trending */}
+        {!loading && !q && !isPeople && (
+          <>
+            {recents.length > 0 && (
+              <>
+                <Text style={s.sectionLabel}>RECENT</Text>
+                <View style={{ gap: 2, marginBottom: 24 }}>
+                  {recents.map(r => (
+                    <TouchableOpacity key={r} onPress={() => setQ(r)} activeOpacity={0.7} style={s.recentRow}>
+                      <Icon name="search" size={14} color={C.fg3} />
+                      <Text style={s.recentTxt} numberOfLines={1}>{r}</Text>
+                      <Icon name="arrow-right" size={13} color={C.fg4} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {trending.length > 0 && (
+              <>
+                <View style={s.trendingHeader}>
+                  <Text style={s.trendingFire}>🔥</Text>
+                  <Text style={s.sectionLabel}>TRENDING NOW</Text>
+                </View>
+                <View style={{ gap: 8, marginTop: 8 }}>
+                  {trending.map((item, i) => (
+                    <TouchableOpacity key={item._id} onPress={() => navigateTrending(item)} activeOpacity={0.85} style={s.trendRow}>
+                      <Text style={s.trendRank}>{i + 1}</Text>
+                      {item.albumArt
+                        ? <Image source={{ uri: item.albumArt }} style={s.trendArt} />
+                        : <View style={[s.trendArt, { backgroundColor: C.glass }]} />}
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.trendName} numberOfLines={1}>{item.trackName}</Text>
+                        <Text style={s.trendArtist} numberOfLines={1}>{item.artistName}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[s.trendScore, { color: scoreColor(item.score) }]}>{item.score.toFixed(1)}</Text>
+                        <Text style={s.trendDenom}>/10</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+          </>
+        )}
+
+        {!loading && !q && isPeople && (
           <View style={s.emptyWrap}>
             <Icon name="search" size={32} color={C.fg4} />
-            <Text style={s.emptyTxt}>{isPeople ? 'Find people to follow.' : 'Search Spotify to find something to rate.'}</Text>
+            <Text style={s.emptyTxt}>Find people to follow.</Text>
           </View>
         )}
 
@@ -323,6 +397,21 @@ const s = StyleSheet.create({
   scroll:     { flex: 1 },
   emptyWrap:  { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 12 },
   emptyTxt:   { fontSize: 13, color: C.fg3, textAlign: 'center' },
+
+  sectionLabel:   { fontSize: 10, fontWeight: '700', color: C.fg4, letterSpacing: 1.2, marginBottom: 8 },
+  trendingHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 0 },
+  trendingFire:   { fontSize: 13 },
+
+  recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.stroke },
+  recentTxt: { flex: 1, fontSize: 13, color: C.fg2 },
+
+  trendRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke },
+  trendRank:   { width: 20, fontSize: 16, fontWeight: '700', color: C.violet, textAlign: 'center' },
+  trendArt:    { width: 48, height: 48, borderRadius: R.r2 },
+  trendName:   { fontSize: 14, fontWeight: '600', color: C.fg },
+  trendArtist: { fontSize: 11, color: C.fg3, marginTop: 2 },
+  trendScore:  { fontSize: 18, fontWeight: '700', letterSpacing: -0.5 },
+  trendDenom:  { fontSize: 10, color: C.fg4 },
 
   row:      { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke },
   thumb:    { width: 44, height: 44, borderRadius: 6 },
