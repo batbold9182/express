@@ -18,8 +18,8 @@ function SpotifyIcon() {
 }
 
 function getSpotifyAuthURL() {
-    const redirectBase = ExpoLinking.createURL('').replace(/\/+$/, '');
-    return `${process.env.EXPO_PUBLIC_API_BASE}/auth/login?redirect=${encodeURIComponent(redirectBase)}`;
+    const successURL = ExpoLinking.createURL('auth/success');
+    return `${process.env.EXPO_PUBLIC_API_BASE}/auth/login?redirect=${encodeURIComponent(successURL)}`;
 }
 
 export default function Login() {

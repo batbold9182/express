@@ -23,9 +23,11 @@ router.get('/login', (req: Request, res: Response) => {
 router.get('/callback', async (req: Request, res: Response) => {
   const code = req.query.code as string;
   const state = req.query.state as string | undefined;
-  const frontendBase = state
+  const fallbackBase = process.env.FRONTEND_BASE ?? `http://${process.env.IP_ADDRESS}:8081`;
+  const successURL = state
     ? Buffer.from(state, 'base64').toString('utf8')
-    : process.env.FRONTEND_BASE ?? `http://${process.env.IP_ADDRESS}:8081`;
+    : `${fallbackBase}/auth/success`;
+  const loginURL = successURL.replace('auth/success', 'auth/login');
 
   if (!code) { res.status(400).json({ error: 'Missing code' }); return; }
   if (usedCodes.has(code)) { res.status(400).json({ error: 'Code already used' }); return; }
@@ -71,7 +73,7 @@ router.get('/callback', async (req: Request, res: Response) => {
   let spotifyId = '';
   if (!profileRes || !profileRes.ok) {
     console.error('❌ Spotify /me failed:', profileRes?.status, await profileRes?.text());
-    res.redirect(`${frontendBase}/auth/login`);
+    res.redirect(loginURL);
     return;
   } else {
     try {
@@ -97,7 +99,7 @@ router.get('/callback', async (req: Request, res: Response) => {
   }
 
   const expiresAt = Date.now() + tokens.expires_in * 1000;
-  res.redirect(`${frontendBase}/auth/success?access_token=${tokens.access_token}&spotify_id=${spotifyId}&expires_at=${expiresAt}`);
+  res.redirect(`${successURL}?access_token=${tokens.access_token}&spotify_id=${spotifyId}&expires_at=${expiresAt}`);
 });
 
 router.post('/refresh', async (req: Request, res: Response) => {

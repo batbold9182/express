@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
-  TouchableOpacity, ActivityIndicator, Linking, Alert,
+  TouchableOpacity, ActivityIndicator, Linking, Alert, RefreshControl,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { C, R, scoreColor } from '../theme';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { api } from '../lib/api';
+import { shareUrl } from '../lib/share';
 import { ProfileReviewCard, type ProfileReview } from '../profile/ReviewCard';
 
 type SpotifyTrack = {
@@ -48,6 +49,7 @@ export default function AlbumDetail() {
   const [reviews, setReviews]   = useState<AlbumReview[]>([]);
   const [avgScore, setAvgScore] = useState<number | null>(null);
   const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError]       = useState(false);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
   const [reviewedTrackIds, setReviewedTrackIds] = useState<Set<string>>(new Set());
@@ -56,9 +58,9 @@ export default function AlbumDetail() {
   const offsetRef               = useRef(0);
   const loadingMoreRef          = useRef(false);
 
-  function load() {
+  function load(isRefresh = false) {
     if (!token || !id) return;
-    setLoading(true);
+    if (isRefresh) setRefreshing(true); else setLoading(true);
     setError(false);
     offsetRef.current = 0;
     Promise.allSettled([
@@ -78,7 +80,7 @@ export default function AlbumDetail() {
       m.forEach(r => { if (r.type !== 'album' && r.spotifyTrackId) trackIds.add(r.spotifyTrackId); });
       setReviewedTrackIds(trackIds);
       setAlreadyReviewed(m.some(r => r.type === 'album' && r.spotifyAlbumId === id));
-    }).finally(() => setLoading(false));
+    }).finally(() => { setLoading(false); setRefreshing(false); });
   }
 
   async function loadMore() {
@@ -107,6 +109,7 @@ export default function AlbumDetail() {
     setItem({
       type: 'album',
       spotifyAlbumId: album.id,
+      spotifyArtistId: album.artists[0]?.id,
       trackName: album.name,
       artistName: album.artists.map(a => a.name).join(', '),
       albumArt: album.images[0]?.url ?? '',
@@ -128,7 +131,7 @@ export default function AlbumDetail() {
       <View style={[s.screen, { alignItems: 'center', justifyContent: 'center', gap: 12 }]}>
         <Icon name="wifi-off" size={32} color={C.fg4} />
         <Text style={{ color: C.fg, fontWeight: '600', fontSize: 16 }}>Something went wrong</Text>
-        <TouchableOpacity onPress={load} activeOpacity={0.7} style={s.retryBtn}>
+        <TouchableOpacity onPress={() => load()} activeOpacity={0.7} style={s.retryBtn}>
           <Text style={s.retryTxt}>Try again</Text>
         </TouchableOpacity>
       </View>
@@ -155,19 +158,21 @@ export default function AlbumDetail() {
           <Icon name="arrow-left" size={22} color={C.fg} />
         </TouchableOpacity>
         <Text style={s.topBarTitle} numberOfLines={1}>{album.name}</Text>
-        <TouchableOpacity
-          onPress={() => Linking.openURL(`https://open.spotify.com/album/${album.id}`)}
-          activeOpacity={0.7}
-          style={s.spotifyBtn}
-        >
-          <Text style={s.spotifyTxt}>▶</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity onPress={() => shareUrl(`https://open.spotify.com/album/${album.id}`, `${album.name} by ${artistStr}`)} activeOpacity={0.7} style={s.backBtn}>
+            <Icon name="share" size={18} color={C.fg} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Linking.openURL(`https://open.spotify.com/album/${album.id}`)} activeOpacity={0.7} style={s.spotifyBtn}>
+            <Text style={s.spotifyTxt}>▶</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
         style={s.scroll}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.violet} />}
         onScroll={({ nativeEvent: e }) => {
           if (e.contentOffset.y + e.layoutMeasurement.height >= e.contentSize.height - 300) loadMore();
         }}

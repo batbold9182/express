@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
-  TouchableOpacity, ActivityIndicator, Alert, TextInput, Dimensions,
+  TouchableOpacity, ActivityIndicator, Alert, TextInput, Dimensions, RefreshControl,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { C, R, scoreColor } from '../theme';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { api } from '../lib/api';
+import { shareUrl } from '../lib/share';
 import { ProfileReviewCard, type ProfileReview } from '../profile/ReviewCard';
 
 type SpotifyArtist = {
@@ -63,6 +64,7 @@ export default function ArtistDetail() {
   const [reviews, setReviews]   = useState<ArtistReview[]>([]);
   const [avgScore, setAvgScore] = useState<number | null>(null);
   const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError]       = useState(false);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
 
@@ -77,9 +79,9 @@ export default function ArtistDetail() {
   const reviewOffsetRef = useRef(0);
   const reviewLoadingMoreRef = useRef(false);
 
-  function load() {
+  function load(isRefresh = false) {
     if (!token || !id) return;
-    setLoading(true);
+    if (isRefresh) setRefreshing(true); else setLoading(true);
     setError(false);
     reviewOffsetRef.current = 0;
     Promise.allSettled([
@@ -101,7 +103,7 @@ export default function ArtistDetail() {
         reviewOffsetRef.current = (revData.reviews ?? []).length;
       }
       setAlreadyReviewed(mine.some((r: any) => r.type === 'artist' && r.spotifyArtistId === id));
-    }).finally(() => setLoading(false));
+    }).finally(() => { setLoading(false); setRefreshing(false); });
   }
 
   async function loadMoreReviews() {
@@ -198,7 +200,7 @@ export default function ArtistDetail() {
       <View style={[s.screen, { alignItems: 'center', justifyContent: 'center', gap: 12 }]}>
         <Icon name="wifi-off" size={32} color={C.fg4} />
         <Text style={{ color: C.fg, fontWeight: '600', fontSize: 16 }}>Something went wrong</Text>
-        <TouchableOpacity onPress={load} activeOpacity={0.7} style={s.retryBtn}>
+        <TouchableOpacity onPress={() => load()} activeOpacity={0.7} style={s.retryBtn}>
           <Text style={s.retryTxt}>Try again</Text>
         </TouchableOpacity>
       </View>
@@ -222,13 +224,16 @@ export default function ArtistDetail() {
           <Icon name="arrow-left" size={22} color={C.fg} />
         </TouchableOpacity>
         <Text style={s.topBarTitle} numberOfLines={1}>{artist.name}</Text>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity onPress={() => shareUrl(`https://open.spotify.com/artist/${artist.id}`, artist.name)} activeOpacity={0.7} style={s.backBtn}>
+          <Icon name="share" size={18} color={C.fg} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         style={s.scroll}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.violet} />}
         onScroll={onScroll}
         scrollEventThrottle={200}
       >

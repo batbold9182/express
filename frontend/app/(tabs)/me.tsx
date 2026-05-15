@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image, TextInput, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TopBar, Eyebrow, GCard, Icon } from '../components';
@@ -23,6 +23,7 @@ export default function Profile() {
   const [topArtists, setTopArtists] = useState<SpotifyArtist[]>([]);
   const [lists, setLists]         = useState<{ _id: string; title: string; items: any[] }[]>([]);
   const [loading, setLoading]     = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [nowPlaying, setNowPlaying] = useState<{ trackName: string; artistName: string; albumArt?: string; isPlaying: boolean } | null>(null);
 
   const [tab, setTab]             = useState<ReviewType | null>(null);
@@ -40,8 +41,10 @@ export default function Profile() {
 
   const reviews = tab ? (cache[tab] ?? null) : null;
 
-  useEffect(() => {
+  function load(isRefresh = false) {
     if (!token || !spotifyId) return;
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    if (isRefresh) { setCache({}); offsetMap.current = {}; }
     Promise.allSettled([
       api.get('/me', token),
       api.get(`/users/${spotifyId}`, token),
@@ -53,8 +56,10 @@ export default function Profile() {
       setAppUser(ok(au));
       setLists(ok(ls) ?? []);
       setCounts(ok(c) ?? { track: 0, album: 0, artist: 0 });
-    }).finally(() => setLoading(false));
-  }, [token, spotifyId]);
+    }).finally(() => { setLoading(false); setRefreshing(false); });
+  }
+
+  useEffect(() => { load(); }, [token, spotifyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!token) return;
@@ -159,6 +164,7 @@ export default function Profile() {
         style={s.scroll}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.violet} />}
         onScroll={({ nativeEvent: e }) => {
           if (e.contentOffset.y + e.layoutMeasurement.height < e.contentSize.height - 300) return;
           if (tab && hasMoreMap[tab] && !loadingMoreRef.current) loadTabPage(tab, offsetMap.current[tab] ?? 0);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Linking, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Score, Eyebrow, GCard, StreamingBadge, BtnPrimary, BtnGlass, Icon, MoodTag } from '../components';
@@ -7,6 +7,7 @@ import { C, R } from '../theme';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { api } from '../lib/api';
+import { shareUrl } from '../lib/share';
 
 type SpotifyTrack = {
   id: string;
@@ -44,15 +45,16 @@ export default function SongDetail() {
   const [distribution, setDistribution] = useState<number[]>(Array(10).fill(0));
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
   const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
   const [error, setError]               = useState(false);
   const [hasMore, setHasMore]           = useState(true);
   const [loadingMore, setLoadingMore]   = useState(false);
   const offsetRef                        = useRef(0);
   const loadingMoreRef                   = useRef(false);
 
-  function load() {
+  function load(isRefresh = false) {
     if (!token || !id) return;
-    setLoading(true);
+    if (isRefresh) setRefreshing(true); else setLoading(true);
     setError(false);
     offsetRef.current = 0;
     Promise.allSettled([
@@ -76,7 +78,7 @@ export default function SongDetail() {
       setAlreadyReviewed(mine.some((r: any) =>
         (r.type === 'track' || !r.type) && r.spotifyTrackId === id
       ));
-    }).finally(() => setLoading(false));
+    }).finally(() => { setLoading(false); setRefreshing(false); });
   }
 
   async function loadMore() {
@@ -102,6 +104,7 @@ export default function SongDetail() {
       type: 'track',
       spotifyTrackId: track.id,
       spotifyAlbumId: track.album.id,
+      spotifyArtistId: track.artists[0]?.id,
       trackName: track.name,
       artistName: track.artists.map(a => a.name).join(', '),
       albumArt: track.album.images[0]?.url ?? '',
@@ -122,7 +125,7 @@ export default function SongDetail() {
       <View style={[s.screen, { alignItems: 'center', justifyContent: 'center', gap: 12 }]}>
         <Icon name="wifi-off" size={32} color={C.fg4} />
         <Text style={{ color: C.fg, fontWeight: '600', fontSize: 16 }}>Something went wrong</Text>
-        <TouchableOpacity onPress={load} activeOpacity={0.7} style={s.retryBtn}>
+        <TouchableOpacity onPress={() => load()} activeOpacity={0.7} style={s.retryBtn}>
           <Text style={s.retryTxt}>Try again</Text>
         </TouchableOpacity>
       </View>
@@ -143,9 +146,12 @@ export default function SongDetail() {
         </View>
       )}
 
-      <View style={[s.navRow, { top: insets.top + 8 }]}>
+      <View style={[s.navRow, { top: insets.top + 8, justifyContent: 'space-between' }]}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.8} style={s.circleBtn}>
           <Icon name="arrow-left" size={16} color={C.fg} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => shareUrl(`https://open.spotify.com/track/${track!.id}`, `${track!.name} by ${artistStr}`)} activeOpacity={0.8} style={s.circleBtn}>
+          <Icon name="share" size={16} color={C.fg} />
         </TouchableOpacity>
       </View>
 
@@ -153,6 +159,7 @@ export default function SongDetail() {
         style={s.scroll}
         contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.violet} />}
         onScroll={({ nativeEvent: e }) => {
           if (e.contentOffset.y + e.layoutMeasurement.height >= e.contentSize.height - 300) loadMore();
         }}

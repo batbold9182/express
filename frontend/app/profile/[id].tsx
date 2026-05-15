@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GCard, Eyebrow, Icon } from '../components';
@@ -29,6 +29,7 @@ export default function UserProfile() {
   const [profile, setProfile]   = useState<AppUser | null>(null);
   const [lists, setLists]       = useState<{ _id: string; title: string; items: any[] }[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [following, setFollowing] = useState(false);
   const [busy, setBusy]         = useState(false);
 
@@ -47,8 +48,10 @@ export default function UserProfile() {
   const reviews = tab ? (cache[tab] ?? null) : null;
   const totalReviews = counts.track + counts.album + counts.artist;
 
-  useEffect(() => {
+  function load(isRefresh = false) {
     if (!token || !id) return;
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    if (isRefresh) { setCache({}); offsetMap.current = {}; }
     Promise.allSettled([
       api.get(`/users/${id}`, token),
       api.get(`/users/${id}/lists`, token),
@@ -59,8 +62,10 @@ export default function UserProfile() {
       if (u) { setProfile(u); setFollowing(u.isFollowing); }
       setLists(ok(ls) ?? []);
       setCounts(ok(c) ?? { track: 0, album: 0, artist: 0 });
-    }).finally(() => setLoading(false));
-  }, [id, token]);
+    }).finally(() => { setLoading(false); setRefreshing(false); });
+  }
+
+  useEffect(() => { load(); }, [id, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function selectTab(type: ReviewType) {
     if (tab === type) { setTab(null); return; }
@@ -140,6 +145,7 @@ export default function UserProfile() {
         style={s.scroll}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.violet} />}
         onScroll={({ nativeEvent: e }) => {
           if (e.contentOffset.y + e.layoutMeasurement.height < e.contentSize.height - 300) return;
           if (tab && hasMoreMap[tab] && !loadingMoreRef.current) loadTabPage(tab, offsetMap.current[tab] ?? 0);

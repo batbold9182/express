@@ -39,21 +39,29 @@ export function ProfileReviewCard({ r }: { r: ProfileReview }) {
 
   return (
     <GCard style={{ padding: 12, gap: 8 }}>
-      <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-        {r.albumArt
-          ? <Image source={{ uri: r.albumArt }} style={s.art} />
-          : <View style={[s.art, { backgroundColor: C.glass }]} />}
+      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+        <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
+          {r.albumArt
+            ? <Image source={{ uri: r.albumArt }} style={s.art} />
+            : <View style={[s.art, { backgroundColor: C.glass }]} />}
+        </TouchableOpacity>
         <View style={{ flex: 1, gap: 2 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[s.track, { flex: 1 }]} numberOfLines={1}>{r.trackName}</Text>
             <View style={[s.typePill, { borderColor: typeCfg.color + '55', backgroundColor: typeCfg.color + '18' }]}>
               <Text style={[s.typeTxt, { color: typeCfg.color }]}>{typeCfg.label}</Text>
             </View>
-          </View>
-          <Text style={s.artist} numberOfLines={1}>{r.artistName}</Text>
+          </TouchableOpacity>
+          {r.spotifyArtistId
+            ? <TouchableOpacity onPress={() => router.push(`/artist/${r.spotifyArtistId}` as any)} activeOpacity={0.7}>
+                <Text style={[s.artist, { color: C.violet }]} numberOfLines={1}>{r.artistName}</Text>
+              </TouchableOpacity>
+            : <Text style={s.artist} numberOfLines={1}>{r.artistName}</Text>}
         </View>
-        <Text style={[s.score, { color: scoreColor(r.score) }]}>{r.score.toFixed(1)}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
+          <Text style={[s.score, { color: scoreColor(r.score) }]}>{r.score.toFixed(1)}</Text>
+        </TouchableOpacity>
+      </View>
       {!!r.text && <Text style={s.reviewText}>{r.text}</Text>}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>

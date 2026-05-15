@@ -1,12 +1,21 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity, Linking, Alert } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { useRouter } from 'expo-router';
-import { GCard, Icon } from '../../components';
+import { GCard, Icon, Mood } from '../../components';
 import { C, R, scoreColor } from '../../theme';
 import { api } from '../../lib/api';
+import { shareUrl } from '../../lib/share';
 import type { FeedItem } from './types';
 import { LikeButton } from './LikeButton';
 import { CommentSection } from './CommentSection';
+
+const MOOD_LIST: [string, string][] = [
+  ['nostalgic', '#B14EFF'], ['hype', '#FF3FA4'],   ['sad', '#00D9FF'],
+  ['banger', '#C6FF3D'],    ['grower', '#FFB547'],  ['late night', '#7E22CE'],
+  ['driving', '#5BE9FF'],   ['heartbreak', '#FF6FBA'], ['rage', '#FF4D6D'],
+  ['chill', '#5BE9FF'],
+];
 
 function formatTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -36,15 +45,29 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
   }
   const [showActions, setShowActions] = useState(false);
   const [editing, setEditing]         = useState(false);
-  const [editText, setEditText]       = useState(item.text);
+  const [editText, setEditText]         = useState(item.text);
+  const [editScore, setEditScore]       = useState(item.score);
+  const [editMoods, setEditMoods]       = useState<string[]>(item.moods ?? []);
+  const [displayText, setDisplayText]   = useState(item.text);
+  const [displayScore, setDisplayScore] = useState(item.score);
+  const [displayMoods, setDisplayMoods] = useState<string[]>(item.moods ?? []);
   const [busy, setBusy]               = useState(false);
   const isOwn = item.userId._id?.toString() === myId;
+
+  function toggleMood(m: string) {
+    setEditMoods(prev =>
+      prev.includes(m) ? prev.filter(x => x !== m) : prev.length < 3 ? [...prev, m] : prev
+    );
+  }
 
   async function saveEdit() {
     if (busy) return;
     setBusy(true);
     try {
-      await api.put(`/reviews/${item._id}`, token, { text: editText });
+      await api.put(`/reviews/${item._id}`, token, { text: editText, score: editScore, moods: editMoods });
+      setDisplayText(editText);
+      setDisplayScore(editScore);
+      setDisplayMoods(editMoods);
       setEditing(false);
       setShowActions(false);
     } catch {} finally { setBusy(false); }
@@ -85,66 +108,101 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
       )}
 
       {editing && (
-        <View style={s.editRow}>
-          <TextInput
-            value={editText}
-            onChangeText={t => setEditText(t.slice(0, 280))}
-            style={{ flex: 1, fontSize: 13, color: C.fg }}
-            multiline
-            autoFocus
-          />
-          <TouchableOpacity onPress={saveEdit} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: C.violet }}>Save</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => { setEditing(false); setEditText(item.text); }} activeOpacity={0.7}>
-            <Icon name="x" size={14} color={C.fg3} />
-          </TouchableOpacity>
+        <View style={{ gap: 10 }}>
+          <View style={s.editRow}>
+            <TextInput
+              value={editText}
+              onChangeText={t => setEditText(t.slice(0, 280))}
+              style={{ flex: 1, fontSize: 13, color: C.fg }}
+              multiline
+              autoFocus
+            />
+            <TouchableOpacity onPress={saveEdit} activeOpacity={0.7}>
+              <Text style={{ fontSize: 12, color: C.violet }}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setEditing(false); setEditText(displayText); setEditScore(displayScore); setEditMoods(displayMoods); }} activeOpacity={0.7}>
+              <Icon name="x" size={14} color={C.fg3} />
+            </TouchableOpacity>
+          </View>
+          <View style={{ gap: 4 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 10, color: C.fg3 }}>Score</Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: scoreColor(editScore) }}>{editScore.toFixed(1)}</Text>
+            </View>
+            <Slider
+              minimumValue={0} maximumValue={10} step={0.5}
+              value={editScore} onValueChange={setEditScore}
+              minimumTrackTintColor={C.violet} maximumTrackTintColor={C.glass}
+              thumbTintColor={C.violet}
+              style={{ height: 28 }}
+            />
+          </View>
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 10, color: C.fg3 }}>Mood · pick up to 3</Text>
+              <Text style={{ fontSize: 10, color: C.fg3 }}>{editMoods.length}/3</Text>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {MOOD_LIST.map(([m, mc]) => (
+                <Mood key={m} color={mc} selected={editMoods.includes(m)} onPress={() => toggleMood(m)}>{m}</Mood>
+              ))}
+            </View>
+          </View>
         </View>
       )}
 
-      <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-        {item.albumArt
-          ? <Image source={{ uri: item.albumArt }} style={s.art} />
-          : <View style={[s.art, { backgroundColor: C.glass }]} />}
+      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+        <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
+          {item.albumArt
+            ? <Image source={{ uri: item.albumArt }} style={s.art} />
+            : <View style={[s.art, { backgroundColor: C.glass }]} />}
+        </TouchableOpacity>
         <View style={{ flex: 1, gap: 2 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[s.track, { flex: 1 }]} numberOfLines={1}>{item.trackName}</Text>
             <View style={[s.typePill, { borderColor: typeCfg.color + '55', backgroundColor: typeCfg.color + '18' }]}>
               <Text style={[s.typeTxt, { color: typeCfg.color }]}>{typeCfg.label}</Text>
             </View>
-          </View>
-          <Text style={s.artist} numberOfLines={1}>{item.artistName}</Text>
+          </TouchableOpacity>
+          {item.spotifyArtistId
+            ? <TouchableOpacity onPress={() => router.push(`/artist/${item.spotifyArtistId}` as any)} activeOpacity={0.7}>
+                <Text style={[s.artist, { color: C.violet }]} numberOfLines={1}>{item.artistName}</Text>
+              </TouchableOpacity>
+            : <Text style={s.artist} numberOfLines={1}>{item.artistName}</Text>}
         </View>
-        <Text style={[s.score, { color: scoreColor(item.score) }]}>{item.score.toFixed(1)}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
+          <Text style={[s.score, { color: scoreColor(displayScore) }]}>{displayScore.toFixed(1)}</Text>
+        </TouchableOpacity>
+      </View>
 
-      {!!item.text && <Text style={s.reviewText}>{item.text}</Text>}
+      {!!displayText && <Text style={s.reviewText}>{displayText}</Text>}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          {item.moods?.map(m => (
+          {displayMoods.map(m => (
             <View key={m} style={s.moodChip}>
               <Text style={s.moodTxt}>{m}</Text>
             </View>
           ))}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {(item.spotifyTrackId || item.spotifyAlbumId || item.spotifyArtistId) && (
-            <TouchableOpacity
-              onPress={() => {
-                const url = item.type === 'artist' && item.spotifyArtistId
-                  ? `https://open.spotify.com/artist/${item.spotifyArtistId}`
-                  : item.type === 'album' && item.spotifyAlbumId
-                    ? `https://open.spotify.com/album/${item.spotifyAlbumId}`
-                    : `https://open.spotify.com/track/${item.spotifyTrackId}`;
-                Linking.openURL(url);
-              }}
-              activeOpacity={0.7}
-              style={s.spotifyBtn}
-            >
-              <Text style={s.spotifyTxt}>▶ Spotify</Text>
-            </TouchableOpacity>
-          )}
+          {(item.spotifyTrackId || item.spotifyAlbumId || item.spotifyArtistId) && (() => {
+            const url = item.type === 'artist' && item.spotifyArtistId
+              ? `https://open.spotify.com/artist/${item.spotifyArtistId}`
+              : item.type === 'album' && item.spotifyAlbumId
+                ? `https://open.spotify.com/album/${item.spotifyAlbumId}`
+                : `https://open.spotify.com/track/${item.spotifyTrackId}`;
+            return (
+              <>
+                <TouchableOpacity onPress={() => shareUrl(url, `${item.trackName} by ${item.artistName}`)} activeOpacity={0.7}>
+                  <Icon name="share" size={14} color={C.fg3} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => Linking.openURL(url)} activeOpacity={0.7} style={s.spotifyBtn}>
+                  <Text style={s.spotifyTxt}>▶ Spotify</Text>
+                </TouchableOpacity>
+              </>
+            );
+          })()}
           <LikeButton reviewId={item._id} likes={item.likes ?? []} token={token} myId={myId} />
         </View>
       </View>
