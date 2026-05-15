@@ -1,11 +1,18 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { C } from '../theme';
 
 export function Eyebrow({ children, color }: { children: string; color?: string }) {
-  return <Text style={[s.eyebrow, { color: color ?? C.fg3 }]}>{children}</Text>;
+  return (
+    <View style={s.wrap}>
+      <View style={[s.accent, { backgroundColor: color ?? C.violet }]} />
+      <Text style={[s.text, { color: color ?? C.fg3 }]}>{children}</Text>
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
-  eyebrow: { fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', color: C.fg3, marginBottom: 8 },
+  wrap:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  accent: { width: 3, height: 11, borderRadius: 2 },
+  text:   { fontSize: 11, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: C.fg3 },
 });

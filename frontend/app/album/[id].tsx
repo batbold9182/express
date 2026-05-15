@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GCard, Eyebrow, Icon } from '../components';
+import { GCard, Eyebrow, Icon, Score } from '../components';
 import { C, R, scoreColor } from '../theme';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
@@ -152,8 +152,6 @@ export default function AlbumDetail() {
 
   return (
     <View style={s.screen}>
-      <View style={s.glow} pointerEvents="none" />
-
       <View style={[s.topBar, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={s.backBtn}>
           <Icon name="arrow-left" size={22} color={C.fg} />
@@ -190,7 +188,7 @@ export default function AlbumDetail() {
 
           {avgScore !== null && (
             <View style={s.scoreRow}>
-              <Text style={[s.avgScore, { color: scoreColor(avgScore) }]}>{avgScore.toFixed(1)}</Text>
+              <Score value={avgScore} size="xl" glow />
               <Text style={s.avgLabel}>avg from {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</Text>
             </View>
           )}
@@ -263,7 +261,7 @@ export default function AlbumDetail() {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  glow:   { position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: 'rgba(177,78,255,0.08)' },
+
   scroll: { flex: 1 },
 
   topBar:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 },

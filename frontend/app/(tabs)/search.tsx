@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Eyebrow, Icon } from '../components';
@@ -186,7 +187,7 @@ export default function Search() {
   return (
     <View style={s.screen}>
 
-      <View style={[s.header, { paddingTop: insets.top + 12 }]}>
+      <BlurView intensity={70} tint="dark" style={[s.header, { paddingTop: insets.top + 12 }]}>
         <View style={s.searchBox}>
           <Icon name="search" size={18} color={C.fg3} />
           <TextInput
@@ -214,7 +215,7 @@ export default function Search() {
             </TouchableOpacity>
           ))}
         </ScrollView>
-      </View>
+      </BlurView>
 
       <ScrollView style={s.scroll} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {loading && <ActivityIndicator color={C.violet} style={{ marginTop: 40 }} />}
@@ -382,7 +383,7 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
 
   header: {
-    backgroundColor: 'rgba(11,8,22,0.80)',
+    backgroundColor: 'rgba(11,8,22,0.45)',
     borderBottomWidth: 1, borderBottomColor: C.stroke,
     paddingBottom: 12, paddingHorizontal: 16,
   },

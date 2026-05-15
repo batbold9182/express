@@ -1,11 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
-import { GCard, Icon, MoodTag } from '../components';
+import { GCard, Icon, MoodTag, Score } from '../components';
 import { C, R, scoreColor } from '../theme';
+import { MOOD_LIST } from '../lib/constants';
 import type { ProfileReview } from '../lib/types';
 
 export type { ProfileReview };
+
+const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
 
 const TYPE_LABEL: Record<string, { label: string; color: string }> = {
   album:  { label: 'Album',  color: C.cyan },
@@ -25,7 +28,7 @@ export function ProfileReviewCard({ r }: { r: ProfileReview }) {
   }
 
   return (
-    <GCard style={{ padding: 12, gap: 8 }}>
+    <GCard style={{ padding: 12, gap: 8 }} accentColor={typeCfg.color} glowColor={r.score >= 8.5 ? scoreColor(r.score) : undefined}>
       <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
         <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
           {r.albumArt
@@ -35,25 +38,28 @@ export function ProfileReviewCard({ r }: { r: ProfileReview }) {
         <View style={{ flex: 1, gap: 2 }}>
           <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[s.track, { flex: 1 }]} numberOfLines={1}>{r.trackName}</Text>
-            <View style={[s.typePill, { borderColor: typeCfg.color + '55', backgroundColor: typeCfg.color + '18' }]}>
+            <View style={[s.typePill, { backgroundColor: typeCfg.color + '30' }]}>
               <Text style={[s.typeTxt, { color: typeCfg.color }]}>{typeCfg.label}</Text>
             </View>
           </TouchableOpacity>
           {r.spotifyArtistId
             ? <TouchableOpacity onPress={() => router.push(`/artist/${r.spotifyArtistId}` as any)} activeOpacity={0.7}>
-                <Text style={[s.artist, { color: C.violet }]} numberOfLines={1}>{r.artistName}</Text>
+                <Text style={[s.artist, { color: C.violet }]} numberOfLines={1}>{r.artistName} ›</Text>
               </TouchableOpacity>
             : <Text style={s.artist} numberOfLines={1}>{r.artistName}</Text>}
         </View>
         <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
-          <Text style={[s.score, { color: scoreColor(r.score) }]}>{r.score.toFixed(1)}</Text>
+          <View style={[s.scorePill, { backgroundColor: scoreColor(r.score) + '1A' }]}>
+            <Score value={r.score} size="md" glow={false} />
+          </View>
         </TouchableOpacity>
       </View>
+
       {!!r.text && <Text style={s.reviewText}>{r.text}</Text>}
 
       {(r.moods?.length ?? 0) > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          {r.moods!.map(m => <MoodTag key={m} label={m} />)}
+          {r.moods!.map(m => <MoodTag key={m} label={m} color={MOOD_COLOR[m]} />)}
         </View>
       )}
 
@@ -86,13 +92,13 @@ export function ProfileReviewCard({ r }: { r: ProfileReview }) {
 }
 
 export const s = StyleSheet.create({
-  art:        { width: 56, height: 56, borderRadius: R.r2 },
+  art:        { width: 56, height: 56, borderRadius: R.r2, borderWidth: 1, borderColor: C.stroke },
   track:      { fontSize: 14, fontWeight: '600', color: C.fg },
   artist:     { fontSize: 12, color: C.fg2 },
-  score:      { fontSize: 22, fontWeight: '600', letterSpacing: -0.5 },
+  scorePill:  { paddingHorizontal: 8, paddingVertical: 4, borderRadius: R.pill },
   reviewText: { fontSize: 13, color: C.fg2, lineHeight: 19 },
   spotifyBtn: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: R.pill, borderWidth: 1, borderColor: '#1DB954' },
   spotifyTxt: { fontSize: 10, fontWeight: '700', color: '#1DB954', letterSpacing: 0.4 },
-  typePill:   { paddingHorizontal: 6, paddingVertical: 2, borderRadius: R.pill, borderWidth: 1 },
-  typeTxt:    { fontSize: 9, fontWeight: '600', letterSpacing: 0.4 },
+  typePill:   { paddingHorizontal: 7, paddingVertical: 3, borderRadius: R.pill },
+  typeTxt:    { fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
 });

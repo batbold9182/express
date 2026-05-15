@@ -70,7 +70,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
   }
 
   return (
-    <GCard style={{ padding: 16, gap: 14 }} accentColor={typeCfg.color}>
+    <GCard style={{ padding: 16, gap: 14 }} accentColor={typeCfg.color} glowColor={displayScore >= 8.5 ? scoreColor(displayScore) : undefined}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {item.userId.avatarUrl
           ? <Image source={{ uri: item.userId.avatarUrl }} style={s.avatar} />
@@ -172,7 +172,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
         </View>
         <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
           <View style={[s.scorePill, { backgroundColor: scoreColor(displayScore) + '1A' }]}>
-            <Score value={displayScore} size="md" glow={displayScore >= 8.5} />
+            <Score value={displayScore} size="md" glow={false} />
           </View>
         </TouchableOpacity>
       </View>
@@ -185,7 +185,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
         </View>
       )}
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+      <View style={s.actionRow}>
         {(item.spotifyTrackId || item.spotifyAlbumId || item.spotifyArtistId) && (() => {
           const url = item.type === 'artist' && item.spotifyArtistId
             ? `https://open.spotify.com/artist/${item.spotifyArtistId}`
@@ -194,11 +194,12 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
               : `https://open.spotify.com/track/${item.spotifyTrackId}`;
           return (
             <>
-              <TouchableOpacity onPress={() => shareUrl(url, `${item.trackName} by ${item.artistName}`)} activeOpacity={0.7}>
-                <Icon name="share" size={15} color={C.fg3} />
+              <TouchableOpacity onPress={() => shareUrl(url, `${item.trackName} by ${item.artistName}`)} activeOpacity={0.7} style={s.shareBtn}>
+                <Icon name="share" size={18} color={C.fg3} />
               </TouchableOpacity>
+              <View style={{ flex: 1 }} />
               <TouchableOpacity onPress={() => Linking.openURL(url)} activeOpacity={0.7} style={s.spotifyBtn}>
-                <Text style={s.spotifyTxt}>▶ Spotify</Text>
+                <Text style={s.spotifyTxt}>▶  Spotify</Text>
               </TouchableOpacity>
             </>
           );
@@ -228,12 +229,18 @@ const s = StyleSheet.create({
   typeTxt:   { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   scorePill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: R.pill },
 
+  actionRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+  },
+  shareBtn: {
+    padding: 8, borderRadius: R.r2, backgroundColor: C.glassThin,
+  },
   spotifyBtn: {
-    paddingHorizontal: 9, paddingVertical: 4, borderRadius: R.pill,
+    paddingHorizontal: 16, paddingVertical: 9, borderRadius: R.pill,
     borderWidth: 1, borderColor: '#1DB954',
     alignItems: 'center', justifyContent: 'center',
   },
-  spotifyTxt: { fontSize: 10, fontWeight: '700', color: '#1DB954', letterSpacing: 0.4 },
+  spotifyTxt: { fontSize: 13, fontWeight: '700', color: '#1DB954', letterSpacing: 0.3 },
 
   actionsMenu: {
     flexDirection: 'row', alignItems: 'center', gap: 4,

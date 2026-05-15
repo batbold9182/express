@@ -2,12 +2,15 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Linking, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Score, Eyebrow, GCard, StreamingBadge, BtnPrimary, BtnGlass, Icon, MoodTag } from '../components';
+import { Avatar, Score, Eyebrow, GCard, StreamingBadge, BtnPrimary, BtnGlass, Icon, MoodTag } from '../components';
 import { C, R } from '../theme';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { api } from '../lib/api';
 import { shareUrl } from '../lib/share';
+import { MOOD_LIST } from '../lib/constants';
+
+const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
 
 type SpotifyTrack = {
   id: string;
@@ -237,19 +240,19 @@ export default function SongDetail() {
                 <TouchableOpacity onPress={() => router.push(`/profile/${r.userId.spotifyId}` as any)} activeOpacity={0.7}>
                   {r.userId.avatarUrl
                     ? <Image source={{ uri: r.userId.avatarUrl }} style={s.avatar} />
-                    : <View style={[s.avatar, { backgroundColor: C.glass }]} />}
+                    : <Avatar name={r.userId.displayName || '?'} size={36} style={{ borderWidth: 1, borderColor: C.stroke }} />}
                 </TouchableOpacity>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <TouchableOpacity onPress={() => router.push(`/profile/${r.userId.spotifyId}` as any)} activeOpacity={0.7}>
                       <Text style={s.revUser}>{r.userId.displayName}</Text>
                     </TouchableOpacity>
-                    <Score value={r.score} size="sm" glow={false} />
+                    <Score value={r.score} size="sm" glow={r.score >= 8.5} />
                   </View>
                   {!!r.text && <Text style={s.revText}>{r.text}</Text>}
                   {(r.moods?.length ?? 0) > 0 && (
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                      {r.moods!.map(m => <MoodTag key={m} label={m} />)}
+                      {r.moods!.map(m => <MoodTag key={m} label={m} color={MOOD_COLOR[m]} />)}
                     </View>
                   )}
                 </View>

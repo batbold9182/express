@@ -4,7 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Icon } from '../../components';
+import { Avatar, Icon } from '../../components';
 import { C, R } from '../../theme';
 import { api } from '../../lib/api';
 import type { Comment } from './types';
@@ -71,7 +71,7 @@ function CommentRow({ comment, reviewId, token, myId, isReply = false, onUpdate,
     <View style={[s.row, isReply && s.replyRow]}>
       {comment.userId?.avatarUrl
         ? <Image source={{ uri: comment.userId.avatarUrl }} style={{ width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }} />
-        : <View style={{ width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2, backgroundColor: C.glass }} />}
+        : <Avatar name={comment.userId?.displayName || '?'} size={avatarSize} />}
 
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -251,10 +251,10 @@ export function CommentSection({ reviewId, initial, token, myId }: Props) {
       <TouchableOpacity
         onPress={() => setOpen(v => !v)}
         activeOpacity={0.7}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}
+        style={[s.toggle, open && s.toggleOpen]}
       >
         <Icon name="comment" size={14} color={open ? C.violet : C.fg3} />
-        <Text style={{ fontSize: 12, color: open ? C.violet : C.fg3, fontWeight: '500' }}>
+        <Text style={[s.toggleTxt, open && { color: C.violet }]}>
           {totalCount > 0 ? `${totalCount} comment${totalCount > 1 ? 's' : ''}` : 'Comment'}
         </Text>
       </TouchableOpacity>
@@ -368,4 +368,8 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   inputReply: { borderColor: 'rgba(177,78,255,0.4)' },
+
+  toggle:     { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 12, borderRadius: R.pill, backgroundColor: C.glassThin, alignSelf: 'flex-start' },
+  toggleOpen: { backgroundColor: 'rgba(177,78,255,0.12)', },
+  toggleTxt:  { fontSize: 12, fontWeight: '600', color: C.fg3 },
 });

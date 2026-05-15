@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import MaskedView from "@react-native-masked-view/masked-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
 import { C, R } from "../theme";
@@ -27,6 +28,8 @@ export default function Login() {
 
     return (
         <View style={[s.screen, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 }]}>
+            <View style={s.bgGlow} pointerEvents="none" />
+
             <View style={s.hero}>
                 <LinearGradient
                     colors={["#B14EFF", "#FF3FA4"]}
@@ -34,7 +37,15 @@ export default function Login() {
                     end={{ x: 1, y: 1 }}
                     style={s.logoMark}
                 />
-                <Text style={s.appName}>tunelog</Text>
+                <MaskedView maskElement={<Text style={s.appName}>tunelog</Text>}>
+                    <LinearGradient
+                        colors={["#00D9FF", "#B14EFF", "#FF3FA4"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                    >
+                        <Text style={[s.appName, { opacity: 0 }]}>tunelog</Text>
+                    </LinearGradient>
+                </MaskedView>
                 <Text style={s.tagline}>rate the music you love</Text>
             </View>
 
@@ -53,6 +64,12 @@ const s = StyleSheet.create({
         paddingHorizontal: 28,
         justifyContent: "center",
         gap: 32,
+    },
+    bgGlow: {
+        position: 'absolute',
+        top: 0, left: 0, right: 0,
+        height: '60%',
+        backgroundColor: 'rgba(177,78,255,0.06)',
     },
     hero: {
         alignItems: "center",
