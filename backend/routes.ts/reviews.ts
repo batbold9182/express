@@ -167,13 +167,22 @@ router.delete('/:id/comments/:commentId', requireAuth, async (req: AuthRequest, 
 
 router.post('/:id/comments', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { text } = req.body;
+    const { text, parentId } = req.body;
     if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
+
+    if (parentId) {
+      const exists = await Review.findOne({ _id: req.params.id, 'comments._id': parentId });
+      if (!exists) { res.status(404).json({ error: 'Parent comment not found' }); return; }
+    }
+
+    const newComment: any = { userId: req.user!._id, text: text.trim() };
+    if (parentId) newComment.parentId = parentId;
+
     const review = await Review.findByIdAndUpdate(
       req.params.id,
-      { $push: { comments: { userId: req.user!._id, text: text.trim() } } },
+      { $push: { comments: newComment } },
       { returnDocument: 'after' }
-    ).populate('comments.userId', 'displayName avatarUrl');
+    ).populate('comments.userId', 'displayName avatarUrl spotifyId');
     if (!review) { res.status(404).json({ error: 'Review not found' }); return; }
     res.json(review.comments);
   } catch {

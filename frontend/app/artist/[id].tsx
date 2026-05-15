@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, Image,
   TouchableOpacity, ActivityIndicator, Alert, TextInput, Dimensions, RefreshControl,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Eyebrow, Icon } from '../components';
@@ -258,16 +259,19 @@ export default function ArtistDetail() {
         </View>
 
         {/* Rate button */}
-        <TouchableOpacity
-          onPress={rateArtist}
-          activeOpacity={0.85}
-          style={[s.rateBtn, alreadyReviewed && s.rateBtnReviewed]}
-        >
-          <Icon name="star" size={16} color={alreadyReviewed ? C.violet : C.ink900} />
-          <Text style={[s.rateTxt, alreadyReviewed && s.rateTxtReviewed]}>
-            {alreadyReviewed ? 'Already reviewed' : 'Rate this artist'}
-          </Text>
-        </TouchableOpacity>
+        {alreadyReviewed ? (
+          <TouchableOpacity onPress={rateArtist} activeOpacity={0.85} style={s.rateBtnReviewed}>
+            <Icon name="star" size={16} color={C.violet} />
+            <Text style={s.rateTxtReviewed}>Already reviewed</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={rateArtist} activeOpacity={0.85} style={{ borderRadius: R.pill, overflow: 'hidden' }}>
+            <LinearGradient colors={['#B14EFF', '#FF3FA4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.rateBtn}>
+              <Icon name="star" size={16} color={C.ink900} />
+              <Text style={s.rateTxt}>Rate this artist</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {/* Discography */}
         <View style={{ marginTop: 28 }}>
@@ -376,7 +380,7 @@ const s = StyleSheet.create({
   backBtn:     { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 
   hero:       { alignItems: 'center', gap: 6, paddingBottom: 20 },
-  cover:      { width: 180, height: 180, borderRadius: 90, borderWidth: 2, borderColor: C.violet, marginBottom: 8 },
+  cover:      { width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: C.violet, marginBottom: 8, shadowColor: C.violet, shadowOpacity: 0.3, shadowRadius: 20, shadowOffset: { width: 0, height: 0 } },
   artistName: { fontSize: 24, fontWeight: '700', color: C.fg, letterSpacing: -0.5, textAlign: 'center' },
   genre:      { fontSize: 12, color: C.violet, fontWeight: '500', letterSpacing: 0.4 },
   followers:  { fontSize: 12, color: C.fg3 },
@@ -385,10 +389,10 @@ const s = StyleSheet.create({
   avgScore: { fontSize: 36, fontWeight: '700', letterSpacing: -1 },
   avgLabel: { fontSize: 12, color: C.fg3 },
 
-  rateBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: R.pill, backgroundColor: C.violet },
-  rateBtnReviewed: { backgroundColor: 'transparent', borderWidth: 1, borderColor: C.violet },
+  rateBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, borderRadius: R.pill, shadowColor: C.violet, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 8 },
+  rateBtnReviewed: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: R.pill, borderWidth: 1, borderColor: C.violet },
   rateTxt:         { fontSize: 15, fontWeight: '700', color: C.ink900 },
-  rateTxtReviewed: { color: C.violet },
+  rateTxtReviewed: { fontSize: 15, fontWeight: '700', color: C.violet },
 
   discHeader:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   discTab:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 14, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },

@@ -247,7 +247,9 @@ export default function Search() {
                 <View style={{ gap: 8, marginTop: 8 }}>
                   {trending.map((item, i) => (
                     <TouchableOpacity key={item._id} onPress={() => navigateTrending(item)} activeOpacity={0.85} style={s.trendRow}>
-                      <Text style={s.trendRank}>{i + 1}</Text>
+                      <View style={[s.trendRankBadge, i === 0 && s.trendRankFirst]}>
+                        <Text style={[s.trendRank, i === 0 && s.trendRankFirstTxt]}>{i + 1}</Text>
+                      </View>
                       {item.albumArt
                         ? <Image source={{ uri: item.albumArt }} style={s.trendArt} />
                         : <View style={[s.trendArt, { backgroundColor: C.glass }]} />}
@@ -404,9 +406,12 @@ const s = StyleSheet.create({
   recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.stroke },
   recentTxt: { flex: 1, fontSize: 13, color: C.fg2 },
 
-  trendRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.strokeBright },
-  trendRank:   { width: 20, fontSize: 16, fontWeight: '700', color: C.violet, textAlign: 'center' },
-  trendArt:    { width: 48, height: 48, borderRadius: R.r2 },
+  trendRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.strokeBright },
+  trendRankBadge: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(177,78,255,0.18)', borderWidth: 1, borderColor: 'rgba(177,78,255,0.4)', alignItems: 'center', justifyContent: 'center' },
+  trendRankFirst: { backgroundColor: 'rgba(177,78,255,0.35)', borderColor: C.violet },
+  trendRank:      { fontSize: 12, fontWeight: '700', color: C.violet, textAlign: 'center' },
+  trendRankFirstTxt: { fontSize: 13, color: C.violet },
+  trendArt:       { width: 48, height: 48, borderRadius: R.r2 },
   trendName:   { fontSize: 14, fontWeight: '600', color: C.fg },
   trendArtist: { fontSize: 12, color: C.fg3, marginTop: 2 },
   trendScore:  { fontSize: 18, fontWeight: '700', letterSpacing: -0.5 },

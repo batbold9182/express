@@ -280,7 +280,7 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
 
   heroContent: { alignItems: 'center', gap: 4, paddingBottom: 24 },
-  cover:       { width: 200, height: 200, borderRadius: R.r3, borderWidth: 1, borderColor: C.stroke, marginBottom: 8 },
+  cover:       { width: 240, height: 240, borderRadius: R.r6, borderWidth: 1, borderColor: C.stroke, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 20, shadowOffset: { width: 0, height: 8 } },
   songTitle:   { fontSize: 26, fontWeight: '700', color: C.fg, letterSpacing: -0.5, textAlign: 'center', marginTop: 8 },
   songArtist:  { fontSize: 15, color: C.fg2 },
   songMeta:    { fontSize: 10, color: C.fg3, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 2 },

@@ -3,22 +3,9 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-
 import { useRouter } from 'expo-router';
 import { GCard, Icon, MoodTag } from '../components';
 import { C, R, scoreColor } from '../theme';
+import type { ProfileReview } from '../lib/types';
 
-export type ProfileReview = {
-  _id: string;
-  type?: 'track' | 'album' | 'artist';
-  spotifyTrackId?: string;
-  spotifyAlbumId?: string;
-  spotifyArtistId?: string;
-  trackName: string;
-  artistName: string;
-  albumArt?: string;
-  score: number;
-  text?: string;
-  moods?: string[];
-  likes?: string[];
-  createdAt: string;
-};
+export type { ProfileReview };
 
 const TYPE_LABEL: Record<string, { label: string; color: string }> = {
   album:  { label: 'Album',  color: C.cyan },

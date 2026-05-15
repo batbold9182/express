@@ -9,13 +9,7 @@ import { shareUrl } from '../../lib/share';
 import type { FeedItem } from './types';
 import { LikeButton } from './LikeButton';
 import { CommentSection } from './CommentSection';
-
-const MOOD_LIST: [string, string][] = [
-  ['nostalgic', '#B14EFF'], ['hype', '#FF3FA4'],   ['sad', '#00D9FF'],
-  ['banger', '#C6FF3D'],    ['grower', '#FFB547'],  ['late night', '#7E22CE'],
-  ['driving', '#5BE9FF'],   ['heartbreak', '#FF6FBA'], ['rage', '#FF4D6D'],
-  ['chill', '#5BE9FF'],
-];
+import { MOOD_LIST } from '../../lib/constants';
 
 function formatTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -75,17 +69,17 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
 
   return (
     <GCard style={{ padding: 16, gap: 12 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {item.userId.avatarUrl
           ? <Image source={{ uri: item.userId.avatarUrl }} style={s.avatar} />
           : <View style={[s.avatar, { backgroundColor: C.glass }]} />}
         <TouchableOpacity onPress={() => router.push(`/profile/${item.userId.spotifyId}` as any)} activeOpacity={0.7} style={{ flex: 1 }}>
           <Text style={s.username}>{item.userId.displayName}</Text>
+          <Text style={s.time}>{formatTime(item.createdAt)}</Text>
         </TouchableOpacity>
-        <Text style={s.time}>{formatTime(item.createdAt)}</Text>
         {isOwn && (
-          <TouchableOpacity onPress={() => { setShowActions(v => !v); setEditing(false); }} activeOpacity={0.7}>
-            <Icon name="more" size={16} color={C.fg2} />
+          <TouchableOpacity onPress={() => { setShowActions(v => !v); setEditing(false); }} activeOpacity={0.7} style={s.moreBtn}>
+            <Icon name="more" size={16} color={C.fg3} />
           </TouchableOpacity>
         )}
       </View>
@@ -155,13 +149,13 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
         </View>
       )}
 
-      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
         <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
           {item.albumArt
             ? <Image source={{ uri: item.albumArt }} style={s.art} />
             : <View style={[s.art, { backgroundColor: C.glass }]} />}
         </TouchableOpacity>
-        <View style={{ flex: 1, gap: 2 }}>
+        <View style={{ flex: 1, gap: 3 }}>
           <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[s.track, { flex: 1 }]} numberOfLines={1}>{item.trackName}</Text>
             <View style={[s.typePill, { borderColor: typeCfg.color + '55', backgroundColor: typeCfg.color + '18' }]}>
@@ -215,11 +209,12 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
 }
 
 const s = StyleSheet.create({
-  avatar:   { width: 28, height: 28, borderRadius: 14 },
-  username: { fontSize: 12, fontWeight: '600', color: C.fg },
-  time:     { fontSize: 11, color: C.fg3 },
+  avatar:   { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: C.stroke },
+  username: { fontSize: 13, fontWeight: '700', color: C.fg },
+  time:     { fontSize: 11, color: C.fg4, marginTop: 1 },
+  moreBtn:  { padding: 6 },
 
-  art:    { width: 56, height: 56, borderRadius: R.r2 },
+  art:    { width: 64, height: 64, borderRadius: R.r3, borderWidth: 1, borderColor: C.stroke },
   track:  { fontSize: 14, fontWeight: '600', color: C.fg },
   artist: { fontSize: 12, color: C.fg2 },
 

@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { NavIcon } from '../components';
 import { C, R } from '../theme';
@@ -26,7 +27,10 @@ function RotationTabBar({ state, navigation }: BottomTabBarProps) {
 
         const onPress = () => {
           const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (!active && !event.defaultPrevented) navigation.navigate(route.name);
+          if (!active && !event.defaultPrevented) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate(route.name);
+          }
         };
 
         return (
@@ -41,7 +45,10 @@ function RotationTabBar({ state, navigation }: BottomTabBarProps) {
                 <Text style={s.ratePlus}>+</Text>
               </LinearGradient>
             ) : (
-              <NavIcon name={item?.icon ?? 'home'} color={color} />
+              <View style={s.iconWrap}>
+                <NavIcon name={item?.icon ?? 'home'} color={color} />
+                {active && <View style={s.activeDot} />}
+              </View>
             )}
             <Text style={[s.label, { color }]}>{item?.label}</Text>
           </TouchableOpacity>
@@ -71,9 +78,9 @@ const s = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 32,
     paddingHorizontal: 8,
-    backgroundColor: 'rgba(11,8,22,0.92)',
+    backgroundColor: 'rgba(11,8,22,0.95)',
     borderTopWidth: 1,
-    borderTopColor: C.stroke,
+    borderTopColor: C.strokeBright,
   },
   item: {
     flex: 1,
@@ -82,19 +89,33 @@ const s = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 4,
   },
-  rateBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  iconWrap: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -8,
+    gap: 3,
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.violet,
     shadowColor: C.violet,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
   },
-  ratePlus: { color: C.ink900, fontWeight: '700', fontSize: 22, lineHeight: 24 },
-  label: { fontSize: 9, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase' },
+  rateBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -10,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  ratePlus: { color: C.ink900, fontWeight: '700', fontSize: 24, lineHeight: 26 },
+  label: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
 });

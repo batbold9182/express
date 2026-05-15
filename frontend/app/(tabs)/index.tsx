@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TopBar } from '../components';
+import { TopBar, Icon } from '../components';
 import { C, R } from '../theme';
 import { useAuth } from '../context/auth';
 import { api } from '../lib/api';
@@ -9,8 +9,8 @@ import type { FeedItem } from './feed/types';
 import { ReviewCard } from './feed/ReviewCard';
 
 const TABS = [
-  { key: 'trending', label: '🔥 Trending this week', endpoint: '/reviews/trending' },
-  { key: 'top',      label: '⭐ Top rated',          endpoint: '/reviews/top' },
+  { key: 'trending', label: 'Trending', icon: 'flame',  endpoint: '/reviews/trending' },
+  { key: 'top',      label: 'Top rated', icon: 'star',  endpoint: '/reviews/top' },
 ] as const;
 
 type Tab = typeof TABS[number]['key'];
@@ -90,6 +90,7 @@ export default function Home() {
             activeOpacity={0.7}
             style={[s.tab, activeTab === t.key && s.tabActive]}
           >
+            <Icon name={t.icon} size={13} color={activeTab === t.key ? C.violet : C.fg3} />
             <Text style={[s.tabTxt, activeTab === t.key && s.tabTxtActive]}>{t.label}</Text>
           </TouchableOpacity>
         ))}
@@ -152,10 +153,10 @@ const s = StyleSheet.create({
 
   topSection: { backgroundColor: 'rgba(11,8,22,0.92)', borderBottomWidth: 1, borderBottomColor: C.stroke, marginBottom: 16 },
 
-  tabs:       { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
-  tab:        { flex: 1, paddingVertical: 8, borderRadius: R.pill, alignItems: 'center', backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
-  tabActive:  { backgroundColor: 'rgba(177,78,255,0.15)', borderColor: 'rgba(177,78,255,0.5)' },
-  tabTxt:     { fontSize: 12, fontWeight: '600', color: C.fg3, letterSpacing: 0.2 },
+  tabs:        { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  tab:         { flex: 1, flexDirection: 'row', gap: 6, paddingVertical: 9, borderRadius: R.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
+  tabActive:   { backgroundColor: 'rgba(177,78,255,0.15)', borderColor: 'rgba(177,78,255,0.5)', shadowColor: C.violet, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+  tabTxt:      { fontSize: 12, fontWeight: '600', color: C.fg3, letterSpacing: 0.2 },
   tabTxtActive:{ color: C.violet },
 
   empty:    { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },

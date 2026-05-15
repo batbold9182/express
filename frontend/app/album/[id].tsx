@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, Image,
   TouchableOpacity, ActivityIndicator, Linking, Alert, RefreshControl,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GCard, Eyebrow, Icon } from '../components';
@@ -196,16 +197,19 @@ export default function AlbumDetail() {
         </View>
 
         {/* Rate button */}
-        <TouchableOpacity
-          onPress={rateAlbum}
-          activeOpacity={0.85}
-          style={[s.rateBtn, alreadyReviewed && s.rateBtnReviewed]}
-        >
-          <Icon name="star" size={16} color={alreadyReviewed ? C.violet : C.ink900} />
-          <Text style={[s.rateTxt, alreadyReviewed && s.rateTxtReviewed]}>
-            {alreadyReviewed ? 'Already reviewed' : 'Rate this album'}
-          </Text>
-        </TouchableOpacity>
+        {alreadyReviewed ? (
+          <TouchableOpacity onPress={rateAlbum} activeOpacity={0.85} style={s.rateBtnReviewed}>
+            <Icon name="star" size={16} color={C.violet} />
+            <Text style={s.rateTxtReviewed}>Already reviewed</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={rateAlbum} activeOpacity={0.85} style={{ borderRadius: R.pill, overflow: 'hidden' }}>
+            <LinearGradient colors={['#B14EFF', '#FF3FA4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.rateBtn}>
+              <Icon name="star" size={16} color={C.ink900} />
+              <Text style={s.rateTxt}>Rate this album</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {/* Tracklist */}
         {album.tracks.items.length > 0 && (
@@ -269,7 +273,7 @@ const s = StyleSheet.create({
   spotifyTxt:  { fontSize: 13, fontWeight: '700', color: '#000' },
 
   hero:        { alignItems: 'center', gap: 6, paddingBottom: 20 },
-  cover:       { width: 200, height: 200, borderRadius: R.r3, borderWidth: 1, borderColor: C.stroke, marginBottom: 8 },
+  cover:       { width: 240, height: 240, borderRadius: R.r6, borderWidth: 1, borderColor: C.stroke, marginBottom: 12 },
   albumName:   { fontSize: 22, fontWeight: '700', color: C.fg, letterSpacing: -0.5, textAlign: 'center' },
   albumArtist: { fontSize: 14, color: C.violet, fontWeight: '500' },
   albumMeta:   { fontSize: 12, color: C.fg3, letterSpacing: 0.4 },
@@ -280,12 +284,12 @@ const s = StyleSheet.create({
 
   rateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 14, borderRadius: R.pill,
-    backgroundColor: C.violet,
+    paddingVertical: 15, borderRadius: R.pill,
+    shadowColor: C.violet, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 8,
   },
-  rateBtnReviewed: { backgroundColor: 'transparent', borderWidth: 1, borderColor: C.violet },
+  rateBtnReviewed: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: R.pill, borderWidth: 1, borderColor: C.violet },
   rateTxt:         { fontSize: 15, fontWeight: '700', color: C.ink900 },
-  rateTxtReviewed: { color: C.violet },
+  rateTxtReviewed: { fontSize: 15, fontWeight: '700', color: C.violet },
 
   trackRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10 },
   trackRowBorder: { borderTopWidth: 1, borderTopColor: C.stroke },

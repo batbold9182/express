@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Text, TouchableOpacity } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Icon } from '../../components';
 import { C } from '../../theme';
 import { api } from '../../lib/api';
@@ -20,6 +21,7 @@ export function LikeButton({ reviewId, likes, token, myId }: Props) {
     likedRef.current = next;
     setLiked(next);
     setCount(c => next ? c + 1 : c - 1);
+    Haptics.impactAsync(next ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
 
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
@@ -39,9 +41,9 @@ export function LikeButton({ reviewId, likes, token, myId }: Props) {
   }
 
   return (
-    <TouchableOpacity onPress={toggle} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <Icon name="heart" size={16} color={liked ? C.pink : C.fg3} />
-      {count > 0 && <Text style={{ fontSize: 12, color: liked ? C.pink : C.fg3 }}>{count}</Text>}
+    <TouchableOpacity onPress={toggle} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4, paddingHorizontal: 6 }}>
+      <Icon name="heart" fill={liked ? C.pink : 'none'} size={17} color={liked ? C.pink : C.fg3} />
+      {count > 0 && <Text style={{ fontSize: 13, fontWeight: '600', color: liked ? C.pink : C.fg3 }}>{count}</Text>}
     </TouchableOpacity>
   );
 }

@@ -1,20 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Image, Alert, ActivityIndicator } from 'react-native';
 import Slider from '@react-native-community/slider';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TopBar, Eyebrow, GCard, Mood, Icon, StreamingBadge } from '../components';
+import { TopBar ,Eyebrow, GCard , Mood, Icon , StreamingBadge}from '../components/';
 import { C, R, scoreColor } from '../theme';
 import { useRate } from '../context/rate';
 import { useAuth } from '../context/auth';
 import { api } from '../lib/api';
-
-const MOOD_LIST: [string, string][] = [
-  ['nostalgic', '#B14EFF'], ['hype', '#FF3FA4'],   ['sad', '#00D9FF'],
-  ['banger', '#C6FF3D'],    ['grower', '#FFB547'],  ['late night', '#7E22CE'],
-  ['driving', '#5BE9FF'],   ['heartbreak', '#FF6FBA'], ['rage', '#FF4D6D'],
-  ['chill', '#5BE9FF'],
-];
-
+import { MOOD_LIST } from '../lib/constants';
+//TopBar, Eyebrow, GCard, Mood, Icon, StreamingBadge
 export default function ReviewCreate() {
   const { item, setItem } = useRate();
   const { token } = useAuth();
@@ -27,6 +23,7 @@ export default function ReviewCreate() {
 
   async function handlePost() {
     if (!item || !token) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPosting(true);
     try {
       await api.post('/reviews', token, {
@@ -94,10 +91,12 @@ export default function ReviewCreate() {
           </TouchableOpacity>
         }
         trailing={
-          <TouchableOpacity activeOpacity={0.7} onPress={handlePost} disabled={posting}>
-            {posting
-              ? <ActivityIndicator size="small" color={C.violet} />
-              : <Text style={s.postBtn}>Post</Text>}
+          <TouchableOpacity activeOpacity={0.8} onPress={handlePost} disabled={posting} style={{ borderRadius: R.pill, overflow: 'hidden' }}>
+            <LinearGradient colors={['#B14EFF', '#FF3FA4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.postBtn}>
+              {posting
+                ? <ActivityIndicator size="small" color={C.ink900} />
+                : <Text style={s.postBtnTxt}>Post</Text>}
+            </LinearGradient>
           </TouchableOpacity>
         }
       />
@@ -123,10 +122,12 @@ export default function ReviewCreate() {
         {/* Score */}
         <Eyebrow>Your score</Eyebrow>
         <View style={s.scoreBlock}>
-          <Text style={[s.scoreNum, { color }]}>
-            {score.toFixed(1)}
-            <Text style={s.scoreDenom}>/10</Text>
-          </Text>
+          <View style={[s.scoreGlow, { shadowColor: color }]}>
+            <Text style={[s.scoreNum, { color, textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 24 }]}>
+              {score.toFixed(1)}
+              <Text style={s.scoreDenom}>/10</Text>
+            </Text>
+          </View>
           <Slider
             style={{ width: '100%', height: 40 }}
             minimumValue={0}
@@ -136,7 +137,7 @@ export default function ReviewCreate() {
             onValueChange={setScore}
             minimumTrackTintColor={color}
             maximumTrackTintColor={C.glass}
-            thumbTintColor={C.ink900}
+            thumbTintColor={color}
           />
           <View style={s.scaleRow}>
             <Text style={s.scaleTxt}>0 · skip</Text>
@@ -199,13 +200,15 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: '600', color: C.fg },
   emptyTxt:   { fontSize: 13, color: C.fg3, textAlign: 'center', lineHeight: 20 },
 
-  postBtn:    { fontSize: 13, fontWeight: '600', color: C.violet },
+  postBtn:    { paddingHorizontal: 16, paddingVertical: 7, borderRadius: R.pill, alignItems: 'center', justifyContent: 'center', minWidth: 58 },
+  postBtnTxt: { fontSize: 13, fontWeight: '700', color: C.ink900 },
   albumArt:   { width: 60, height: 60, borderRadius: R.r2 },
   songTitle:  { fontSize: 17, fontWeight: '600', color: C.fg, letterSpacing: -0.2 },
   songArtist: { fontSize: 12, color: C.fg2, marginTop: 2 },
 
-  scoreBlock: { alignItems: 'center', gap: 14, paddingVertical: 14, marginBottom: 24 },
-  scoreNum:   { fontSize: 84, fontWeight: '600', letterSpacing: -2, lineHeight: 88 },
+  scoreBlock: { alignItems: 'center', gap: 10, paddingVertical: 14, marginBottom: 24 },
+  scoreGlow:  { shadowOpacity: 0.45, shadowRadius: 32, shadowOffset: { width: 0, height: 0 } },
+  scoreNum:   { fontSize: 84, fontWeight: '700', letterSpacing: -2, lineHeight: 88 },
   scoreDenom: { fontSize: 24, fontWeight: '500', color: C.fg3, letterSpacing: 0 },
 
   scaleRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
