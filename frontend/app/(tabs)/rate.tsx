@@ -74,7 +74,7 @@ export default function ReviewCreate() {
         <View style={s.glow} pointerEvents="none" />
         <TopBar pt={insets.top + 12} title="Write a review" />
         <View style={s.emptyWrap}>
-          <Icon name="search" size={32} color={C.fg4} />
+          <Icon name="search" size={32} color={C.fg3} />
           <Text style={s.emptyTitle}>Pick something to rate</Text>
           <Text style={s.emptyTxt}>Search for a song or album in the Search tab, then tap it to rate.</Text>
         </View>
@@ -209,14 +209,14 @@ const s = StyleSheet.create({
   scoreDenom: { fontSize: 24, fontWeight: '500', color: C.fg3, letterSpacing: 0 },
 
   scaleRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
-  scaleTxt: { fontSize: 10, color: C.fg3, letterSpacing: 0.5 },
+  scaleTxt: { fontSize: 11, color: C.fg3, letterSpacing: 0.5 },
 
   textArea:  { fontSize: 14, color: C.fg, lineHeight: 21, minHeight: 90, textAlignVertical: 'top' },
-  charCount: { fontSize: 10, color: C.fg3 },
-  moodCount: { fontSize: 10, color: C.fg3 },
+  charCount: { fontSize: 11, color: C.fg3 },
+  moodCount: { fontSize: 11, color: C.fg3 },
 
   shareTitle: { fontSize: 13, fontWeight: '600', color: C.fg },
-  shareSub:   { fontSize: 11, color: C.fg3, marginTop: 2 },
+  shareSub:   { fontSize: 12, color: C.fg3, marginTop: 2 },
 
   toggle: {
     width: 44, height: 26, borderRadius: 13, borderWidth: 1, justifyContent: 'center',

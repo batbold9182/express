@@ -141,18 +141,22 @@ router.get('/:id/lists', async (req: AuthRequest, res: Response) => {
 
 // GET /feed — reviews from followed users
 router.get('/feed/me', requireAuth, async (req: AuthRequest, res: Response) => {
+  const offset = parseInt(req.query.offset as string) || 0;
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
   try {
     const me = await User.findById(req.user!._id);
     const following = me?.following ?? [];
-    const reviews = await Review.find({
-      userId: { $in: [...following, req.user!._id] },
-      shareToFeed: true,
-    })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .populate('userId', '_id displayName avatarUrl spotifyId')
-      .populate('comments.userId', '_id displayName avatarUrl');
-    res.json({ items: reviews, myId: req.user!._id.toString() });
+    const filter = { userId: { $in: [...following, req.user!._id] }, shareToFeed: true };
+    const [total, reviews] = await Promise.all([
+      Review.countDocuments(filter),
+      Review.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(offset)
+        .limit(limit)
+        .populate('userId', '_id displayName avatarUrl spotifyId')
+        .populate('comments.userId', '_id displayName avatarUrl'),
+    ]);
+    res.json({ items: reviews, myId: req.user!._id.toString(), hasMore: offset + reviews.length < total });
   } catch {
     res.status(500).json({ error: 'Failed to fetch feed' });
   }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
-import { GCard, Icon } from '../components';
+import { GCard, Icon, MoodTag } from '../components';
 import { C, R, scoreColor } from '../theme';
 
 export type ProfileReview = {
@@ -63,53 +63,49 @@ export function ProfileReviewCard({ r }: { r: ProfileReview }) {
         </TouchableOpacity>
       </View>
       {!!r.text && <Text style={s.reviewText}>{r.text}</Text>}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          {r.moods?.map(m => (
-            <View key={m} style={s.moodChip}>
-              <Text style={s.moodTxt}>{m}</Text>
-            </View>
-          ))}
+
+      {(r.moods?.length ?? 0) > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {r.moods!.map(m => <MoodTag key={m} label={m} />)}
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {(r.spotifyTrackId || r.spotifyAlbumId || r.spotifyArtistId) && (
-            <TouchableOpacity
-              onPress={() => {
-                const url = r.type === 'artist' && r.spotifyArtistId
-                  ? `https://open.spotify.com/artist/${r.spotifyArtistId}`
-                  : r.type === 'album' && r.spotifyAlbumId
-                    ? `https://open.spotify.com/album/${r.spotifyAlbumId}`
-                    : `https://open.spotify.com/track/${r.spotifyTrackId}`;
-                Linking.openURL(url);
-              }}
-              activeOpacity={0.7}
-              style={s.spotifyBtn}
-            >
-              <Text style={s.spotifyTxt}>▶ Spotify</Text>
-            </TouchableOpacity>
-          )}
-          {(r.likes?.length ?? 0) > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Icon name="heart" size={13} color={C.fg4} />
-              <Text style={{ fontSize: 11, color: C.fg4 }}>{r.likes!.length}</Text>
-            </View>
-          )}
-        </View>
+      )}
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+        {(r.spotifyTrackId || r.spotifyAlbumId || r.spotifyArtistId) && (
+          <TouchableOpacity
+            onPress={() => {
+              const url = r.type === 'artist' && r.spotifyArtistId
+                ? `https://open.spotify.com/artist/${r.spotifyArtistId}`
+                : r.type === 'album' && r.spotifyAlbumId
+                  ? `https://open.spotify.com/album/${r.spotifyAlbumId}`
+                  : `https://open.spotify.com/track/${r.spotifyTrackId}`;
+              Linking.openURL(url);
+            }}
+            activeOpacity={0.7}
+            style={s.spotifyBtn}
+          >
+            <Text style={s.spotifyTxt}>▶ Spotify</Text>
+          </TouchableOpacity>
+        )}
+        {(r.likes?.length ?? 0) > 0 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Icon name="heart" size={13} color={C.fg4} />
+            <Text style={{ fontSize: 12, color: C.fg4 }}>{r.likes!.length}</Text>
+          </View>
+        )}
       </View>
     </GCard>
   );
 }
 
 export const s = StyleSheet.create({
-  art:        { width: 48, height: 48, borderRadius: R.r2 },
+  art:        { width: 56, height: 56, borderRadius: R.r2 },
   track:      { fontSize: 14, fontWeight: '600', color: C.fg },
-  artist:     { fontSize: 11, color: C.fg2 },
+  artist:     { fontSize: 12, color: C.fg2 },
   score:      { fontSize: 22, fontWeight: '600', letterSpacing: -0.5 },
   reviewText: { fontSize: 13, color: C.fg2, lineHeight: 19 },
-  moodChip:   { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
-  moodTxt:    { fontSize: 10, color: C.fg3 },
-  spotifyBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: R.pill, backgroundColor: '#1DB954' },
-  spotifyTxt: { fontSize: 10, fontWeight: '700', color: '#000', letterSpacing: 0.4 },
+  spotifyBtn: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: R.pill, borderWidth: 1, borderColor: '#1DB954' },
+  spotifyTxt: { fontSize: 10, fontWeight: '700', color: '#1DB954', letterSpacing: 0.4 },
   typePill:   { paddingHorizontal: 6, paddingVertical: 2, borderRadius: R.pill, borderWidth: 1 },
   typeTxt:    { fontSize: 9, fontWeight: '600', letterSpacing: 0.4 },
 });

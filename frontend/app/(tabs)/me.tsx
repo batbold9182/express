@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image, TextInput, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image, TextInput, RefreshControl, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TopBar, Eyebrow, GCard, Icon } from '../components';
@@ -148,11 +148,6 @@ export default function Profile() {
       <View style={s.glow} pointerEvents="none" />
       <TopBar
         pt={insets.top + 12}
-        leading={
-          <TouchableOpacity activeOpacity={0.7} onPress={clearToken}>
-            <Icon name="settings" size={22} color={C.fg2} />
-          </TouchableOpacity>
-        }
         trailing={
           <TouchableOpacity activeOpacity={0.7}>
             <Icon name="share" size={22} color={C.fg2} />
@@ -178,7 +173,9 @@ export default function Profile() {
             ? <Image source={{ uri: user.images[0].url }} style={s.avatar} />
             : <View style={[s.avatar, { backgroundColor: C.glass }]} />}
           <Text style={s.name}>{user?.display_name ?? '—'}</Text>
-          <Text style={s.handle}>@{user?.id}</Text>
+          <Text style={s.handle} numberOfLines={1}>
+            @{user?.id && user.id.length > 20 ? user.id.slice(0, 18) + '…' : user?.id}
+          </Text>
           {nowPlaying && (
             <View style={[s.nowPlaying, !nowPlaying.isPlaying && s.nowPlayingPaused]}>
               {nowPlaying.albumArt && <Image source={{ uri: nowPlaying.albumArt }} style={s.nowArt} />}
@@ -244,16 +241,19 @@ export default function Profile() {
             : topArtists.length > 0 && (
               <View style={{ gap: 8, marginTop: 0, marginBottom: 20 }}>
                 {topArtists.map((a, i) => (
-                  <GCard key={a.id} style={{ padding: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Text style={s.artistRank}>{i + 1}</Text>
-                    {a.images?.[2]?.url
-                      ? <Image source={{ uri: a.images[2].url }} style={s.artistImg} />
-                      : <View style={[s.artistImg, { backgroundColor: C.glass }]} />}
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.artistName}>{a.name}</Text>
-                      {a.genres?.[0] && <Text style={s.artistGenre} numberOfLines={1}>{a.genres[0]}</Text>}
-                    </View>
-                  </GCard>
+                  <TouchableOpacity key={a.id} activeOpacity={0.8} onPress={() => router.push(`/artist/${a.id}` as any)}>
+                    <GCard style={{ padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Text style={s.artistRank}>{i + 1}</Text>
+                      {a.images?.[2]?.url
+                        ? <Image source={{ uri: a.images[2].url }} style={s.artistImg} />
+                        : <View style={[s.artistImg, { backgroundColor: C.glass }]} />}
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.artistName}>{a.name}</Text>
+                        {a.genres?.[0] && <Text style={s.artistGenre} numberOfLines={1}>{a.genres[0]}</Text>}
+                      </View>
+                      <Icon name="arrow-right" size={14} color={C.fg4} />
+                    </GCard>
+                  </TouchableOpacity>
                 ))}
               </View>
             )
@@ -339,13 +339,24 @@ export default function Profile() {
           revLoading
             ? <ActivityIndicator color={C.violet} style={{ marginTop: 24 }} />
             : filtered && filtered.length === 0
-              ? <View style={s.empty}><Icon name="activity" size={28} color={C.fg4} /><Text style={s.emptyTxt}>No reviews yet</Text></View>
+              ? <View style={s.empty}><Icon name="activity" size={28} color={C.fg3} /><Text style={s.emptyTxt}>No reviews yet</Text></View>
               : <View style={{ gap: 10, marginTop: 8 }}>{filtered?.map(r => <ProfileReviewCard key={r._id} r={r} />)}</View>
         )}
         {revLoadingMore && <ActivityIndicator color={C.violet} style={{ marginTop: 16 }} />}
         {tab && !revLoading && !revLoadingMore && hasMoreMap[tab] === false && (cache[tab]?.length ?? 0) > 0 && (
           <Text style={s.endTxt}>All {counts[tab]} reviews loaded</Text>
         )}
+
+        <TouchableOpacity
+          style={s.logoutBtn}
+          activeOpacity={0.7}
+          onPress={() => Alert.alert('Log out', 'Are you sure?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Log out', style: 'destructive', onPress: clearToken },
+          ])}
+        >
+          <Text style={s.logoutTxt}>Log out</Text>
+        </TouchableOpacity>
 
       </ScrollView>
     </View>
@@ -360,30 +371,30 @@ const s = StyleSheet.create({
   identity: { alignItems: 'center', gap: 8, paddingBottom: 20 },
   avatar:   { width: 96, height: 96, borderRadius: 48, borderWidth: 2, borderColor: C.violet },
   name:     { fontSize: 24, fontWeight: '600', color: C.fg, letterSpacing: -0.5 },
-  handle:   { fontSize: 11, color: C.cyan, letterSpacing: 0.8 },
+  handle:   { fontSize: 12, color: C.cyan, letterSpacing: 0.8 },
 
   statVal: { fontSize: 22, fontWeight: '600', color: C.fg, letterSpacing: -0.5 },
-  statLbl: { fontSize: 9, fontWeight: '500', color: C.fg3, letterSpacing: 1.2, textTransform: 'uppercase' },
+  statLbl: { fontSize: 10, fontWeight: '500', color: C.fg3, letterSpacing: 1.2, textTransform: 'uppercase' },
 
   genreName: { width: 120, fontSize: 12, fontWeight: '500', color: C.fg },
   barTrack:  { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' },
   barFill:   { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 4 },
 
-  artistRank:  { width: 24, fontSize: 18, fontWeight: '600', color: C.fg3, letterSpacing: -0.5 },
-  artistImg:   { width: 40, height: 40, borderRadius: 20 },
+  artistRank:  { width: 24, fontSize: 16, fontWeight: '600', color: C.fg3, letterSpacing: -0.5 },
+  artistImg:   { width: 44, height: 44, borderRadius: 22 },
   artistName:  { fontSize: 14, fontWeight: '600', color: C.fg },
-  artistGenre: { fontSize: 11, color: C.fg3, marginTop: 1 },
+  artistGenre: { fontSize: 12, color: C.fg3, marginTop: 1 },
 
   nowPlaying:       { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.pill, backgroundColor: 'rgba(29,185,84,0.12)', borderWidth: 1, borderColor: 'rgba(29,185,84,0.35)', maxWidth: 260 },
   nowPlayingPaused: { backgroundColor: C.glassThin, borderColor: C.stroke },
   nowArt:           { width: 18, height: 18, borderRadius: 3 },
   nowDot:           { width: 6, height: 6, borderRadius: 3, backgroundColor: '#1DB954' },
-  nowTxt:           { fontSize: 11, fontWeight: '500', color: '#1DB954', flex: 1 },
+  nowTxt:           { fontSize: 12, fontWeight: '500', color: '#1DB954', flex: 1 },
 
   newListBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: R.pill, borderWidth: 1, borderColor: C.violet },
-  newListTxt: { fontSize: 11, fontWeight: '600', color: C.violet },
+  newListTxt: { fontSize: 12, fontWeight: '600', color: C.violet },
   listTitle:  { fontSize: 14, fontWeight: '600', color: C.fg },
-  listMeta:   { fontSize: 11, color: C.fg3, marginTop: 1 },
+  listMeta:   { fontSize: 12, color: C.fg3, marginTop: 1 },
 
   boxes:         { flexDirection: 'row', gap: 8, marginBottom: 12 },
   box:           { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke },
@@ -402,10 +413,13 @@ const s = StyleSheet.create({
 
   empty:    { alignItems: 'center', gap: 10, paddingTop: 24 },
   emptyTxt: { fontSize: 13, color: C.fg3 },
-  endTxt:   { fontSize: 11, color: C.fg4, textAlign: 'center', marginTop: 16, marginBottom: 8 },
+  endTxt:   { fontSize: 12, color: C.fg4, textAlign: 'center', marginTop: 16, marginBottom: 8 },
 
   rangePill:       { paddingHorizontal: 8, paddingVertical: 4, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
   rangePillActive: { backgroundColor: 'rgba(177,78,255,0.15)', borderColor: 'rgba(177,78,255,0.5)' },
-  rangeTxt:        { fontSize: 10, fontWeight: '600', color: C.fg3 },
+  rangeTxt:        { fontSize: 11, fontWeight: '600', color: C.fg3 },
   rangeTxtActive:  { color: C.violet },
+
+  logoutBtn: { alignItems: 'center', marginTop: 32, marginBottom: 8, paddingVertical: 12 },
+  logoutTxt: { fontSize: 14, fontWeight: '500', color: C.fg3 },
 });

@@ -225,7 +225,7 @@ export default function Search() {
           <>
             {recents.length > 0 && (
               <>
-                <Text style={s.sectionLabel}>RECENT</Text>
+                <Eyebrow>Recent</Eyebrow>
                 <View style={{ gap: 2, marginBottom: 24 }}>
                   {recents.map(r => (
                     <TouchableOpacity key={r} onPress={() => setQ(r)} activeOpacity={0.7} style={s.recentRow}>
@@ -242,7 +242,7 @@ export default function Search() {
               <>
                 <View style={s.trendingHeader}>
                   <Text style={s.trendingFire}>🔥</Text>
-                  <Text style={s.sectionLabel}>TRENDING NOW</Text>
+                  <Eyebrow>Trending now</Eyebrow>
                 </View>
                 <View style={{ gap: 8, marginTop: 8 }}>
                   {trending.map((item, i) => (
@@ -269,7 +269,7 @@ export default function Search() {
 
         {!loading && !q && isPeople && (
           <View style={s.emptyWrap}>
-            <Icon name="search" size={32} color={C.fg4} />
+            <Icon name="search" size={32} color={C.fg3} />
             <Text style={s.emptyTxt}>Find people to follow.</Text>
           </View>
         )}
@@ -388,40 +388,39 @@ const s = StyleSheet.create({
   searchBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 12, borderRadius: R.r3,
-    backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke,
+    backgroundColor: C.glass, borderWidth: 1, borderColor: C.strokeBright,
   },
   input:      { flex: 1, fontSize: 14, color: C.fg, height: 20 },
   scopeChip:  { paddingVertical: 6, paddingHorizontal: 10, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
   scopeActive:{ backgroundColor: 'rgba(177,78,255,0.12)', borderColor: 'rgba(177,78,255,0.4)' },
-  scopeTxt:   { fontSize: 10, fontWeight: '600', letterSpacing: 1.0, textTransform: 'uppercase' },
+  scopeTxt:   { fontSize: 11, fontWeight: '600', letterSpacing: 1.0, textTransform: 'uppercase' },
   scroll:     { flex: 1 },
   emptyWrap:  { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 12 },
   emptyTxt:   { fontSize: 13, color: C.fg3, textAlign: 'center' },
 
-  sectionLabel:   { fontSize: 10, fontWeight: '700', color: C.fg4, letterSpacing: 1.2, marginBottom: 8 },
   trendingHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 0 },
   trendingFire:   { fontSize: 13 },
 
   recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.stroke },
   recentTxt: { flex: 1, fontSize: 13, color: C.fg2 },
 
-  trendRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke },
+  trendRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.strokeBright },
   trendRank:   { width: 20, fontSize: 16, fontWeight: '700', color: C.violet, textAlign: 'center' },
   trendArt:    { width: 48, height: 48, borderRadius: R.r2 },
   trendName:   { fontSize: 14, fontWeight: '600', color: C.fg },
-  trendArtist: { fontSize: 11, color: C.fg3, marginTop: 2 },
+  trendArtist: { fontSize: 12, color: C.fg3, marginTop: 2 },
   trendScore:  { fontSize: 18, fontWeight: '700', letterSpacing: -0.5 },
-  trendDenom:  { fontSize: 10, color: C.fg4 },
+  trendDenom:  { fontSize: 11, color: C.fg4 },
 
-  row:      { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke },
+  row:      { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.strokeBright },
   thumb:    { width: 44, height: 44, borderRadius: 6 },
   rowTitle: { fontSize: 14, fontWeight: '600', color: C.fg },
-  rowSub:   { fontSize: 11, color: C.fg3, marginTop: 2 },
+  rowSub:   { fontSize: 12, color: C.fg3, marginTop: 2 },
 
   reviewedBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: 'rgba(177,78,255,0.15)', borderWidth: 1, borderColor: 'rgba(177,78,255,0.4)' },
   reviewedTxt:   { fontSize: 10, fontWeight: '600', color: C.violet, letterSpacing: 0.4 },
 
-  userRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke },
+  userRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.strokeBright },
   userAvatar: { width: 44, height: 44, borderRadius: 22 },
 
   followBtn:     { paddingHorizontal: 14, paddingVertical: 7, borderRadius: R.pill, backgroundColor: C.violet },

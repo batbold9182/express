@@ -198,7 +198,7 @@ export default function ArtistDetail() {
   if (error) {
     return (
       <View style={[s.screen, { alignItems: 'center', justifyContent: 'center', gap: 12 }]}>
-        <Icon name="wifi-off" size={32} color={C.fg4} />
+        <Icon name="wifi-off" size={32} color={C.fg3} />
         <Text style={{ color: C.fg, fontWeight: '600', fontSize: 16 }}>Something went wrong</Text>
         <TouchableOpacity onPress={() => load()} activeOpacity={0.7} style={s.retryBtn}>
           <Text style={s.retryTxt}>Try again</Text>
@@ -351,7 +351,7 @@ export default function ArtistDetail() {
         <View style={{ marginTop: 28, marginBottom: 10 }}><Eyebrow>Reviews</Eyebrow></View>
         {reviews.length === 0 ? (
           <View style={s.empty}>
-            <Icon name="activity" size={28} color={C.fg4} />
+            <Icon name="activity" size={28} color={C.fg3} />
             <Text style={s.emptyTxt}>No reviews yet — be the first!</Text>
           </View>
         ) : (
@@ -379,7 +379,7 @@ const s = StyleSheet.create({
   cover:      { width: 180, height: 180, borderRadius: 90, borderWidth: 2, borderColor: C.violet, marginBottom: 8 },
   artistName: { fontSize: 24, fontWeight: '700', color: C.fg, letterSpacing: -0.5, textAlign: 'center' },
   genre:      { fontSize: 12, color: C.violet, fontWeight: '500', letterSpacing: 0.4 },
-  followers:  { fontSize: 11, color: C.fg3 },
+  followers:  { fontSize: 12, color: C.fg3 },
 
   scoreRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 6 },
   avgScore: { fontSize: 36, fontWeight: '700', letterSpacing: -1 },
@@ -395,7 +395,7 @@ const s = StyleSheet.create({
   discTabActive:    { backgroundColor: 'rgba(177,78,255,0.15)', borderColor: 'rgba(177,78,255,0.5)' },
   discTabTxt:       { fontSize: 12, fontWeight: '600', color: C.fg3 },
   discTabTxtActive: { color: C.violet },
-  discTabCount:     { fontSize: 11, color: C.fg4 },
+  discTabCount:     { fontSize: 12, color: C.fg4 },
   discTabCountActive: { color: C.violet },
 
   searchBox: {
@@ -409,9 +409,9 @@ const s = StyleSheet.create({
   albumCard:  { width: CARD_WIDTH },
   albumCover: { width: CARD_WIDTH, height: CARD_WIDTH, borderRadius: R.r3, marginBottom: 6 },
   albumName:  { fontSize: 12, fontWeight: '600', color: C.fg, lineHeight: 17 },
-  albumMeta:  { fontSize: 11, color: C.fg3, marginTop: 2 },
+  albumMeta:  { fontSize: 12, color: C.fg3, marginTop: 2 },
 
-  endTxt:   { fontSize: 11, color: C.fg4, textAlign: 'center', marginTop: 16 },
+  endTxt:   { fontSize: 12, color: C.fg4, textAlign: 'center', marginTop: 16 },
   empty:    { alignItems: 'center', gap: 10, paddingTop: 24 },
   emptyTxt: { fontSize: 13, color: C.fg3 },
 

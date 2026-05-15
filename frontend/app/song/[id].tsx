@@ -123,7 +123,7 @@ export default function SongDetail() {
   if (error || !track) {
     return (
       <View style={[s.screen, { alignItems: 'center', justifyContent: 'center', gap: 12 }]}>
-        <Icon name="wifi-off" size={32} color={C.fg4} />
+        <Icon name="wifi-off" size={32} color={C.fg3} />
         <Text style={{ color: C.fg, fontWeight: '600', fontSize: 16 }}>Something went wrong</Text>
         <TouchableOpacity onPress={() => load()} activeOpacity={0.7} style={s.retryBtn}>
           <Text style={s.retryTxt}>Try again</Text>
@@ -227,7 +227,7 @@ export default function SongDetail() {
         <View style={{ marginBottom: 10 }}><Eyebrow>Reviews</Eyebrow></View>
         {reviews.length === 0 ? (
           <View style={s.empty}>
-            <Icon name="activity" size={28} color={C.fg4} />
+            <Icon name="activity" size={28} color={C.fg3} />
             <Text style={s.emptyTxt}>No reviews yet — be the first!</Text>
           </View>
         ) : (

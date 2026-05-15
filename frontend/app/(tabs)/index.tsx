@@ -81,7 +81,7 @@ export default function Home() {
 
   const header = (
     <View style={[s.topSection, { paddingTop: insets.top + 12 }]}>
-      <TopBar title={<Text style={s.wordmark}>rotation</Text>} large />
+      <TopBar title={<Text style={s.wordmark}>rotation</Text>} large pt={0} />
       <View style={s.tabs}>
         {TABS.map(t => (
           <TouchableOpacity
@@ -155,7 +155,7 @@ const s = StyleSheet.create({
   tabs:       { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
   tab:        { flex: 1, paddingVertical: 8, borderRadius: R.pill, alignItems: 'center', backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
   tabActive:  { backgroundColor: 'rgba(177,78,255,0.15)', borderColor: 'rgba(177,78,255,0.5)' },
-  tabTxt:     { fontSize: 11, fontWeight: '600', color: C.fg3, letterSpacing: 0.2 },
+  tabTxt:     { fontSize: 12, fontWeight: '600', color: C.fg3, letterSpacing: 0.2 },
   tabTxtActive:{ color: C.violet },
 
   empty:    { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },

@@ -129,7 +129,7 @@ export default function AlbumDetail() {
   if (error) {
     return (
       <View style={[s.screen, { alignItems: 'center', justifyContent: 'center', gap: 12 }]}>
-        <Icon name="wifi-off" size={32} color={C.fg4} />
+        <Icon name="wifi-off" size={32} color={C.fg3} />
         <Text style={{ color: C.fg, fontWeight: '600', fontSize: 16 }}>Something went wrong</Text>
         <TouchableOpacity onPress={() => load()} activeOpacity={0.7} style={s.retryBtn}>
           <Text style={s.retryTxt}>Try again</Text>
@@ -242,7 +242,7 @@ export default function AlbumDetail() {
         <View style={{ marginTop: 24, marginBottom: 8 }}><Eyebrow>Reviews</Eyebrow></View>
         {reviews.length === 0 ? (
           <View style={s.empty}>
-            <Icon name="activity" size={28} color={C.fg4} />
+            <Icon name="activity" size={28} color={C.fg3} />
             <Text style={s.emptyTxt}>No reviews yet — be the first!</Text>
           </View>
         ) : (
@@ -272,7 +272,7 @@ const s = StyleSheet.create({
   cover:       { width: 200, height: 200, borderRadius: R.r3, borderWidth: 1, borderColor: C.stroke, marginBottom: 8 },
   albumName:   { fontSize: 22, fontWeight: '700', color: C.fg, letterSpacing: -0.5, textAlign: 'center' },
   albumArtist: { fontSize: 14, color: C.violet, fontWeight: '500' },
-  albumMeta:   { fontSize: 11, color: C.fg3, letterSpacing: 0.4 },
+  albumMeta:   { fontSize: 12, color: C.fg3, letterSpacing: 0.4 },
 
   scoreRow:  { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 6 },
   avgScore:  { fontSize: 36, fontWeight: '700', letterSpacing: -1 },
@@ -291,7 +291,7 @@ const s = StyleSheet.create({
   trackRowBorder: { borderTopWidth: 1, borderTopColor: C.stroke },
   trackNum:       { width: 22, fontSize: 13, color: C.fg3, textAlign: 'right' },
   trackName:      { fontSize: 14, fontWeight: '500', color: C.fg },
-  trackArtist:    { fontSize: 11, color: C.fg3, marginTop: 1 },
+  trackArtist:    { fontSize: 12, color: C.fg3, marginTop: 1 },
   trackDur:       { fontSize: 12, color: C.fg3 },
 
   reviewedBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: 'rgba(177,78,255,0.15)', borderWidth: 1, borderColor: 'rgba(177,78,255,0.4)' },
@@ -299,7 +299,7 @@ const s = StyleSheet.create({
 
   empty:    { alignItems: 'center', gap: 10, paddingTop: 24 },
   emptyTxt: { fontSize: 13, color: C.fg3 },
-  endTxt:   { fontSize: 11, color: C.fg4, textAlign: 'center', marginTop: 16, marginBottom: 8 },
+  endTxt:   { fontSize: 12, color: C.fg4, textAlign: 'center', marginTop: 16, marginBottom: 8 },
 
   retryBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: R.pill, backgroundColor: C.violet },
   retryTxt: { fontSize: 14, fontWeight: '700', color: C.ink900 },

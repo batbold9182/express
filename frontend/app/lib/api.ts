@@ -20,7 +20,7 @@ async function tryRefresh(): Promise<string | null> {
     try {
       const res = await fetch(`${BASE}/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...NGROK },
         body: JSON.stringify({ spotifyId: _refresh!.spotifyId }),
       });
       if (!res.ok) return null;
@@ -37,16 +37,18 @@ async function tryRefresh(): Promise<string | null> {
   return _refreshPromise;
 }
 
+const NGROK = { 'ngrok-skip-browser-warning': '1' };
+
 async function get(path: string, token: string, signal?: AbortSignal) {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, ...NGROK },
     signal,
   });
   if (res.status === 401) {
     const newToken = await tryRefresh();
     if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
     const retry = await fetch(`${BASE}${path}`, {
-      headers: { Authorization: `Bearer ${newToken}` },
+      headers: { Authorization: `Bearer ${newToken}`, ...NGROK },
       signal,
     });
     if (!retry.ok) throw new Error(`${retry.status} ${path}`);
@@ -59,7 +61,7 @@ async function get(path: string, token: string, signal?: AbortSignal) {
 async function post(path: string, token: string, body: object) {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...NGROK },
     body: JSON.stringify(body),
   });
   if (res.status === 401) {
@@ -67,7 +69,7 @@ async function post(path: string, token: string, body: object) {
     if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
     const retry = await fetch(`${BASE}${path}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${newToken}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${newToken}`, 'Content-Type': 'application/json', ...NGROK },
       body: JSON.stringify(body),
     });
     if (!retry.ok) throw new Error(`${retry.status} ${path}`);
@@ -80,7 +82,7 @@ async function post(path: string, token: string, body: object) {
 async function put(path: string, token: string, body: object) {
   const res = await fetch(`${BASE}${path}`, {
     method: 'PUT',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...NGROK },
     body: JSON.stringify(body),
   });
   if (res.status === 401) {
@@ -88,7 +90,7 @@ async function put(path: string, token: string, body: object) {
     if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
     const retry = await fetch(`${BASE}${path}`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${newToken}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${newToken}`, 'Content-Type': 'application/json', ...NGROK },
       body: JSON.stringify(body),
     });
     if (!retry.ok) throw new Error(`${retry.status} ${path}`);
@@ -101,14 +103,14 @@ async function put(path: string, token: string, body: object) {
 async function del(path: string, token: string) {
   const res = await fetch(`${BASE}${path}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, ...NGROK },
   });
   if (res.status === 401) {
     const newToken = await tryRefresh();
     if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
     const retry = await fetch(`${BASE}${path}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${newToken}` },
+      headers: { Authorization: `Bearer ${newToken}`, ...NGROK },
     });
     if (!retry.ok) throw new Error(`${retry.status} ${path}`);
     return retry.json();

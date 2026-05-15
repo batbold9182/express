@@ -41,7 +41,7 @@ export function LikeButton({ reviewId, likes, token, myId }: Props) {
   return (
     <TouchableOpacity onPress={toggle} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       <Icon name="heart" size={16} color={liked ? C.pink : C.fg3} />
-      {count > 0 && <Text style={{ fontSize: 11, color: liked ? C.pink : C.fg3 }}>{count}</Text>}
+      {count > 0 && <Text style={{ fontSize: 12, color: liked ? C.pink : C.fg3 }}>{count}</Text>}
     </TouchableOpacity>
   );
 }

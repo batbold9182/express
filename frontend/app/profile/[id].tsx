@@ -158,7 +158,9 @@ export default function UserProfile() {
             ? <Image source={{ uri: profile.avatarUrl }} style={s.avatar} />
             : <View style={[s.avatar, { backgroundColor: C.glass }]} />}
           <Text style={s.name}>{profile?.displayName ?? '—'}</Text>
-          <Text style={s.handle}>@{profile?.spotifyId}</Text>
+          <Text style={s.handle} numberOfLines={1}>
+            @{profile?.spotifyId && profile.spotifyId.length > 20 ? profile.spotifyId.slice(0, 18) + '…' : profile?.spotifyId}
+          </Text>
         </View>
 
         {/* Stats */}
@@ -267,7 +269,7 @@ export default function UserProfile() {
           revLoading
             ? <ActivityIndicator color={C.violet} style={{ marginTop: 24 }} />
             : filtered && filtered.length === 0
-              ? <View style={s.empty}><Icon name="activity" size={28} color={C.fg4} /><Text style={s.emptyTxt}>No reviews yet</Text></View>
+              ? <View style={s.empty}><Icon name="activity" size={28} color={C.fg3} /><Text style={s.emptyTxt}>No reviews yet</Text></View>
               : <View style={{ gap: 10, marginTop: 8 }}>{filtered?.map(r => <ProfileReviewCard key={r._id} r={r} />)}</View>
         )}
         {revLoadingMore && <ActivityIndicator color={C.violet} style={{ marginTop: 16 }} />}
@@ -292,7 +294,7 @@ const s = StyleSheet.create({
   identity: { alignItems: 'center', gap: 8, paddingBottom: 20 },
   avatar:   { width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: C.violet },
   name:     { fontSize: 22, fontWeight: '600', color: C.fg, letterSpacing: -0.5 },
-  handle:   { fontSize: 11, color: C.cyan, letterSpacing: 0.8 },
+  handle:   { fontSize: 12, color: C.cyan, letterSpacing: 0.8 },
 
   statVal: { fontSize: 20, fontWeight: '600', color: C.fg, letterSpacing: -0.5 },
   statLbl: { fontSize: 9, fontWeight: '500', color: C.fg3, letterSpacing: 1.2, textTransform: 'uppercase' },
@@ -303,7 +305,7 @@ const s = StyleSheet.create({
   followingTxt: { color: C.violet },
 
   listTitle: { fontSize: 14, fontWeight: '600', color: C.fg },
-  listMeta:  { fontSize: 11, color: C.fg3, marginTop: 1 },
+  listMeta:  { fontSize: 12, color: C.fg3, marginTop: 1 },
 
   boxes:          { flexDirection: 'row', gap: 8, marginBottom: 12 },
   box:            { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke },
@@ -322,5 +324,5 @@ const s = StyleSheet.create({
 
   empty:    { alignItems: 'center', gap: 10, paddingTop: 24 },
   emptyTxt: { fontSize: 13, color: C.fg3 },
-  endTxt:   { fontSize: 11, color: C.fg4, textAlign: 'center', marginTop: 16, marginBottom: 8 },
+  endTxt:   { fontSize: 12, color: C.fg4, textAlign: 'center', marginTop: 16, marginBottom: 8 },
 });

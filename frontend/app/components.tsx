@@ -226,7 +226,7 @@ const s = StyleSheet.create({
   moodBase: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: R.pill, borderWidth: 1 },
   moodText: { fontSize: 12 },
 
-  eyebrow: { fontSize: 10, fontWeight: '500', letterSpacing: 1.4, textTransform: 'uppercase', color: C.fg3 },
+  eyebrow: { fontSize: 10, fontWeight: '500', letterSpacing: 1.4, textTransform: 'uppercase', color: C.fg3, marginBottom: 8 },
 
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -246,7 +246,7 @@ const s = StyleSheet.create({
   badgeDot:  { width: 7, height: 7, borderRadius: 4 },
   badgeText: { fontSize: 11, fontWeight: '500' },
 
-  gcard: { backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke, borderRadius: R.r4 },
+  gcard: { backgroundColor: C.glass, borderWidth: 1, borderColor: C.strokeBright, borderRadius: R.r4 },
 
   btnPrimary: {
     paddingVertical: 12, paddingHorizontal: 22, borderRadius: R.pill,
@@ -263,5 +263,5 @@ const s = StyleSheet.create({
   btnGlassTxt: { color: C.fg, fontSize: 14, fontWeight: '600' },
 
   moodTag:    { paddingVertical: 3, paddingHorizontal: 8, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
-  moodTagTxt: { fontSize: 10, fontWeight: '500', color: C.fg3 },
+  moodTagTxt: { fontSize: 11, fontWeight: '500', color: C.fg3 },
 });

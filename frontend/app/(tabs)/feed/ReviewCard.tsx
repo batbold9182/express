@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity, Linking, Alert } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useRouter } from 'expo-router';
-import { GCard, Icon, Mood } from '../../components';
-import { C, R, scoreColor } from '../../theme';
+import { GCard, Icon, Mood, MoodTag, Score } from '../../components';
+import { C, R, scoreColor } from '../../theme'; // scoreColor still used for edit slider label
 import { api } from '../../lib/api';
 import { shareUrl } from '../../lib/share';
 import type { FeedItem } from './types';
@@ -74,7 +74,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
   }
 
   return (
-    <GCard style={{ padding: 12, gap: 10 }}>
+    <GCard style={{ padding: 16, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {item.userId.avatarUrl
           ? <Image source={{ uri: item.userId.avatarUrl }} style={s.avatar} />
@@ -91,18 +91,22 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
       </View>
 
       {isOwn && showActions && !editing && (
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <TouchableOpacity onPress={() => setEditing(true)} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: C.violet }}>Edit</Text>
+        <View style={s.actionsMenu}>
+          <TouchableOpacity onPress={() => setEditing(true)} activeOpacity={0.7} style={s.actionItem}>
+            <Icon name="edit" size={13} color={C.violet} />
+            <Text style={[s.actionTxt, { color: C.violet }]}>Edit</Text>
           </TouchableOpacity>
+          <View style={s.actionDivider} />
           <TouchableOpacity onPress={() => Alert.alert('Delete review', 'This cannot be undone.', [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Delete', style: 'destructive', onPress: async () => { await api.del(`/reviews/${item._id}`, token); onDelete(); } },
-          ])} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: C.pink }}>Delete</Text>
+          ])} activeOpacity={0.7} style={s.actionItem}>
+            <Icon name="x" size={13} color={C.pink} />
+            <Text style={[s.actionTxt, { color: C.pink }]}>Delete</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowActions(false)} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: C.fg3 }}>Cancel</Text>
+          <View style={s.actionDivider} />
+          <TouchableOpacity onPress={() => setShowActions(false)} activeOpacity={0.7} style={s.actionItem}>
+            <Text style={[s.actionTxt, { color: C.fg3 }]}>Cancel</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -126,7 +130,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
           </View>
           <View style={{ gap: 4 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 10, color: C.fg3 }}>Score</Text>
+              <Text style={{ fontSize: 11, color: C.fg3 }}>Score</Text>
               <Text style={{ fontSize: 12, fontWeight: '600', color: scoreColor(editScore) }}>{editScore.toFixed(1)}</Text>
             </View>
             <Slider
@@ -139,8 +143,8 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
           </View>
           <View style={{ gap: 6 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 10, color: C.fg3 }}>Mood · pick up to 3</Text>
-              <Text style={{ fontSize: 10, color: C.fg3 }}>{editMoods.length}/3</Text>
+              <Text style={{ fontSize: 11, color: C.fg3 }}>Mood · pick up to 3</Text>
+              <Text style={{ fontSize: 11, color: C.fg3 }}>{editMoods.length}/3</Text>
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               {MOOD_LIST.map(([m, mc]) => (
@@ -171,42 +175,40 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
             : <Text style={s.artist} numberOfLines={1}>{item.artistName}</Text>}
         </View>
         <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
-          <Text style={[s.score, { color: scoreColor(displayScore) }]}>{displayScore.toFixed(1)}</Text>
+          <Score value={displayScore} size="md" glow={false} />
         </TouchableOpacity>
       </View>
 
       {!!displayText && <Text style={s.reviewText}>{displayText}</Text>}
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          {displayMoods.map(m => (
-            <View key={m} style={s.moodChip}>
-              <Text style={s.moodTxt}>{m}</Text>
-            </View>
-          ))}
+      {displayMoods.length > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {displayMoods.map(m => <MoodTag key={m} label={m} />)}
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {(item.spotifyTrackId || item.spotifyAlbumId || item.spotifyArtistId) && (() => {
-            const url = item.type === 'artist' && item.spotifyArtistId
-              ? `https://open.spotify.com/artist/${item.spotifyArtistId}`
-              : item.type === 'album' && item.spotifyAlbumId
-                ? `https://open.spotify.com/album/${item.spotifyAlbumId}`
-                : `https://open.spotify.com/track/${item.spotifyTrackId}`;
-            return (
-              <>
-                <TouchableOpacity onPress={() => shareUrl(url, `${item.trackName} by ${item.artistName}`)} activeOpacity={0.7}>
-                  <Icon name="share" size={14} color={C.fg3} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => Linking.openURL(url)} activeOpacity={0.7} style={s.spotifyBtn}>
-                  <Text style={s.spotifyTxt}>▶ Spotify</Text>
-                </TouchableOpacity>
-              </>
-            );
-          })()}
-          <LikeButton reviewId={item._id} likes={item.likes ?? []} token={token} myId={myId} />
-        </View>
+      )}
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+        {(item.spotifyTrackId || item.spotifyAlbumId || item.spotifyArtistId) && (() => {
+          const url = item.type === 'artist' && item.spotifyArtistId
+            ? `https://open.spotify.com/artist/${item.spotifyArtistId}`
+            : item.type === 'album' && item.spotifyAlbumId
+              ? `https://open.spotify.com/album/${item.spotifyAlbumId}`
+              : `https://open.spotify.com/track/${item.spotifyTrackId}`;
+          return (
+            <>
+              <TouchableOpacity onPress={() => shareUrl(url, `${item.trackName} by ${item.artistName}`)} activeOpacity={0.7}>
+                <Icon name="share" size={15} color={C.fg3} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => Linking.openURL(url)} activeOpacity={0.7} style={s.spotifyBtn}>
+                <Text style={s.spotifyTxt}>▶ Spotify</Text>
+              </TouchableOpacity>
+            </>
+          );
+        })()}
+        <LikeButton reviewId={item._id} likes={item.likes ?? []} token={token} myId={myId} />
       </View>
 
+      <View style={s.commentDivider} />
       <CommentSection reviewId={item._id} initial={item.comments ?? []} token={token} myId={myId} />
     </GCard>
   );
@@ -215,30 +217,39 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
 const s = StyleSheet.create({
   avatar:   { width: 28, height: 28, borderRadius: 14 },
   username: { fontSize: 12, fontWeight: '600', color: C.fg },
-  time:     { fontSize: 10, color: C.fg3 },
+  time:     { fontSize: 11, color: C.fg3 },
 
-  art:    { width: 48, height: 48, borderRadius: R.r2 },
+  art:    { width: 56, height: 56, borderRadius: R.r2 },
   track:  { fontSize: 14, fontWeight: '600', color: C.fg },
-  artist: { fontSize: 11, color: C.fg2 },
-  score:  { fontSize: 22, fontWeight: '600', letterSpacing: -0.5 },
+  artist: { fontSize: 12, color: C.fg2 },
 
-  reviewText: { fontSize: 13, color: C.fg2, lineHeight: 19 },
-
-  moodChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
-  moodTxt:  { fontSize: 10, color: C.fg3 },
+  reviewText: { fontSize: 13, color: C.fg2, lineHeight: 21 },
 
   typePill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: R.pill, borderWidth: 1 },
-  typeTxt:  { fontSize: 9, fontWeight: '600', letterSpacing: 0.4 },
+  typeTxt:  { fontSize: 10, fontWeight: '600', letterSpacing: 0.4 },
 
   spotifyBtn: {
-    paddingHorizontal: 8, paddingVertical: 4, borderRadius: R.pill,
-    backgroundColor: '#1DB954', alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 9, paddingVertical: 4, borderRadius: R.pill,
+    borderWidth: 1, borderColor: '#1DB954',
+    alignItems: 'center', justifyContent: 'center',
   },
-  spotifyTxt: { fontSize: 10, fontWeight: '700', color: '#000', letterSpacing: 0.4 },
+  spotifyTxt: { fontSize: 10, fontWeight: '700', color: '#1DB954', letterSpacing: 0.4 },
+
+  actionsMenu: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: C.glassThick, borderRadius: R.r2, borderWidth: 1,
+    borderColor: C.stroke, paddingHorizontal: 12, paddingVertical: 8,
+    alignSelf: 'flex-start',
+  },
+  actionItem:    { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4 },
+  actionTxt:     { fontSize: 12, fontWeight: '500' },
+  actionDivider: { width: 1, height: 12, backgroundColor: C.stroke },
+
+  commentDivider: { height: 1, backgroundColor: C.stroke, marginHorizontal: -16 },
 
   editRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: C.glass, borderRadius: R.r2, borderWidth: 1,
-    borderColor: C.stroke, paddingHorizontal: 10, paddingVertical: 6,
+    borderColor: C.stroke, paddingHorizontal: 10, paddingVertical: 8,
   },
 });
