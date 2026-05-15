@@ -68,7 +68,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
   }
 
   return (
-    <GCard style={{ padding: 16, gap: 12 }}>
+    <GCard style={{ padding: 16, gap: 14 }} accentColor={typeCfg.color}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {item.userId.avatarUrl
           ? <Image source={{ uri: item.userId.avatarUrl }} style={s.avatar} />
@@ -149,7 +149,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
         </View>
       )}
 
-      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+      <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
         <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
           {item.albumArt
             ? <Image source={{ uri: item.albumArt }} style={s.art} />
@@ -158,18 +158,20 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
         <View style={{ flex: 1, gap: 3 }}>
           <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[s.track, { flex: 1 }]} numberOfLines={1}>{item.trackName}</Text>
-            <View style={[s.typePill, { borderColor: typeCfg.color + '55', backgroundColor: typeCfg.color + '18' }]}>
+            <View style={[s.typePill, { backgroundColor: typeCfg.color + '30' }]}>
               <Text style={[s.typeTxt, { color: typeCfg.color }]}>{typeCfg.label}</Text>
             </View>
           </TouchableOpacity>
           {item.spotifyArtistId
             ? <TouchableOpacity onPress={() => router.push(`/artist/${item.spotifyArtistId}` as any)} activeOpacity={0.7}>
-                <Text style={[s.artist, { color: C.violet }]} numberOfLines={1}>{item.artistName}</Text>
+                <Text style={[s.artist, { color: C.violet }]} numberOfLines={1}>{item.artistName} ›</Text>
               </TouchableOpacity>
             : <Text style={s.artist} numberOfLines={1}>{item.artistName}</Text>}
         </View>
         <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
-          <Score value={displayScore} size="md" glow={false} />
+          <View style={[s.scorePill, { backgroundColor: scoreColor(displayScore) + '1A' }]}>
+            <Score value={displayScore} size="md" glow={false} />
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -214,14 +216,15 @@ const s = StyleSheet.create({
   time:     { fontSize: 11, color: C.fg4, marginTop: 1 },
   moreBtn:  { padding: 6 },
 
-  art:    { width: 64, height: 64, borderRadius: R.r3, borderWidth: 1, borderColor: C.stroke },
+  art:    { width: 76, height: 76, borderRadius: R.r3, borderWidth: 1, borderColor: C.stroke },
   track:  { fontSize: 14, fontWeight: '600', color: C.fg },
   artist: { fontSize: 12, color: C.fg2 },
 
   reviewText: { fontSize: 13, color: C.fg2, lineHeight: 21 },
 
-  typePill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: R.pill, borderWidth: 1 },
-  typeTxt:  { fontSize: 10, fontWeight: '600', letterSpacing: 0.4 },
+  typePill:  { paddingHorizontal: 7, paddingVertical: 3, borderRadius: R.pill },
+  typeTxt:   { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  scorePill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: R.pill },
 
   spotifyBtn: {
     paddingHorizontal: 9, paddingVertical: 4, borderRadius: R.pill,
