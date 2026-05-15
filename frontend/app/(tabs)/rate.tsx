@@ -10,7 +10,7 @@ import { useRate } from '../context/rate';
 import { useAuth } from '../context/auth';
 import { api } from '../lib/api';
 import { MOOD_LIST } from '../lib/constants';
-//TopBar, Eyebrow, GCard, Mood, Icon, StreamingBadge
+
 export default function ReviewCreate() {
   const { item, setItem } = useRate();
   const { token } = useAuth();
@@ -68,7 +68,7 @@ export default function ReviewCreate() {
   if (!item) {
     return (
       <View style={s.screen}>
-        <View style={s.glow} pointerEvents="none" />
+
         <TopBar pt={insets.top + 12} title="Write a review" />
         <View style={s.emptyWrap}>
           <Icon name="search" size={32} color={C.fg3} />
@@ -81,7 +81,6 @@ export default function ReviewCreate() {
 
   return (
     <View style={s.screen}>
-      <View style={s.glow} pointerEvents="none" />
       <TopBar
         pt={insets.top + 12}
         title="Write a review"
@@ -193,7 +192,7 @@ export default function ReviewCreate() {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  glow:   { position: 'absolute', top: 0, left: 0, right: 0, height: 240, backgroundColor: 'rgba(177,78,255,0.07)' },
+
   scroll: { flex: 1 },
 
   emptyWrap:  { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },

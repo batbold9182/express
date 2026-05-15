@@ -61,7 +61,7 @@ export default function Feed() {
 
   return (
     <View style={s.screen}>
-      <View style={s.glow} pointerEvents="none" />
+
       <TopBar title="Feed" pt={insets.top + 12} />
 
       {loading ? (
@@ -113,7 +113,7 @@ export default function Feed() {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  glow:   { position: 'absolute', top: 0, left: 0, right: 0, height: 240, backgroundColor: 'rgba(177,78,255,0.07)' },
+
   scroll: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
 

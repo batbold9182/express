@@ -185,7 +185,6 @@ export default function Search() {
 
   return (
     <View style={s.screen}>
-      <View style={s.glow} pointerEvents="none" />
 
       <View style={[s.header, { paddingTop: insets.top + 12 }]}>
         <View style={s.searchBox}>
@@ -381,7 +380,7 @@ export default function Search() {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  glow:   { position: 'absolute', top: 0, left: 0, right: 0, height: 240, backgroundColor: 'rgba(177,78,255,0.07)' },
+
   header: {
     backgroundColor: 'rgba(11,8,22,0.80)',
     borderBottomWidth: 1, borderBottomColor: C.stroke,

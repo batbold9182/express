@@ -145,7 +145,7 @@ export default function Profile() {
 
   return (
     <View style={s.screen}>
-      <View style={s.glow} pointerEvents="none" />
+
       <TopBar
         pt={insets.top + 12}
         trailing={
@@ -365,7 +365,7 @@ export default function Profile() {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  glow:   { position: 'absolute', top: 0, left: 0, right: 0, height: 260, backgroundColor: 'rgba(177,78,255,0.08)' },
+
   scroll: { flex: 1 },
 
   identity: { alignItems: 'center', gap: 8, paddingBottom: 20 },

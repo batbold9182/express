@@ -101,7 +101,6 @@ export default function Home() {
   if (loading) {
     return (
       <View style={s.screen}>
-        <View style={s.glow} pointerEvents="none" />
         {header}
         <View style={s.center}><ActivityIndicator color={C.violet} size="large" /></View>
       </View>
@@ -110,7 +109,6 @@ export default function Home() {
 
   return (
     <View style={s.screen}>
-      <View style={s.glow} pointerEvents="none" />
       <FlatList
         data={items}
         keyExtractor={item => item._id}
@@ -147,7 +145,7 @@ export default function Home() {
 
 const s = StyleSheet.create({
   screen:   { flex: 1, backgroundColor: C.bg },
-  glow:     { position: 'absolute', top: 0, left: 0, right: 0, height: 280, backgroundColor: 'rgba(177,78,255,0.08)' },
+
   wordmark: { fontSize: 22, fontWeight: '700', color: C.violet, letterSpacing: -0.5 },
   center:   { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
