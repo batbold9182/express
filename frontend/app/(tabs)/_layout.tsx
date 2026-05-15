@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { NavIcon } from '../components';
@@ -18,8 +19,8 @@ const TAB_ITEMS: Record<string, { label: string; icon: string; special?: boolean
 
 function RotationTabBar({ state, navigation }: BottomTabBarProps) {
   return (
-    <View style={s.bar}>
-      {[...state.routes].sort((a, b) => TAB_ORDER.indexOf(a.name) - TAB_ORDER.indexOf(b.name)).map((route) => {
+    <BlurView intensity={80} tint="dark" style={s.bar}>
+      {[...state.routes].sort((a, b) => TAB_ORDER.indexOf(a.name) - TAB_ORDER.indexOf(b.name)).map(route => {
         const item = TAB_ITEMS[route.name];
         const originalIndex = state.routes.findIndex(r => r.key === route.key);
         const active = state.index === originalIndex;
@@ -54,7 +55,7 @@ function RotationTabBar({ state, navigation }: BottomTabBarProps) {
           </TouchableOpacity>
         );
       })}
-    </View>
+    </BlurView>
   );
 }
 
@@ -78,7 +79,7 @@ const s = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 32,
     paddingHorizontal: 8,
-    backgroundColor: 'rgba(11,8,22,0.95)',
+    backgroundColor: 'rgba(11,8,22,0.5)',
     borderTopWidth: 1,
     borderTopColor: C.strokeBright,
   },

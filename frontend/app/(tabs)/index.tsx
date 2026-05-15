@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MaskedView from '@react-native-masked-view/masked-view';
+import { LinearGradient } from 'expo-linear-gradient';
 import { TopBar, Icon } from '../components';
 import { C, R } from '../theme';
 import { useAuth } from '../context/auth';
@@ -81,7 +83,13 @@ export default function Home() {
 
   const header = (
     <View style={[s.topSection, { paddingTop: insets.top + 12 }]}>
-      <TopBar title={<Text style={s.wordmark}>rotation</Text>} large pt={0} />
+      <TopBar title={
+        <MaskedView maskElement={<Text style={s.wordmark}>rotation</Text>}>
+          <LinearGradient colors={['#00D9FF', '#B14EFF', '#FF3FA4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+            <Text style={[s.wordmark, { opacity: 0 }]}>rotation</Text>
+          </LinearGradient>
+        </MaskedView>
+      } large pt={0} />
       <View style={s.tabs}>
         {TABS.map(t => (
           <TouchableOpacity

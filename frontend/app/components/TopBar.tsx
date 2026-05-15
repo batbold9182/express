@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { C } from '../theme';
 
 export function TopBar({ title, leading, trailing, large, pt = 52 }: {
@@ -7,7 +8,7 @@ export function TopBar({ title, leading, trailing, large, pt = 52 }: {
   large?: boolean; pt?: number;
 }) {
   return (
-    <View style={[s.bar, { paddingTop: pt }]}>
+    <BlurView intensity={70} tint="dark" style={[s.bar, { paddingTop: pt }]}>
       <View style={{ width: 32 }}>{leading}</View>
       <View style={{ flex: 1, alignItems: 'center' }}>
         {typeof title === 'string'
@@ -15,7 +16,7 @@ export function TopBar({ title, leading, trailing, large, pt = 52 }: {
           : title}
       </View>
       <View style={{ width: 32, alignItems: 'flex-end' }}>{trailing}</View>
-    </View>
+    </BlurView>
   );
 }
 
@@ -23,7 +24,7 @@ const s = StyleSheet.create({
   bar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingBottom: 12, paddingHorizontal: 16,
-    backgroundColor: 'rgba(11,8,22,0.80)',
+    backgroundColor: 'rgba(11,8,22,0.45)',
     borderBottomWidth: 1, borderBottomColor: C.stroke,
   },
   title:      { fontSize: 16, fontWeight: '700', color: C.fg, textAlign: 'center' },

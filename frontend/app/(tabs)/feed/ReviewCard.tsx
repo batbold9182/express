@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity, Linking, Alert } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useRouter } from 'expo-router';
-import { GCard, Icon, Mood, MoodTag, Score } from '../../components';
+import { Avatar, GCard, Icon, Mood, MoodTag, Score } from '../../components';
 import { C, R, scoreColor } from '../../theme'; // scoreColor still used for edit slider label
 import { api } from '../../lib/api';
 import { shareUrl } from '../../lib/share';
@@ -18,6 +18,8 @@ function formatTime(iso: string) {
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
 }
+
+const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
 
 const TYPE_LABEL: Record<string, { label: string; color: string }> = {
   album:  { label: 'Album',  color: C.cyan },
@@ -72,7 +74,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {item.userId.avatarUrl
           ? <Image source={{ uri: item.userId.avatarUrl }} style={s.avatar} />
-          : <View style={[s.avatar, { backgroundColor: C.glass }]} />}
+          : <Avatar name={item.userId.displayName || '?'} size={36} style={{ borderWidth: 1, borderColor: C.stroke }} />}
         <TouchableOpacity onPress={() => router.push(`/profile/${item.userId.spotifyId}` as any)} activeOpacity={0.7} style={{ flex: 1 }}>
           <Text style={s.username}>{item.userId.displayName}</Text>
           <Text style={s.time}>{formatTime(item.createdAt)}</Text>
@@ -170,7 +172,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
         </View>
         <TouchableOpacity activeOpacity={0.7} onPress={navigateToSubject}>
           <View style={[s.scorePill, { backgroundColor: scoreColor(displayScore) + '1A' }]}>
-            <Score value={displayScore} size="md" glow={false} />
+            <Score value={displayScore} size="md" glow={displayScore >= 8.5} />
           </View>
         </TouchableOpacity>
       </View>
@@ -179,7 +181,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
 
       {displayMoods.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          {displayMoods.map(m => <MoodTag key={m} label={m} />)}
+          {displayMoods.map(m => <MoodTag key={m} label={m} color={MOOD_COLOR[m]} />)}
         </View>
       )}
 

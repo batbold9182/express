@@ -23,10 +23,10 @@ export function Mood({ children, color, selected, onPress }: {
   );
 }
 
-export function MoodTag({ label }: { label: string }) {
+export function MoodTag({ label, color }: { label: string; color?: string }) {
   return (
-    <View style={s.tag}>
-      <Text style={s.tagTxt}>{label}</Text>
+    <View style={[s.tag, color && { backgroundColor: color + '22', borderColor: color + '55' }]}>
+      <Text style={[s.tagTxt, color && { color }]}>{label}</Text>
     </View>
   );
 }

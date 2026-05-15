@@ -188,18 +188,27 @@ export default function Profile() {
         </View>
 
         {/* Stats */}
-        <GCard style={{ padding: 14, flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 }}>
-          {(['followers', 'following'] as const).map(type => (
-            <TouchableOpacity
-              key={type}
-              onPress={() => router.push({ pathname: '/profile/follow-list', params: { id: spotifyId, type } } as any)}
-              activeOpacity={0.7}
-              style={{ alignItems: 'center', gap: 2 }}
-            >
-              <Text style={s.statVal}>{type === 'followers' ? appUser?.followerCount ?? 0 : appUser?.followingCount ?? 0}</Text>
-              <Text style={[s.statLbl, { color: C.violet }]}>{type}</Text>
-            </TouchableOpacity>
-          ))}
+        <GCard style={{ padding: 14, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginBottom: 20 }}>
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/profile/follow-list', params: { id: spotifyId, type: 'followers' } } as any)}
+            activeOpacity={0.7} style={{ alignItems: 'center', gap: 2 }}
+          >
+            <Text style={s.statVal}>{appUser?.followerCount ?? 0}</Text>
+            <Text style={s.statLbl}>followers</Text>
+          </TouchableOpacity>
+          <View style={s.statDivider} />
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/profile/follow-list', params: { id: spotifyId, type: 'following' } } as any)}
+            activeOpacity={0.7} style={{ alignItems: 'center', gap: 2 }}
+          >
+            <Text style={s.statVal}>{appUser?.followingCount ?? 0}</Text>
+            <Text style={s.statLbl}>following</Text>
+          </TouchableOpacity>
+          <View style={s.statDivider} />
+          <View style={{ alignItems: 'center', gap: 2 }}>
+            <Text style={s.statVal}>{counts.track + counts.album + counts.artist}</Text>
+            <Text style={s.statLbl}>reviews</Text>
+          </View>
         </GCard>
 
         {/* Top genres */}
@@ -243,7 +252,9 @@ export default function Profile() {
                 {topArtists.map((a, i) => (
                   <TouchableOpacity key={a.id} activeOpacity={0.8} onPress={() => router.push(`/artist/${a.id}` as any)}>
                     <GCard style={{ padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <Text style={s.artistRank}>{i + 1}</Text>
+                      <View style={[s.rankBadge, i < 3 && s.rankBadgeTop]}>
+                        <Text style={[s.artistRank, i < 3 && { color: C.violet }]}>{i + 1}</Text>
+                      </View>
                       {a.images?.[2]?.url
                         ? <Image source={{ uri: a.images[2].url }} style={s.artistImg} />
                         : <View style={[s.artistImg, { backgroundColor: C.glass }]} />}
@@ -373,14 +384,17 @@ const s = StyleSheet.create({
   name:     { fontSize: 24, fontWeight: '600', color: C.fg, letterSpacing: -0.5 },
   handle:   { fontSize: 12, color: C.cyan, letterSpacing: 0.8 },
 
-  statVal: { fontSize: 22, fontWeight: '600', color: C.fg, letterSpacing: -0.5 },
-  statLbl: { fontSize: 10, fontWeight: '500', color: C.fg3, letterSpacing: 1.2, textTransform: 'uppercase' },
+  statVal:     { fontSize: 22, fontWeight: '600', color: C.fg, letterSpacing: -0.5 },
+  statLbl:     { fontSize: 10, fontWeight: '500', color: C.fg3, letterSpacing: 1.2, textTransform: 'uppercase' },
+  statDivider: { width: 1, height: 32, backgroundColor: C.stroke },
 
   genreName: { width: 120, fontSize: 12, fontWeight: '500', color: C.fg },
   barTrack:  { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' },
   barFill:   { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 4 },
 
-  artistRank:  { width: 24, fontSize: 16, fontWeight: '600', color: C.fg3, letterSpacing: -0.5 },
+  rankBadge:    { width: 26, height: 26, borderRadius: 13, backgroundColor: C.glass, alignItems: 'center', justifyContent: 'center' },
+  rankBadgeTop: { backgroundColor: 'rgba(177,78,255,0.18)' },
+  artistRank:   { fontSize: 12, fontWeight: '700', color: C.fg3, letterSpacing: -0.5 },
   artistImg:   { width: 44, height: 44, borderRadius: 22 },
   artistName:  { fontSize: 14, fontWeight: '600', color: C.fg },
   artistGenre: { fontSize: 12, color: C.fg3, marginTop: 1 },
