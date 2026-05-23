@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image, TextInput, RefreshControl, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image, TextInput, RefreshControl, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { TopBar, Eyebrow, GCard, Icon } from '../components';
 import { C, R } from '../theme';
 import { useAuth } from '../context/auth';
@@ -148,11 +149,6 @@ export default function Profile() {
 
       <TopBar
         pt={insets.top + 12}
-        trailing={
-          <TouchableOpacity activeOpacity={0.7}>
-            <Icon name="share" size={22} color={C.fg2} />
-          </TouchableOpacity>
-        }
       />
 
       <ScrollView
@@ -169,9 +165,16 @@ export default function Profile() {
 
         {/* Identity */}
         <View style={s.identity}>
-          {user?.images?.[0]?.url
-            ? <Image source={{ uri: user.images[0].url }} style={s.avatar} />
-            : <View style={[s.avatar, { backgroundColor: C.glass }]} />}
+          <LinearGradient
+            colors={['#B14EFF', '#FF3FA4']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={s.avatarRing}
+          >
+            {user?.images?.[0]?.url
+              ? <Image source={{ uri: user.images[0].url }} style={s.avatar} />
+              : <View style={[s.avatar, { backgroundColor: C.glass }]} />}
+          </LinearGradient>
           <Text style={s.name}>{user?.display_name ?? '—'}</Text>
           <Text style={s.handle} numberOfLines={1}>
             @{user?.id && user.id.length > 20 ? user.id.slice(0, 18) + '…' : user?.id}
@@ -361,10 +364,16 @@ export default function Profile() {
         <TouchableOpacity
           style={s.logoutBtn}
           activeOpacity={0.7}
-          onPress={() => Alert.alert('Log out', 'Are you sure?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Log out', style: 'destructive', onPress: clearToken },
-          ])}
+          onPress={() => {
+            if (Platform.OS === 'web') {
+              if (window.confirm('Log out?')) clearToken();
+            } else {
+              Alert.alert('Log out', 'Are you sure?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Log out', style: 'destructive', onPress: clearToken },
+              ]);
+            }
+          }}
         >
           <Text style={s.logoutTxt}>Log out</Text>
         </TouchableOpacity>
@@ -380,7 +389,14 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
 
   identity: { alignItems: 'center', gap: 8, paddingBottom: 20 },
-  avatar:   { width: 96, height: 96, borderRadius: 48, borderWidth: 2, borderColor: C.violet },
+  avatarRing: {
+    width: 102, height: 102, borderRadius: 51,
+    padding: 2.5,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: C.violet, shadowOpacity: 0.7, shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 }, elevation: 10,
+  },
+  avatar: { width: 97, height: 97, borderRadius: 48.5 },
   name:     { fontSize: 24, fontWeight: '600', color: C.fg, letterSpacing: -0.5 },
   handle:   { fontSize: 12, color: C.cyan, letterSpacing: 0.8 },
 
@@ -436,4 +452,5 @@ const s = StyleSheet.create({
 
   logoutBtn: { alignItems: 'center', marginTop: 32, marginBottom: 8, paddingVertical: 12 },
   logoutTxt: { fontSize: 14, fontWeight: '500', color: C.fg3 },
+
 });

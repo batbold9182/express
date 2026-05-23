@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator, Alert, Keyboard } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -187,7 +187,7 @@ export default function Search() {
   return (
     <View style={s.screen}>
 
-      <BlurView intensity={70} tint="dark" style={[s.header, { paddingTop: insets.top + 12 }]}>
+      <BlurView intensity={80} tint="dark" style={[s.header, { paddingTop: insets.top + 12 }]}>
         <View style={s.searchBox}>
           <Icon name="search" size={18} color={C.fg3} />
           <TextInput
@@ -197,6 +197,7 @@ export default function Search() {
             placeholderTextColor={C.fg3}
             style={s.input}
             returnKeyType="search"
+            onSubmitEditing={Keyboard.dismiss}
             autoCorrect={false}
             autoCapitalize="none"
           />
@@ -209,7 +210,7 @@ export default function Search() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }} contentContainerStyle={{ gap: 6 }}>
           {SCOPES.map((sc, i) => (
-            <TouchableOpacity key={sc} onPress={() => setScope(i)} activeOpacity={0.7}
+            <TouchableOpacity key={sc} onPress={() => { setScope(i); Keyboard.dismiss(); }} activeOpacity={0.7}
               style={[s.scopeChip, i === scope && s.scopeActive]}>
               <Text style={[s.scopeTxt, { color: i === scope ? C.violet : C.fg3 }]}>{sc}</Text>
             </TouchableOpacity>
@@ -217,7 +218,7 @@ export default function Search() {
         </ScrollView>
       </BlurView>
 
-      <ScrollView style={s.scroll} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false} keyboardDismissMode="interactive">
         {loading && <ActivityIndicator color={C.violet} style={{ marginTop: 40 }} />}
 
         {/* Empty state — recents + trending */}
@@ -361,7 +362,7 @@ export default function Search() {
                     onPress={() => router.push(`/artist/${a.id}` as any)}
                   >
                     {a.images?.[2]?.url
-                      ? <Image source={{ uri: a.images[2].url }} style={[s.thumb, { borderRadius: 20 }]} />
+                      ? <Image source={{ uri: a.images[2].url }} style={[s.thumb, { borderRadius: R.pill }]} />
                       : <View style={[s.thumb, { borderRadius: 20, backgroundColor: C.glass }]} />}
                     <View style={{ flex: 1 }}>
                       <Text style={s.rowTitle} numberOfLines={1}>{a.name}</Text>
@@ -394,7 +395,7 @@ const s = StyleSheet.create({
   },
   input:      { flex: 1, fontSize: 14, color: C.fg, height: 20 },
   scopeChip:  { paddingVertical: 6, paddingHorizontal: 10, borderRadius: R.pill, backgroundColor: C.glassThin, borderWidth: 1, borderColor: C.stroke },
-  scopeActive:{ backgroundColor: 'rgba(177,78,255,0.12)', borderColor: 'rgba(177,78,255,0.4)' },
+  scopeActive:{ backgroundColor: C.violet + '1F', borderColor: C.violet + '66' },
   scopeTxt:   { fontSize: 11, fontWeight: '600', letterSpacing: 1.0, textTransform: 'uppercase' },
   scroll:     { flex: 1 },
   emptyWrap:  { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 12 },
@@ -407,8 +408,8 @@ const s = StyleSheet.create({
   recentTxt: { flex: 1, fontSize: 13, color: C.fg2 },
 
   trendRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.strokeBright },
-  trendRankBadge: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(177,78,255,0.18)', borderWidth: 1, borderColor: 'rgba(177,78,255,0.4)', alignItems: 'center', justifyContent: 'center' },
-  trendRankFirst: { backgroundColor: 'rgba(177,78,255,0.35)', borderColor: C.violet },
+  trendRankBadge: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.violet + '2E', borderWidth: 1, borderColor: C.violet + '66', alignItems: 'center', justifyContent: 'center' },
+  trendRankFirst: { backgroundColor: C.violet + '59', borderColor: C.violet },
   trendRank:      { fontSize: 12, fontWeight: '700', color: C.violet, textAlign: 'center' },
   trendRankFirstTxt: { fontSize: 13, color: C.violet },
   trendArt:       { width: 48, height: 48, borderRadius: R.r2 },
@@ -418,11 +419,11 @@ const s = StyleSheet.create({
   trendDenom:  { fontSize: 11, color: C.fg4 },
 
   row:      { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.strokeBright },
-  thumb:    { width: 44, height: 44, borderRadius: 6 },
+  thumb:    { width: 44, height: 44, borderRadius: R.r2 },
   rowTitle: { fontSize: 14, fontWeight: '600', color: C.fg },
   rowSub:   { fontSize: 12, color: C.fg3, marginTop: 2 },
 
-  reviewedBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: 'rgba(177,78,255,0.15)', borderWidth: 1, borderColor: 'rgba(177,78,255,0.4)' },
+  reviewedBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.pill, backgroundColor: C.violet + '26', borderWidth: 1, borderColor: C.violet + '66' },
   reviewedTxt:   { fontSize: 10, fontWeight: '600', color: C.violet, letterSpacing: 0.4 },
 
   userRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: R.r3, backgroundColor: C.glass, borderWidth: 1, borderColor: C.strokeBright },

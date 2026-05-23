@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Image, Alert, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
 import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -12,6 +13,7 @@ import { api } from '../lib/api';
 import { MOOD_LIST } from '../lib/constants';
 
 export default function ReviewCreate() {
+  const router = useRouter();
   const { item, setItem } = useRate();
   const { token } = useAuth();
   const [score, setScore]       = useState(8.0);
@@ -68,12 +70,14 @@ export default function ReviewCreate() {
   if (!item) {
     return (
       <View style={s.screen}>
-
         <TopBar pt={insets.top + 12} title="Write a review" />
         <View style={s.emptyWrap}>
           <Icon name="search" size={32} color={C.fg3} />
           <Text style={s.emptyTitle}>Pick something to rate</Text>
           <Text style={s.emptyTxt}>Search for a song or album in the Search tab, then tap it to rate.</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/search' as any)} activeOpacity={0.8} style={s.emptyBtn}>
+            <Text style={s.emptyBtnTxt}>Search music</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -102,9 +106,10 @@ export default function ReviewCreate() {
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 80 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
       >
         {/* Selected item */}
         <GCard style={{ padding: 12, flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 20 }}>
@@ -157,7 +162,9 @@ export default function ReviewCreate() {
             style={s.textArea}
           />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-            <Text style={s.charCount}>{text.length}/280</Text>
+            <Text style={[s.charCount, text.length > 260 ? { color: C.red } : text.length > 200 ? { color: C.amber } : null]}>
+            {text.length}/280
+          </Text>
             <Icon name="mic" size={16} color={C.fg3} />
           </View>
         </GCard>
@@ -195,9 +202,11 @@ const s = StyleSheet.create({
 
   scroll: { flex: 1 },
 
-  emptyWrap:  { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
-  emptyTitle: { fontSize: 16, fontWeight: '600', color: C.fg },
-  emptyTxt:   { fontSize: 13, color: C.fg3, textAlign: 'center', lineHeight: 20 },
+  emptyWrap:   { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  emptyTitle:  { fontSize: 16, fontWeight: '600', color: C.fg },
+  emptyTxt:    { fontSize: 13, color: C.fg3, textAlign: 'center', lineHeight: 20 },
+  emptyBtn:    { backgroundColor: C.glass, borderWidth: 1, borderColor: C.stroke, paddingHorizontal: 20, paddingVertical: 9, borderRadius: R.pill },
+  emptyBtnTxt: { fontSize: 13, fontWeight: '600', color: C.fg2 },
 
   postBtn:    { paddingHorizontal: 16, paddingVertical: 7, borderRadius: R.pill, alignItems: 'center', justifyContent: 'center', minWidth: 58 },
   postBtnTxt: { fontSize: 13, fontWeight: '700', color: C.ink900 },

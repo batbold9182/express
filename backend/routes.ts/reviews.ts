@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { Review } from '../models/review';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { notify } from '../lib/notify';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ router.get('/trending', requireAuth, async (req: AuthRequest, res: Response) => 
   try {
     const offset = parseInt(req.query.offset as string) || 0;
     const limit  = Math.min(parseInt(req.query.limit as string) || 15, 50);
-    const since  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const since  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const docs   = await Review.aggregate([
       { $match: { shareToFeed: true, createdAt: { $gte: since } } },
       { $addFields: { likeCount: { $size: '$likes' } } },
@@ -184,6 +185,19 @@ router.post('/:id/comments', requireAuth, async (req: AuthRequest, res: Response
       { returnDocument: 'after' }
     ).populate('comments.userId', 'displayName avatarUrl spotifyId');
     if (!review) { res.status(404).json({ error: 'Review not found' }); return; }
+    const snapshot = { trackName: review.trackName, albumArt: review.albumArt ?? undefined, spotifyTrackId: review.spotifyTrackId ?? undefined, spotifyAlbumId: review.spotifyAlbumId ?? undefined, spotifyArtistId: review.spotifyArtistId ?? undefined, type: review.type };
+    // notify review owner of the comment
+    notify({ type: 'comment', recipientId: review.userId as any, actorId: req.user!._id, entityId: review._id as any, entitySnapshot: snapshot }).catch(console.error);
+    // if it's a reply, also notify the parent comment author
+    if (parentId) {
+      const parent = review.comments.find(c => c._id.toString() === parentId);
+      if (parent) {
+        const parentAuthorId = ((parent.userId as any)._id ?? parent.userId) as any;
+        if (!parentAuthorId.equals(review.userId) && !parentAuthorId.equals(req.user!._id)) {
+          notify({ type: 'reply', recipientId: parentAuthorId, actorId: req.user!._id, entityId: review._id as any, entitySnapshot: snapshot }).catch(console.error);
+        }
+      }
+    }
     res.json(review.comments);
   } catch {
     res.status(500).json({ error: 'Failed to comment' });
@@ -228,6 +242,13 @@ router.post('/:id/like', requireAuth, async (req: AuthRequest, res: Response) =>
       { returnDocument: 'after' }
     );
     if (!review) { res.status(404).json({ error: 'Review not found' }); return; }
+    notify({
+      type: 'like',
+      recipientId: review.userId as any,
+      actorId: req.user!._id,
+      entityId: review._id as any,
+      entitySnapshot: { trackName: review.trackName, albumArt: review.albumArt ?? undefined, spotifyTrackId: review.spotifyTrackId ?? undefined, spotifyAlbumId: review.spotifyAlbumId ?? undefined, spotifyArtistId: review.spotifyArtistId ?? undefined, type: review.type },
+    }).catch(console.error);
     res.json({ likes: review.likes?.length ?? 0 });
   } catch {
     res.status(500).json({ error: 'Failed to like' });

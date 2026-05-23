@@ -5,7 +5,8 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { NavIcon } from '../components';
-import { C, R } from '../theme';
+import { C, R, GRAD } from '../theme';
+import { useNotif } from '../context/notif';
 
 const TAB_ORDER = ['index', 'search', 'rate', 'feed/index', 'me'];
 
@@ -18,6 +19,7 @@ const TAB_ITEMS: Record<string, { label: string; icon: string; special?: boolean
 };
 
 function RotationTabBar({ state, navigation }: BottomTabBarProps) {
+  const { unreadCount } = useNotif();
   return (
     <BlurView intensity={80} tint="dark" style={s.bar}>
       {[...state.routes].sort((a, b) => TAB_ORDER.indexOf(a.name) - TAB_ORDER.indexOf(b.name)).map(route => {
@@ -38,7 +40,7 @@ function RotationTabBar({ state, navigation }: BottomTabBarProps) {
           <TouchableOpacity key={route.key} onPress={onPress} activeOpacity={0.7} style={s.item}>
             {item?.special ? (
               <LinearGradient
-                colors={['#B14EFF', '#FF3FA4']}
+                colors={GRAD.violetPink}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={s.rateBtn}
@@ -47,7 +49,10 @@ function RotationTabBar({ state, navigation }: BottomTabBarProps) {
               </LinearGradient>
             ) : (
               <View style={s.iconWrap}>
-                <NavIcon name={item?.icon ?? 'home'} color={color} />
+                <View>
+                  <NavIcon name={item?.icon ?? 'home'} color={color} />
+                  {route.name === 'me' && unreadCount > 0 && <View style={s.notifDot} />}
+                </View>
                 {active && <View style={s.activeDot} />}
               </View>
             )}
@@ -95,28 +100,35 @@ const s = StyleSheet.create({
     gap: 3,
   },
   activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: C.violet,
     shadowColor: C.violet,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
+    shadowOpacity: 1,
+    shadowRadius: 6,
   },
   rateBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 50,
+    height: 50,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -10,
+    marginTop: -16,
     shadowColor: C.violet,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowOpacity: 0.9,
+    shadowRadius: 20,
+    elevation: 14,
   },
-  ratePlus: { color: C.ink900, fontWeight: '700', fontSize: 24, lineHeight: 26 },
+  ratePlus: { color: C.ink900, fontWeight: '700', fontSize: 28, lineHeight: 30 },
   label: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
+  notifDot: {
+    position: 'absolute', top: -2, right: -4,
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: C.pink,
+    shadowColor: C.pink, shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1, shadowRadius: 6,
+  },
 });

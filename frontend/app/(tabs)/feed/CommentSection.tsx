@@ -304,6 +304,9 @@ export function CommentSection({ reviewId, initial, token, myId }: Props) {
                 returnKeyType="send"
                 onSubmitEditing={submit}
               />
+              {text.length > 200 && (
+                <Text style={{ fontSize: 11, color: text.length > 260 ? C.red : C.fg4 }}>{280 - text.length}</Text>
+              )}
               {posting
                 ? <ActivityIndicator size="small" color={C.violet} />
                 : <TouchableOpacity onPress={submit} activeOpacity={0.7}>

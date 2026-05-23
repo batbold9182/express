@@ -130,7 +130,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
               <Text style={{ fontSize: 12, fontWeight: '600', color: scoreColor(editScore) }}>{editScore.toFixed(1)}</Text>
             </View>
             <Slider
-              minimumValue={0} maximumValue={10} step={0.5}
+              minimumValue={0} maximumValue={10} step={0.1}
               value={editScore} onValueChange={setEditScore}
               minimumTrackTintColor={C.violet} maximumTrackTintColor={C.glass}
               thumbTintColor={C.violet}
@@ -199,7 +199,7 @@ export function ReviewCard({ item, token, myId, onDelete }: Props) {
               </TouchableOpacity>
               <View style={{ flex: 1 }} />
               <TouchableOpacity onPress={() => Linking.openURL(url)} activeOpacity={0.7} style={s.spotifyBtn}>
-                <Text style={s.spotifyTxt}>▶  Spotify</Text>
+                <Text style={s.spotifyTxt}>Spotify</Text>
               </TouchableOpacity>
             </>
           );
@@ -237,10 +237,10 @@ const s = StyleSheet.create({
   },
   spotifyBtn: {
     paddingHorizontal: 16, paddingVertical: 9, borderRadius: R.pill,
-    borderWidth: 1, borderColor: '#1DB954',
+    borderWidth: 1, borderColor: C.spotify,
     alignItems: 'center', justifyContent: 'center',
   },
-  spotifyTxt: { fontSize: 13, fontWeight: '700', color: '#1DB954', letterSpacing: 0.3 },
+  spotifyTxt: { fontSize: 13, fontWeight: '700', color: C.spotify, letterSpacing: 0.3 },
 
   actionsMenu: {
     flexDirection: 'row', alignItems: 'center', gap: 4,

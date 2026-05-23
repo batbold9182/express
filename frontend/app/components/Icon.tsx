@@ -33,6 +33,8 @@ export function Icon({ name, size = 20, color = C.fg, strokeWidth = 1.75, fill }
     case 'list':         return <Svg viewBox="0 0 24 24" {...wh}><Path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" {...sp} /></Svg>;
     case 'activity':     return <Svg viewBox="0 0 24 24" {...wh}><Path d="M22 12h-4l-3 9-6-18-3 9H2" {...sp} /></Svg>;
     case 'plus':         return <Svg viewBox="0 0 24 24" {...wh}><Path d="M12 5v14M5 12h14" {...sp} /></Svg>;
+    case 'bell':         return <Svg viewBox="0 0 24 24" {...wh}><Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" {...sp} /><Path d="M13.73 21a2 2 0 0 1-3.46 0" {...sp} /></Svg>;
+    case 'user':         return <Svg viewBox="0 0 24 24" {...wh}><Circle cx="12" cy="8" r="4" {...sp} /><Path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" {...sp} /></Svg>;
     case 'wifi-off':     return <Svg viewBox="0 0 24 24" {...wh}><Path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" {...sp} /></Svg>;
     default: return null;
   }

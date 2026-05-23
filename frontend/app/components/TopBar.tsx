@@ -8,11 +8,11 @@ export function TopBar({ title, leading, trailing, large, pt = 52 }: {
   large?: boolean; pt?: number;
 }) {
   return (
-    <BlurView intensity={70} tint="dark" style={[s.bar, { paddingTop: pt }]}>
+    <BlurView intensity={80} tint="dark" style={[s.bar, { paddingTop: pt }]}>
       <View style={{ width: 32 }}>{leading}</View>
       <View style={{ flex: 1, alignItems: 'center' }}>
         {typeof title === 'string'
-          ? <Text style={[s.title, large && s.titleLarge]}>{title}</Text>
+          ? <Text style={[s.title, large && s.titleLarge]} numberOfLines={1} ellipsizeMode="tail">{title}</Text>
           : title}
       </View>
       <View style={{ width: 32, alignItems: 'flex-end' }}>{trailing}</View>

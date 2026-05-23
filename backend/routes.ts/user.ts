@@ -3,6 +3,7 @@ import { Review } from '../models/review';
 import { User } from '../models/User';
 import { List } from '../models/List';
 import { requireAuth, optionalAuth, AuthRequest } from '../middleware/auth';
+import { notify } from '../lib/notify';
 
 const router = Router();
 
@@ -109,6 +110,7 @@ router.post('/:id/follow', requireAuth, async (req: AuthRequest, res: Response) 
     if (!target) { res.status(404).json({ error: 'User not found' }); return; }
     if (target._id.equals(req.user!._id)) { res.status(400).json({ error: 'Cannot follow yourself' }); return; }
     await User.findByIdAndUpdate(req.user!._id, { $addToSet: { following: target._id } });
+    notify({ type: 'follow', recipientId: target._id as any, actorId: req.user!._id }).catch(console.error);
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: 'Failed to follow' });

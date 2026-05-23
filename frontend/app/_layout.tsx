@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { C } from './theme';
 import { AuthProvider, useAuth } from './context/auth';
 import { RateProvider } from './context/rate';
+import { NotifProvider } from './context/notif';
 
 function Guard() {
   const { token, loading } = useAuth();
@@ -27,16 +28,19 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.bg }}>
       <SafeAreaProvider>
         <AuthProvider>
-          <RateProvider>
-          <StatusBar style="light" />
-          <Guard />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="auth/login" />
-            <Stack.Screen name="auth/success" />
-            <Stack.Screen name="song" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-          </Stack>
-          </RateProvider>
+          <NotifProvider>
+            <RateProvider>
+              <StatusBar style="light" />
+              <Guard />
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="auth/login" />
+                <Stack.Screen name="auth/success" />
+                <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="song" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+              </Stack>
+            </RateProvider>
+          </NotifProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
