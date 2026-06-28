@@ -1,5 +1,8 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { User } from '../models/User';
+import { sendPasswordReset } from '../lib/mailer';
 
 const router = Router();
 const usedCodes = new Map<string, number>(); // code -> timestamp
@@ -79,20 +82,34 @@ router.get('/callback', async (req: Request, res: Response) => {
     try {
       const profile = await profileRes.json() as { id: string; display_name: string; email: string; images: { url: string }[] };
       spotifyId = profile.id;
-      await User.findOneAndUpdate(
-        { spotifyId: profile.id },
-        {
-          spotifyId:      profile.id,
-          displayName:    profile.display_name,
-          email:          profile.email,
-          avatarUrl:      profile.images?.[0]?.url ?? '',
-          accessToken:    tokens.access_token,
-          refreshToken:   tokens.refresh_token,
-          tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-          updatedAt:      new Date(),
-        },
-        { upsert: true, returnDocument: 'after' }
-      );
+
+      const spotifyCredentials = {
+        spotifyId:      profile.id,
+        accessToken:    tokens.access_token,
+        refreshToken:   tokens.refresh_token,
+        tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+        updatedAt:      new Date(),
+      };
+
+      // Account linking: if an email-signup user exists with this email, merge Spotify into it
+      const existingByEmail = await User.findOne({ email: profile.email });
+      if (existingByEmail && existingByEmail.spotifyId !== profile.id) {
+        await User.findOneAndUpdate(
+          { _id: existingByEmail._id },
+          { ...spotifyCredentials, avatarUrl: profile.images?.[0]?.url ?? existingByEmail.avatarUrl }
+        );
+      } else {
+        await User.findOneAndUpdate(
+          { spotifyId: profile.id },
+          {
+            ...spotifyCredentials,
+            displayName: profile.display_name,
+            email:       profile.email,
+            avatarUrl:   profile.images?.[0]?.url ?? '',
+          },
+          { upsert: true, returnDocument: 'after' }
+        );
+      }
     } catch (err) {
       console.error('❌ Could not save user to DB:', err);
     }
@@ -102,12 +119,117 @@ router.get('/callback', async (req: Request, res: Response) => {
   res.redirect(`${successURL}?access_token=${tokens.access_token}&spotify_id=${spotifyId}&expires_at=${expiresAt}`);
 });
 
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  const { email } = req.body as { email?: string };
+  if (!email) { res.status(400).json({ error: 'Missing email' }); return; }
+
+  const user = await User.findOne({ email });
+  // Always return 200 — don't reveal whether the email exists
+  if (!user) { res.json({ message: 'If that email exists, a reset link has been sent' }); return; }
+
+  const resetToken = crypto.randomBytes(20).toString('hex');
+  const resetExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+  await User.findOneAndUpdate(
+    { email },
+    { resetToken, resetExpires }
+  );
+
+  sendPasswordReset(email, resetToken).catch(err => console.error('Failed to send reset email:', err));
+  res.json({ message: 'If that email exists, a reset link has been sent' });
+});
+
+router.post('/reset-password', async (req: Request, res: Response) => {
+  const { email, resetToken, newPassword } = req.body as { email?: string; resetToken?: string; newPassword?: string };
+  if (!email || !resetToken || !newPassword) {
+    res.status(400).json({ error: 'email, resetToken, and newPassword are required' }); return;
+  }
+  if (newPassword.length < 6) {
+    res.status(400).json({ error: 'New password must be at least 6 characters' }); return;
+  }
+
+  const user = await User.findOne({ email });
+  if (!user || user.resetToken !== resetToken || !user.resetExpires || user.resetExpires < new Date()) {
+    res.status(400).json({ error: 'Invalid or expired reset token' }); return;
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await User.findOneAndUpdate(
+    { email },
+    { $set: { passwordHash }, $unset: { resetToken: '', resetExpires: '' } }
+  );
+
+  res.json({ message: 'Password has been reset successfully' });
+});
+
+router.post('/register', async (req: Request, res: Response) => {
+  const { email, displayName, password } = req.body as { email?: string; displayName?: string; password?: string };
+  if (!email || !displayName || !password) {
+    res.status(400).json({ error: 'email, displayName, and password are required' }); return;
+  }
+  if (password.length < 6) {
+    res.status(400).json({ error: 'Password must be at least 6 characters' }); return;
+  }
+
+  const existing = await User.findOne({ email });
+  if (existing) { res.status(409).json({ error: 'Email already in use' }); return; }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const spotifyId = `email:${crypto.randomUUID()}`;
+  const accessToken = crypto.randomBytes(40).toString('hex');
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  await User.create({
+    spotifyId, displayName, email,
+    avatarUrl: '', accessToken, refreshToken: '',
+    tokenExpiresAt: expiresAt, passwordHash,
+  });
+
+  res.json({ access_token: accessToken, spotify_id: spotifyId, expires_at: expiresAt.getTime() });
+});
+
+router.post('/email-login', async (req: Request, res: Response) => {
+  const { email, password } = req.body as { email?: string; password?: string };
+  if (!email || !password) {
+    res.status(400).json({ error: 'email and password are required' }); return;
+  }
+
+  const user = await User.findOne({ email });
+  if (!user?.passwordHash) {
+    res.status(401).json({ error: 'Invalid email or password' }); return;
+  }
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) { res.status(401).json({ error: 'Invalid email or password' }); return; }
+
+  const accessToken = crypto.randomBytes(40).toString('hex');
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  await User.findOneAndUpdate(
+    { email },
+    { accessToken, tokenExpiresAt: expiresAt, updatedAt: new Date() }
+  );
+
+  res.json({ access_token: accessToken, spotify_id: user.spotifyId, expires_at: expiresAt.getTime() });
+});
+
 router.post('/refresh', async (req: Request, res: Response) => {
   const { spotifyId } = req.body;
   if (!spotifyId) { res.status(400).json({ error: 'Missing spotifyId' }); return; }
 
   const user = await User.findOne({ spotifyId });
   if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+
+  // Email users — issue a new long-lived token instead of calling Spotify
+  if (!user.refreshToken) {
+    const accessToken = crypto.randomBytes(40).toString('hex');
+    const expiresIn = 30 * 24 * 60 * 60;
+    await User.findOneAndUpdate(
+      { spotifyId },
+      { accessToken, tokenExpiresAt: new Date(Date.now() + expiresIn * 1000), updatedAt: new Date() }
+    );
+    res.json({ access_token: accessToken, expires_in: expiresIn }); return;
+  }
 
   const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',

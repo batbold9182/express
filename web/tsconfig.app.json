@@ -19,7 +19,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@tunelog/shared": ["../shared/index.ts"],
+      "@tunelog/shared/*": ["../shared/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "../shared"]
 }

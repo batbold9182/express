@@ -1,1 +1,1 @@
-export type { ReviewUser, Comment, FeedItem } from '../../lib/types';
+export type { ReviewUser, Comment, FeedItem } from '@tunelog/shared';

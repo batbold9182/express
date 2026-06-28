@@ -7,8 +7,11 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     avatarUrl: { type: String },
     accessToken: { type: String, required: true, index: true },
-    refreshToken: { type: String, required: true },
+    refreshToken: { type: String, default: '' },
     tokenExpiresAt: { type: Date },
+    passwordHash: { type: String },
+    resetToken: { type: String },
+    resetExpires: { type: Date },
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }

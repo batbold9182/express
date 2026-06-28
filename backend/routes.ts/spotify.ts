@@ -7,7 +7,15 @@ const router = Router();
 async function spotifyGet(url: string, req: Request, res: Response) {
   try {
     const r = await fetch(url, { headers: spotifyHeaders(req) });
-    if (!r.ok) { const t = await r.text(); console.error('Spotify error:', r.status, url, t); res.status(r.status).json({ error: t }); return; }
+    if (!r.ok) {
+      const t = await r.text();
+      console.error('Spotify error:', r.status, url, t);
+      // Remap Spotify 401/403 to 502 — these mean the Spotify token is invalid,
+      // not that our app auth failed. Proxying 401 would log the user out.
+      const status = (r.status === 401 || r.status === 403) ? 502 : r.status;
+      res.status(status).json({ error: t });
+      return;
+    }
     res.json(await r.json());
   } catch (e) {
     console.error('Spotify fetch error:', e);

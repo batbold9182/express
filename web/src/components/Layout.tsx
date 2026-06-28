@@ -1,0 +1,126 @@
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/auth';
+import { useNotif } from '../context/notif';
+import { RateModal } from './RateModal';
+
+const NAV = [
+  { to: '/',             icon: HomeIcon,   label: 'Home'          },
+  { to: '/search',       icon: SearchIcon, label: 'Search'        },
+  { to: '/feed',         icon: FeedIcon,   label: 'Feed'          },
+  { to: '/notifications',icon: BellIcon,   label: 'Notifications' },
+  { to: '/me',           icon: MeIcon,     label: 'Me'            },
+];
+
+export function Layout() {
+  const { token } = useAuth();
+  const { unreadCount } = useNotif();
+  const nav = useNavigate();
+
+  if (!token) {
+    nav('/login', { replace: true });
+    return null;
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Sidebar */}
+      <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-white/8 p-4 gap-1 sticky top-0 h-screen">
+        <div className="px-3 py-5 mb-2">
+          <span className="text-[20px] font-bold bg-gradient-to-r from-violet to-pink bg-clip-text text-transparent">
+            Tunelog
+          </span>
+        </div>
+        {NAV.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-colors relative ${
+                isActive
+                  ? 'bg-violet/15 text-violet border border-violet/30'
+                  : 'text-fg2 hover:bg-white/6 hover:text-fg border border-transparent'
+              }`
+            }
+          >
+            <Icon size={18} />
+            {label}
+            {label === 'Notifications' && unreadCount > 0 && (
+              <span className="ml-auto bg-pink text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </NavLink>
+        ))}
+      </aside>
+
+      {/* Main */}
+      <main className="flex-1 min-w-0">
+        <Outlet />
+      </main>
+
+      {/* Bottom nav (mobile) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-white/8 z-40" style={{ background: 'rgba(11,8,22,0.95)', backdropFilter: 'blur(12px)' }}>
+        {NAV.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) =>
+              `flex-1 flex flex-col items-center py-2 gap-0.5 text-[10px] font-medium transition-colors relative ${
+                isActive ? 'text-violet' : 'text-fg4'
+              }`
+            }
+          >
+            <Icon size={22} />
+            {label}
+            {label === 'Notifications' && unreadCount > 0 && (
+              <span className="absolute top-1 right-1/3 translate-x-3 bg-pink text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+
+      <RateModal />
+    </div>
+  );
+}
+
+/* Inline SVG icons */
+function HomeIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+  );
+}
+function SearchIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  );
+}
+function FeedIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+    </svg>
+  );
+}
+function BellIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
+    </svg>
+  );
+}
+function MeIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </svg>
+  );
+}

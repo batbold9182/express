@@ -3,9 +3,9 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"],
+      "@tunelog/shared": ["../shared/index.ts"],
+      "@tunelog/shared/*": ["../shared/*"]
     }
   },
   "include": [
