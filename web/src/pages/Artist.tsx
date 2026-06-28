@@ -52,7 +52,7 @@ export default function Artist() {
   if (loading) return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-2 border-violet/30 border-t-violet rounded-full animate-spin" /></div>;
   if (!artist) return <div className="flex items-center justify-center h-screen text-fg3">Artist not found.</div>;
 
-  const img = artist.images[0]?.url;
+  const img = artist.images?.[0]?.url;
 
   return (
     <div className="h-screen overflow-y-auto">
@@ -74,7 +74,7 @@ export default function Artist() {
                : <div className="w-40 h-40 rounded-full bg-white/8" />}
           <span className="text-[10px] font-bold uppercase tracking-widest text-pink border border-pink/30 bg-pink/10 px-2.5 py-0.5 rounded-full">Artist</span>
           <h1 className="text-[26px] font-bold text-fg text-center">{artist.name}</h1>
-          {artist.genres.length > 0 && <p className="text-[12px] text-fg3">{artist.genres.slice(0, 3).join(' · ')}</p>}
+          {(artist.genres?.length ?? 0) > 0 && <p className="text-[12px] text-fg3">{artist.genres.slice(0, 3).join(' · ')}</p>}
           {avgScore !== null && (
             <div className="flex flex-col items-center gap-1">
               <Score value={avgScore} size="lg" />
@@ -85,7 +85,7 @@ export default function Artist() {
             {alreadyReviewed
               ? <span className="px-5 py-2.5 rounded-xl border border-white/10 text-fg3 text-[13px] font-semibold">Already reviewed</span>
               : <button onClick={rateArtist} className="px-5 py-2.5 rounded-xl font-semibold text-[13px] cursor-pointer text-white" style={{ background: 'linear-gradient(135deg, #B14EFF, #FF3FA4)' }}>Rate artist</button>}
-            <a href={artist.external_urls.spotify} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-[13px]" style={{ background: '#1DB954', color: '#000' }}>▶ Spotify</a>
+            {artist.external_urls?.spotify && <a href={artist.external_urls.spotify} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-[13px]" style={{ background: '#1DB954', color: '#000' }}>▶ Spotify</a>}
           </div>
         </div>
 

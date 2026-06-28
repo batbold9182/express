@@ -33,8 +33,9 @@ export function isEmailUser(req: Request): boolean {
 }
 
 export function spotifyHeaders(req: Request): { Authorization: string } {
-  if (isEmailUser(req) && _appToken) {
-    return { Authorization: `Bearer ${_appToken}` };
+  if (isEmailUser(req)) {
+    if (!_appToken) void refreshAppToken(); // kick off a refresh if somehow still missing
+    if (_appToken) return { Authorization: `Bearer ${_appToken}` };
   }
   return { Authorization: `Bearer ${req.headers.authorization?.split(' ')[1]}` };
 }

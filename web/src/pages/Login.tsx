@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/auth';
 
 const BASE = import.meta.env.VITE_API_BASE as string;
@@ -214,6 +214,13 @@ export default function Login() {
                   onFocus={e => (e.target.style.borderColor = 'rgba(177,78,255,0.6)')}
                   onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
                 />
+                {mode === 'signin' && (
+                  <div className="text-right -mt-1">
+                    <Link to="/forgot-password" className="text-[12px] text-fg4 hover:text-violet transition-colors">
+                      Forgot password?
+                    </Link>
+                  </div>
+                )}
                 {mode === 'signup' && (
                   <input
                     type="password"

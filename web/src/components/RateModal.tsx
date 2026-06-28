@@ -28,7 +28,7 @@ export function RateModal() {
     if (busy || !token) return;
     setBusy(true);
     try {
-      const body: Record<string, any> = { text, score, moods };
+      const body: Record<string, any> = { text, score, moods, shareToFeed: true };
       if (item!.type === 'artist' && item!.spotifyArtistId) {
         body.spotifyArtistId = item!.spotifyArtistId;
         body.type = 'artist';
@@ -47,6 +47,8 @@ export function RateModal() {
         body.trackName  = item!.trackName;
         body.artistName = item!.artistName;
         body.albumArt   = item!.albumArt;
+        if (item!.spotifyArtistId) body.spotifyArtistId = item!.spotifyArtistId;
+        if (item!.spotifyAlbumId)  body.spotifyAlbumId  = item!.spotifyAlbumId;
       }
       await api.post('/reviews', body);
       setDone(true);

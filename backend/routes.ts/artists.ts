@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { Review } from '../models/review';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { spotifyHeaders } from './_spotifyHeaders';
+import { spotifyHeaders, isEmailUser } from './_spotifyHeaders';
 import { cacheGet, cacheSet, TTL } from './_cache';
 
 const router = Router();
@@ -15,7 +15,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   if (cached) { res.json(cached); return; }
   try {
     const r = await fetch(`https://api.spotify.com/v1/artists/${req.params.id}`, { headers: spotifyHeaders(req) });
-    if (!r.ok) { const t = await r.text(); console.error('Spotify artist error:', r.status, t); res.status(r.status).json({ error: t }); return; }
+    if (!r.ok) { const t = await r.text(); console.error('Spotify artist error:', r.status, t); res.status(r.status === 401 || r.status === 403 ? 502 : r.status).json({ error: t }); return; }
     const data = await r.json();
     cacheSet(key, data, TTL.DAY);
     res.json(data);
@@ -43,20 +43,21 @@ router.get('/:id/albums', requireAuth, async (req: Request, res: Response) => {
     try {
       res.json(await inFlight.get(key)!);
     } catch (err: any) {
-      res.status(err.status ?? 500).json({ error: err.message || 'Failed to fetch albums' });
+      res.status(err.status ?? 500).json({ error: err.message || 'Failed to fetch albums' }); // err.status already remapped
     }
     return;
   }
 
-  const promise = fetch(
-    `https://api.spotify.com/v1/artists/${req.params.id}/albums?include_groups=${group}&limit=${limit}&offset=${offset}`,
-    { headers: spotifyHeaders(req) }
-  ).then(async r => {
+  const headers = spotifyHeaders(req);
+  const url = `https://api.spotify.com/v1/artists/${req.params.id}/albums?include_groups=${encodeURIComponent(group)}&market=US`;
+  const promise = fetch(url, { headers })
+  .then(async r => {
     if (!r.ok) {
       const t = await r.text();
       const retryAfter = Number(r.headers.get('Retry-After') ?? 10);
+      const mappedStatus = r.status === 401 || r.status === 403 ? 502 : r.status;
       console.error('Spotify albums error:', r.status, group, t);
-      throw Object.assign(new Error(t), { status: r.status, retryAfter });
+      throw Object.assign(new Error(t), { status: mappedStatus, retryAfter });
     }
     return r.json() as Promise<unknown>;
   });

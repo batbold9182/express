@@ -4,9 +4,10 @@ import { NotifProvider } from './context/notif';
 import { RateProvider } from './context/rate';
 import { Layout } from './components/Layout';
 
-import Login         from './pages/Login';
-import AuthCallback  from './pages/AuthCallback';
-import ResetPassword from './pages/ResetPassword';
+import Login          from './pages/Login';
+import AuthCallback   from './pages/AuthCallback';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword  from './pages/ResetPassword';
 import Home         from './pages/Home';
 import Search       from './pages/Search';
 import Feed         from './pages/Feed';
@@ -26,6 +27,7 @@ export default function App() {
             <Routes>
               <Route path="/login"          element={<Login />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
 
               <Route element={<Layout />}>

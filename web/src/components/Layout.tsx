@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import { RateModal } from './RateModal';
@@ -14,12 +14,8 @@ const NAV = [
 export function Layout() {
   const { token } = useAuth();
   const { unreadCount } = useNotif();
-  const nav = useNavigate();
 
-  if (!token) {
-    nav('/login', { replace: true });
-    return null;
-  }
+  if (!token) return <Navigate to="/login" replace />;
 
   return (
     <div className="flex min-h-screen">

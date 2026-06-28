@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
-import { spotifyHeaders } from './_spotifyHeaders';
+import { spotifyHeaders, isEmailUser } from './_spotifyHeaders';
 
 const router = Router();
 
@@ -23,10 +23,20 @@ async function spotifyGet(url: string, req: Request, res: Response) {
   }
 }
 
-router.get('/me', requireAuth, (req, res) => spotifyGet('https://api.spotify.com/v1/me', req, res));
-router.get('/me/top/artists', requireAuth, (req, res) => spotifyGet(`https://api.spotify.com/v1/me/top/artists?limit=5&time_range=${req.query.time_range ?? 'medium_term'}`, req, res));
-router.get('/me/top/tracks', requireAuth, (req, res) => spotifyGet(`https://api.spotify.com/v1/me/top/tracks?limit=10&time_range=${req.query.time_range ?? 'medium_term'}`, req, res));
+router.get('/me', requireAuth, (req, res) => {
+  if (isEmailUser(req)) { res.status(502).json({ error: 'Spotify not linked' }); return; }
+  spotifyGet('https://api.spotify.com/v1/me', req, res);
+});
+router.get('/me/top/artists', requireAuth, (req, res) => {
+  if (isEmailUser(req)) { res.json({ items: [] }); return; }
+  spotifyGet(`https://api.spotify.com/v1/me/top/artists?limit=5&time_range=${req.query.time_range ?? 'medium_term'}`, req, res);
+});
+router.get('/me/top/tracks', requireAuth, (req, res) => {
+  if (isEmailUser(req)) { res.json({ items: [] }); return; }
+  spotifyGet(`https://api.spotify.com/v1/me/top/tracks?limit=10&time_range=${req.query.time_range ?? 'medium_term'}`, req, res);
+});
 router.get('/me/player/currently-playing', requireAuth, async (req, res) => {
+  if (isEmailUser(req)) { res.json(null); return; }
   try {
     const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: spotifyHeaders(req) });
     if (r.status === 204 || r.status === 404) { res.json(null); return; }
