@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const BASE = import.meta.env.VITE_API_BASE as string;
 
 let _token: string | null = null;
@@ -8,7 +9,7 @@ export function configureApi(token: string | null, onAuthFailure: () => void) {
   _onAuthFailure = onAuthFailure;
 }
 
-async function request(method: string, path: string, body?: object, signal?: AbortSignal): Promise<unknown> {
+async function request<T = any>(method: string, path: string, body?: object, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = {};
   if (_token) headers['Authorization'] = `Bearer ${_token}`;
   if (body) headers['Content-Type'] = 'application/json';
@@ -24,14 +25,14 @@ async function request(method: string, path: string, body?: object, signal?: Abo
     _onAuthFailure?.();
     throw new Error('401');
   }
-  if (res.status === 204) return null;
+  if (res.status === 204) return null as T;
   if (!res.ok) throw new Error(`${res.status} ${path}`);
   return res.json();
 }
 
 export const api = {
-  get:  (path: string, signal?: AbortSignal)          => request('GET',    path, undefined, signal),
-  post: (path: string, body: object)                  => request('POST',   path, body),
-  put:  (path: string, body: object)                  => request('PUT',    path, body),
-  del:  (path: string)                                => request('DELETE', path),
+  get:  <T = any>(path: string, signal?: AbortSignal) => request<T>('GET',    path, undefined, signal),
+  post: <T = any>(path: string, body: object)         => request<T>('POST',   path, body),
+  put:  <T = any>(path: string, body: object)         => request<T>('PUT',    path, body),
+  del:  <T = any>(path: string)                       => request<T>('DELETE', path),
 };

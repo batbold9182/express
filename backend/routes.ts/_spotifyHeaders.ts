@@ -24,8 +24,8 @@ async function refreshAppToken() {
   }
 }
 
-// Fetch once immediately, then every 50 min
-void refreshAppToken();
+// Delay first fetch by one tick so dotenv.config() in server.ts runs first
+setTimeout(() => void refreshAppToken(), 0);
 setInterval(() => { void refreshAppToken(); }, 50 * 60 * 1000);
 
 export function isEmailUser(req: Request): boolean {

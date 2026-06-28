@@ -80,7 +80,7 @@ export default function Me() {
             <Avatar name={user?.display_name ?? appUser?.displayName ?? '?'} src={user?.images?.[0]?.url ?? appUser?.avatarUrl} size={96} className="ring-2 ring-bg" />
           </div>
           <h2 className="text-[22px] font-bold text-fg">{user?.display_name ?? appUser?.displayName ?? '—'}</h2>
-          <p className="text-[12px] text-cyan tracking-widest">@{user?.id ?? spotifyId}</p>
+          {user?.id && <p className="text-[12px] text-cyan tracking-widest">@{user.id}</p>}
         </div>
 
         {/* Stats */}
