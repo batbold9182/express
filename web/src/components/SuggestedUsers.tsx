@@ -55,7 +55,7 @@ export function SuggestedUsers() {
 
       {visible.length === 0 && (
         <div className="py-3 text-center">
-          <p className="text-[12px] text-fg4">You're following everyone active on Tunelog.</p>
+          <p className="text-[12px] text-fg4">You're following everyone active on express.</p>
           <button
             onClick={() => nav('/search?scope=people')}
             className="mt-2 text-[12px] text-violet hover:text-fg transition-colors cursor-pointer"

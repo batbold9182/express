@@ -94,7 +94,7 @@ export default function Login() {
               className="relative text-[52px] font-bold leading-none tracking-tight bg-clip-text text-transparent"
               style={{ backgroundImage: 'linear-gradient(90deg, #00D9FF 0%, #B14EFF 50%, #FF3FA4 100%)' }}
             >
-              tunelog
+              express
             </h1>
           </div>
           <p className="text-fg3 text-[15px] text-center tracking-wide">Rate music. Build your taste.</p>

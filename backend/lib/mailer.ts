@@ -12,12 +12,12 @@ export async function sendPasswordReset(toEmail: string, resetToken: string) {
   const resetUrl = `${frontendBase}/reset-password?token=${resetToken}&email=${encodeURIComponent(toEmail)}`;
 
   await transporter.sendMail({
-    from: `"Tunelog" <${process.env.GMAIL_USER}>`,
+    from: `"express" <${process.env.GMAIL_USER}>`,
     to: toEmail,
-    subject: 'Reset your Tunelog password',
+    subject: 'Reset your express password',
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0B0816;color:#E6E2F2;border-radius:16px;">
-        <h1 style="font-size:28px;font-weight:bold;background:linear-gradient(90deg,#00D9FF,#B14EFF,#FF3FA4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0 0 8px;">tunelog</h1>
+        <h1 style="font-size:28px;font-weight:bold;background:linear-gradient(90deg,#00D9FF,#B14EFF,#FF3FA4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0 0 8px;">express</h1>
         <p style="color:#8A7FAC;margin:0 0 24px;">Rate music. Build your taste.</p>
         <p style="margin:0 0 24px;">Click the button below to reset your password. This link expires in <strong>15 minutes</strong>.</p>
         <a href="${resetUrl}"

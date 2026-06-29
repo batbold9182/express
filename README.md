@@ -1,8 +1,8 @@
-# Tunelog
+# express
 
 Rate music. Build your taste.
 
-Tunelog is a social music review app where users rate tracks, albums, and artists (0–10), write short takes, tag moods, and share reviews to a social feed. Other users can follow, like, and comment.
+express is a social music review app where users rate tracks, albums, and artists (0–10), write short takes, tag moods, and share reviews to a social feed. Other users can follow, like, and comment.
 
 ---
 
@@ -56,6 +56,7 @@ CLIENT_SECRET=       # Spotify app client secret
 MONGO_URI=           # MongoDB Atlas connection string
 GMAIL_USER=          # Gmail address (e.g. yourapp@gmail.com)
 GMAIL_PASS=          # Gmail App Password (not your account password)
+ADMIN_EMAIL=         # Email address that can access GET /feedback
 FRONTEND_WEB_BASE=http://localhost:5173
 ```
 
@@ -104,7 +105,7 @@ cd frontend && npx expo start --clear
 
 ## Auth
 
-Tunelog supports two login methods:
+express supports two login methods:
 
 **Spotify OAuth** — full experience including personal top artists and now-playing.
 
@@ -119,10 +120,14 @@ Password reset is handled via email (Nodemailer + Gmail). Reset links expire in 
 - Rate tracks, albums, and artists on a 0–10 scale
 - Tag reviews with up to 3 moods (hype, nostalgic, sad, etc.)
 - Share reviews to a social feed
+- **For You** feed (trending) and **Following** feed (people you follow) as Home tabs
 - Follow users and see their activity in your feed
 - Like and comment on reviews (with threaded replies)
 - Artist and album pages with community aggregate scores
+- **Ranking leaderboard** — community avg scores per item, filters by Most Rated / Tracks / Albums / Artists
+- **Discovery panel** — "Who to Follow" suggestions + top-scored reviews on Home (desktop)
 - Notifications for likes, comments, replies, and follows
+- In-app feedback reporting (bug / feature / other)
 - Works without a Spotify account
 
 ---
@@ -145,9 +150,13 @@ All routes require `Authorization: Bearer <token>` unless noted.
 | `GET /tracks/:id` | Track metadata + community score |
 | `POST /reviews` | Post a review |
 | `GET /reviews/trending` | Most liked reviews (last 7 days) |
+| `GET /reviews/leaderboard?type=&limit=` | Aggregated leaderboard — avg score + review count per item. `type`: `most-rated \| track \| album \| artist` |
+| `GET /reviews/top` | Highest scored reviews (score ≥ 7) |
 | `GET /feed/me` | Feed from followed users |
+| `GET /users/suggested?limit=` | Users to follow — excludes self + already following, sorted by follower count |
 | `GET /notifications` | Paginated notifications |
 | `POST /users/:id/follow` | Follow a user |
+| `POST /feedback` | Submit feedback (bug / feature / other) |
 
 See [`currentState.md`](currentState.md) for the full API reference.
 
@@ -171,3 +180,4 @@ Spotify OAuth requires HTTPS for non-localhost URIs. For testing on a physical d
 - In-memory Spotify response cache clears on backend restart
 - No push notifications in Expo Go — requires a dev build with `expo-notifications`
 - Artist discography always returns Spotify's default page size (explicit `limit` rejected by Client Credentials)
+- Auth middleware caches `req.user` for 4 minutes — stale data possible immediately after follow/unfollow

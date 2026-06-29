@@ -38,7 +38,7 @@ export function Layout() {
       <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-white/8 p-4 gap-1 sticky top-0 h-screen">
         <div className="px-3 py-5 mb-2">
           <span className="text-[20px] font-bold bg-gradient-to-r from-violet to-pink bg-clip-text text-transparent">
-            Tunelog
+            express
           </span>
         </div>
 

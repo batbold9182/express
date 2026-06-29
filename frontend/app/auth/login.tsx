@@ -37,13 +37,13 @@ export default function Login() {
                     end={{ x: 1, y: 1 }}
                     style={s.logoMark}
                 />
-                <MaskedView maskElement={<Text style={s.appName}>tunelog</Text>}>
+                <MaskedView maskElement={<Text style={s.appName}>express</Text>}>
                     <LinearGradient
                         colors={["#00D9FF", "#B14EFF", "#FF3FA4"]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                     >
-                        <Text style={[s.appName, { opacity: 0 }]}>tunelog</Text>
+                        <Text style={[s.appName, { opacity: 0 }]}>express</Text>
                     </LinearGradient>
                 </MaskedView>
                 <Text style={s.tagline}>rate the music you love</Text>
