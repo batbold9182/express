@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { Review } from '../models/review';
+import { stripNullAuthors } from '../lib/stripNullAuthors';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { spotifyHeaders, isEmailUser } from './_spotifyHeaders';
 import { cacheGet, cacheSet, TTL } from './_cache';
@@ -81,12 +82,13 @@ router.get('/:id/reviews', requireAuth, async (req: AuthRequest, res: Response) 
   const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
   const filter: any = { spotifyArtistId: req.params.id, type: 'artist' };
   try {
-    const [allScores, reviews] = await Promise.all([
+    const [allScores, raw] = await Promise.all([
       Review.find(filter).select('score'),
       Review.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit)
         .populate('userId', '_id displayName avatarUrl spotifyId')
         .populate('comments.userId', '_id displayName avatarUrl'),
     ]);
+    const reviews = stripNullAuthors(raw);
     const scores = allScores.map(r => r.score).filter((s): s is number => s != null);
     const avgScore = scores.length > 0
       ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10

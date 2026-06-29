@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { Review } from '../models/review';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { notify } from '../lib/notify';
+import { stripNullAuthors } from '../lib/stripNullAuthors';
 
 const router = Router();
 
@@ -23,7 +24,8 @@ router.get('/trending', requireAuth, async (req: AuthRequest, res: Response) => 
       { $skip: offset },
       { $limit: limit },
     ]);
-    const items = await Review.populate(docs, POPULATE);
+    const populated = await Review.populate(docs, POPULATE);
+    const items = stripNullAuthors(populated as any[]);
     res.json({ items, myId: req.user!._id.toString(), hasMore: items.length === limit });
   } catch {
     res.status(500).json({ error: 'Failed to fetch trending' });
@@ -41,10 +43,79 @@ router.get('/top', requireAuth, async (req: AuthRequest, res: Response) => {
       { $skip: offset },
       { $limit: limit },
     ]);
-    const items = await Review.populate(docs, POPULATE);
+    const populated = await Review.populate(docs, POPULATE);
+    const items = stripNullAuthors(populated as any[]);
     res.json({ items, myId: req.user!._id.toString(), hasMore: items.length === limit });
   } catch {
     res.status(500).json({ error: 'Failed to fetch top' });
+  }
+});
+
+// GET /reviews/leaderboard?type=most-rated|track|album|artist&limit=100
+router.get('/leaderboard', requireAuth, async (req: AuthRequest, res: Response) => {
+  const type  = (req.query.type as string) || 'most-rated';
+  const limit = Math.min(parseInt(req.query.limit as string) || 100, 100);
+  try {
+    let pipeline: any[];
+
+    if (type === 'most-rated') {
+      pipeline = [
+        {
+          $group: {
+            _id: {
+              spotifyId: {
+                $cond: [
+                  { $eq: ['$type', 'artist'] }, '$spotifyArtistId',
+                  { $cond: [{ $eq: ['$type', 'album'] }, '$spotifyAlbumId', { $ifNull: ['$spotifyTrackId', ''] }] },
+                ],
+              },
+              type: { $ifNull: ['$type', 'track'] },
+            },
+            avgScore:    { $avg: '$score' },
+            reviewCount: { $sum: 1 },
+            trackName:   { $first: '$trackName' },
+            artistName:  { $first: '$artistName' },
+            albumArt:    { $first: '$albumArt' },
+            spotifyTrackId:  { $first: '$spotifyTrackId' },
+            spotifyAlbumId:  { $first: '$spotifyAlbumId' },
+            spotifyArtistId: { $first: '$spotifyArtistId' },
+          },
+        },
+        { $sort: { reviewCount: -1, avgScore: -1 } },
+        { $limit: limit },
+        { $project: { _id: 0, type: '$_id.type', avgScore: { $round: ['$avgScore', 1] }, reviewCount: 1, trackName: 1, artistName: 1, albumArt: 1, spotifyTrackId: 1, spotifyAlbumId: 1, spotifyArtistId: 1 } },
+      ];
+    } else {
+      const idField   = type === 'artist' ? 'spotifyArtistId' : type === 'album' ? 'spotifyAlbumId' : 'spotifyTrackId';
+      const typeMatch = type === 'track'
+        ? { $or: [{ type: 'track' }, { type: { $exists: false } }] }
+        : { type };
+      pipeline = [
+        { $match: typeMatch },
+        {
+          $group: {
+            _id: `$${idField}`,
+            avgScore:    { $avg: '$score' },
+            reviewCount: { $sum: 1 },
+            trackName:   { $first: '$trackName' },
+            artistName:  { $first: '$artistName' },
+            albumArt:    { $first: '$albumArt' },
+            spotifyTrackId:  { $first: '$spotifyTrackId' },
+            spotifyAlbumId:  { $first: '$spotifyAlbumId' },
+            spotifyArtistId: { $first: '$spotifyArtistId' },
+          },
+        },
+        { $sort: { avgScore: -1, reviewCount: -1 } },
+        { $limit: limit },
+        { $project: { _id: 0, type: type === 'track' ? 'track' : type, avgScore: { $round: ['$avgScore', 1] }, reviewCount: 1, trackName: 1, artistName: 1, albumArt: 1, spotifyTrackId: 1, spotifyAlbumId: 1, spotifyArtistId: 1 } },
+      ];
+    }
+
+    const items = await Review.aggregate(pipeline);
+    res.json({ items });
+  } catch (err) {
+    console.error('[leaderboard] error:', err);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
   }
 });
 

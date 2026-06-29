@@ -1,20 +1,34 @@
-import { NavLink, Link, Outlet, Navigate } from 'react-router-dom';
+import { NavLink, Link, Outlet, Navigate, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import { RateModal } from './RateModal';
 import { NowPlaying } from './NowPlaying';
+import { Avatar } from './Avatar';
+import { api } from '../lib/api';
+
+type MeUser = { displayName: string; avatarUrl?: string; spotifyId: string };
 
 const NAV = [
-  { to: '/',             icon: HomeIcon,   label: 'Home'          },
-  { to: '/search',       icon: SearchIcon, label: 'Search'        },
-  { to: '/feed',         icon: FeedIcon,   label: 'Feed'          },
-  { to: '/notifications',icon: BellIcon,   label: 'Notifications' },
-  { to: '/me',           icon: MeIcon,     label: 'Me'            },
+  { to: '/',              icon: HomeIcon,    label: 'Home'          },
+  { to: '/search',        icon: SearchIcon,  label: 'Search'        },
+  { to: '/ranking',       icon: TrophyIcon,  label: 'Ranking'       },
+  { to: '/notifications', icon: BellIcon,    label: 'Notifications' },
+  { to: '/me',            icon: MeIcon,      label: 'Me'            },
 ];
 
 export function Layout() {
   const { token } = useAuth();
   const { unreadCount } = useNotif();
+  const nav = useNavigate();
+  const [me, setMe] = useState<MeUser | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    api.get<MeUser>('/users/me')
+      .then(u => setMe(u))
+      .catch(() => {});
+  }, [token]);
 
   if (!token) return <Navigate to="/login" replace />;
 
@@ -27,6 +41,7 @@ export function Layout() {
             Tunelog
           </span>
         </div>
+
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
@@ -52,12 +67,23 @@ export function Layout() {
 
         <NowPlaying />
 
-        <div className="mt-auto pt-4 border-t border-white/8 flex flex-col gap-0.5">
+        <div className="mt-auto pt-4 border-t border-white/8 flex flex-col gap-1">
+          {/* User avatar row */}
+          {me && (
+            <button
+              onClick={() => nav('/me')}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-white/6 transition-colors cursor-pointer border border-transparent"
+            >
+              <Avatar name={me.displayName} src={me.avatarUrl} size={28} />
+              <span className="text-[13px] font-semibold text-fg truncate flex-1">{me.displayName}</span>
+            </button>
+          )}
+
           <Link
             to="/feedback"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium text-fg2 hover:bg-white/6 hover:text-fg transition-colors border border-transparent"
+            className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium text-fg2 hover:bg-white/6 hover:text-fg transition-colors border border-transparent"
           >
-            <FeedbackIcon size={18} />
+            <FeedbackIcon size={17} />
             Feedback
           </Link>
           <Link
@@ -119,10 +145,13 @@ function SearchIcon({ size = 20 }: { size?: number }) {
     </svg>
   );
 }
-function FeedIcon({ size = 20 }: { size?: number }) {
+function TrophyIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+      <path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/>
+      <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+      <path d="M18 2H6v7a6 6 0 0012 0V2z"/>
     </svg>
   );
 }

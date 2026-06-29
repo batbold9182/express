@@ -10,7 +10,7 @@ type Track  = { id: string; name: string; artists: { name: string }[]; album: { 
 type Album  = { id: string; name: string; artists: { name: string }[]; images: { url: string }[] };
 type Artist = { id: string; name: string; images: { url: string }[]; genres: string[] };
 type UserResult = { _id: string; spotifyId: string; displayName: string; avatarUrl: string; isFollowing: boolean };
-type TrendingItem = { _id: string; type?: string; trackName: string; artistName: string; albumArt: string; score: number; spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string };
+type TrendingItem = { type?: string; trackName: string; artistName: string; albumArt: string; avgScore: number; reviewCount: number; spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string };
 
 const SCOPES   = ['All', 'Songs', 'Albums', 'Artists', 'People'];
 const TYPE_MAP = ['track,album,artist', 'track', 'album', 'artist'];
@@ -46,7 +46,7 @@ export default function Search() {
       });
       setReviewedTrackIds(tIds); setReviewedAlbumIds(aIds); setReviewedArtistIds(arIds);
     }).catch(() => {});
-    api.get('/reviews/trending?offset=0&limit=5')
+    api.get('/reviews/leaderboard?type=most-rated&limit=5')
       .then((d: any) => setTrending(d.items ?? []))
       .catch(() => {});
   }, [token]);
@@ -120,7 +120,7 @@ export default function Search() {
           <div className="flex flex-col gap-2">
             <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-1">🔥 Trending now</p>
             {trending.map((item, i) => (
-              <button key={item._id} onClick={() => navTrending(item)} className="flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-white/4 hover:bg-white/8 transition-colors cursor-pointer text-left w-full">
+              <button key={`${item.type}-${item.spotifyTrackId ?? item.spotifyAlbumId ?? item.spotifyArtistId}`} onClick={() => navTrending(item)} className="flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-white/4 hover:bg-white/8 transition-colors cursor-pointer text-left w-full">
                 <span className="text-[13px] font-bold w-6 text-center" style={{ color: i === 0 ? '#B14EFF' : '#5A4F78' }}>{i + 1}</span>
                 {item.albumArt
                   ? <img src={item.albumArt} alt="" className="w-10 h-10 rounded-lg object-cover" />
@@ -129,7 +129,10 @@ export default function Search() {
                   <p className="text-[13px] font-semibold text-fg truncate">{item.trackName}</p>
                   <p className="text-[11px] text-fg3 truncate">{item.artistName}</p>
                 </div>
-                <span className="text-[16px] font-bold tabular-nums shrink-0" style={{ color: scoreColor(item.score) }}>{item.score.toFixed(1)}</span>
+                <div className="flex flex-col items-end shrink-0">
+                  <span className="text-[16px] font-bold tabular-nums" style={{ color: scoreColor(item.avgScore) }}>{item.avgScore.toFixed(1)}</span>
+                  <span className="text-[10px] text-fg4">{item.reviewCount} {item.reviewCount === 1 ? 'review' : 'reviews'}</span>
+                </div>
               </button>
             ))}
           </div>

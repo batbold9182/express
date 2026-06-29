@@ -28,7 +28,7 @@ export default function AdminFeedback() {
   useEffect(() => {
     api.get<FeedbackItem[]>('/feedback')
       .then(d => setItems(d ?? []))
-      .catch(e => setError(e instanceof Error && e.message.startsWith('403') ? 'Not authorized' : 'Failed to load'))
+      .catch(e => setError(e instanceof Error && e.message.startsWith('403') ? 'Only for admin' : 'Failed to load'))
       .finally(() => setLoading(false));
   }, []);
 

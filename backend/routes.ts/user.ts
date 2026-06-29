@@ -4,6 +4,7 @@ import { User } from '../models/User';
 import { List } from '../models/List';
 import { requireAuth, optionalAuth, AuthRequest } from '../middleware/auth';
 import { notify } from '../lib/notify';
+import { stripNullAuthors } from '../lib/stripNullAuthors';
 
 const router = Router();
 
@@ -59,15 +60,48 @@ router.get('/me/reviews', requireAuth, async (req: AuthRequest, res: Response) =
     const filter: any = { userId: req.user!._id };
     if (type === 'album' || type === 'artist') filter.type = type;
     else if (type === 'track') filter.$or = [{ type: 'track' }, { type: { $exists: false } }];
-    const [total, reviews] = await Promise.all([
+    const [total, raw] = await Promise.all([
       Review.countDocuments(filter),
       Review.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit)
         .populate('userId', '_id displayName avatarUrl spotifyId')
         .populate('comments.userId', '_id displayName avatarUrl'),
     ]);
+    const reviews = stripNullAuthors(raw);
     res.json({ reviews, total, hasMore: offset + reviews.length < total });
   } catch {
     res.status(500).json({ error: 'Failed to fetch reviews' });
+  }
+});
+
+// GET /users/suggested?limit=5 — users to follow, ranked by follower count
+router.get('/suggested', requireAuth, async (req: AuthRequest, res: Response) => {
+  const limit = Math.min(parseInt(req.query.limit as string) || 5, 20);
+  try {
+    // Re-fetch following from DB — req.user is cached for 4 min and may be stale after unfollow
+    const fresh = await User.findById(req.user!._id).select('following');
+    const excluded = [...(fresh?.following ?? []), req.user!._id];
+    const suggested = await User.aggregate([
+      { $match: { _id: { $nin: excluded } } },
+      {
+        $lookup: {
+          from: 'users',
+          let: { uid: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $in: ['$$uid', '$following'] } } },
+            { $count: 'n' },
+          ],
+          as: 'followerDocs',
+        },
+      },
+      { $addFields: { followerCount: { $ifNull: [{ $arrayElemAt: ['$followerDocs.n', 0] }, 0] } } },
+      { $sort: { followerCount: -1 } },
+      { $limit: limit },
+      { $project: { spotifyId: 1, displayName: 1, avatarUrl: 1, followerCount: 1 } },
+    ]);
+    res.json(suggested);
+  } catch (err) {
+    console.error('[suggested] error:', err);
+    res.status(500).json({ error: 'Failed to fetch suggestions' });
   }
 });
 
@@ -139,12 +173,13 @@ router.get('/:id/reviews', async (req: AuthRequest, res: Response) => {
     const filter: any = { userId: user._id };
     if (type === 'album' || type === 'artist') filter.type = type;
     else if (type === 'track') filter.$or = [{ type: 'track' }, { type: { $exists: false } }];
-    const [total, reviews] = await Promise.all([
+    const [total, raw] = await Promise.all([
       Review.countDocuments(filter),
       Review.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit)
         .populate('userId', '_id displayName avatarUrl spotifyId')
         .populate('comments.userId', '_id displayName avatarUrl'),
     ]);
+    const reviews = stripNullAuthors(raw);
     res.json({ reviews, total, hasMore: offset + reviews.length < total });
   } catch {
     res.status(500).json({ error: 'Failed to fetch reviews' });
@@ -197,7 +232,7 @@ router.get('/feed/me', requireAuth, async (req: AuthRequest, res: Response) => {
     const me = await User.findById(req.user!._id);
     const following = me?.following ?? [];
     const filter = { userId: { $in: [...following, req.user!._id] }, shareToFeed: true };
-    const [total, reviews] = await Promise.all([
+    const [total, raw] = await Promise.all([
       Review.countDocuments(filter),
       Review.find(filter)
         .sort({ createdAt: -1 })
@@ -206,6 +241,7 @@ router.get('/feed/me', requireAuth, async (req: AuthRequest, res: Response) => {
         .populate('userId', '_id displayName avatarUrl spotifyId')
         .populate('comments.userId', '_id displayName avatarUrl'),
     ]);
+    const reviews = stripNullAuthors(raw);
     res.json({ items: reviews, myId: req.user!._id.toString(), hasMore: offset + reviews.length < total });
   } catch {
     res.status(500).json({ error: 'Failed to fetch feed' });
