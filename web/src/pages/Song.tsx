@@ -5,7 +5,7 @@ import { Score } from '../components/Score';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
-import { scoreColor, MOOD_LIST } from '@tunelog/shared';
+import { MOOD_LIST } from '@tunelog/shared';
 
 const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
 

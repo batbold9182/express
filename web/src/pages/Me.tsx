@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
-import { Score } from '../components/Score';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { scoreColor, MOOD_LIST } from '@tunelog/shared';

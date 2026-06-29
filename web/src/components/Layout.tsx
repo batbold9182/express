@@ -47,7 +47,7 @@ export function Layout() {
             key={to}
             to={to}
             end={to === '/'}
-            className={({ isActive }) =>
+            className={({ isActive }: { isActive: boolean }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-colors relative ${
                 isActive
                   ? 'bg-violet/15 text-violet border border-violet/30'
@@ -108,7 +108,7 @@ export function Layout() {
             key={to}
             to={to}
             end={to === '/'}
-            className={({ isActive }) =>
+            className={({ isActive }: { isActive: boolean }) =>
               `flex-1 flex flex-col items-center py-2 gap-0.5 text-[10px] font-medium transition-colors relative ${
                 isActive ? 'text-violet' : 'text-fg4'
               }`

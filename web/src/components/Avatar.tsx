@@ -4,7 +4,9 @@ type Props = { name: string; size?: number; src?: string; className?: string };
 
 export function Avatar({ name, size = 36, src, className = '' }: Props) {
   const letter = name.trim()[0]?.toUpperCase() ?? '?';
-  const color  = AVATAR_COLORS[letter.charCodeAt(0) % AVATAR_COLORS.length];
+  const pairs  = Object.values(AVATAR_COLORS);
+  const pair   = pairs[letter.charCodeAt(0) % pairs.length];
+  const color  = `linear-gradient(135deg, ${pair[0]}, ${pair[1]})`;
 
   if (src) {
     return (
