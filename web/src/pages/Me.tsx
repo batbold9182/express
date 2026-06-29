@@ -19,6 +19,13 @@ const GENRE_COLORS = ['#B14EFF', '#FF3FA4', '#00D9FF', '#C6FF3D'];
 export default function Me() {
   const { token, spotifyId, clearToken } = useAuth();
   const nav = useNavigate();
+  const isEmailOnly = spotifyId?.startsWith('email:');
+  const apiBase = (import.meta.env.VITE_API_BASE as string) ?? '';
+
+  function connectSpotify() {
+    const callbackUrl = window.location.origin + '/auth/callback';
+    window.location.href = `${apiBase}/auth/login?redirect=${encodeURIComponent(callbackUrl)}&linkId=${encodeURIComponent(spotifyId ?? '')}`;
+  }
 
   const [user,       setUser]       = useState<SpotifyUser | null>(null);
   const [appUser,    setAppUser]    = useState<AppUser | null>(null);
@@ -31,18 +38,18 @@ export default function Me() {
   const [timeRange,  setTimeRange]  = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
 
   useEffect(() => {
-    if (!token || !spotifyId) return;
+    if (!token) return;
     setLoading(true);
     Promise.allSettled([
-      api.get('/me'),
-      api.get(`/users/${spotifyId}`),
-      api.get(`/users/${spotifyId}/reviews/counts`),
+      isEmailOnly ? Promise.resolve(null) : api.get('/me'),
+      api.get('/users/me'),
+      api.get('/users/me/reviews/counts'),
     ]).then(([u, au, c]) => {
-      if (u.status === 'fulfilled') setUser(u.value);
+      if (u.status === 'fulfilled' && u.value) setUser(u.value);
       if (au.status === 'fulfilled') setAppUser(au.value);
       if (c.status === 'fulfilled') setCounts(c.value ?? { track: 0, album: 0, artist: 0 });
     }).finally(() => setLoading(false));
-  }, [token, spotifyId]);
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -55,7 +62,7 @@ export default function Me() {
     if (tab === type) { setTab(null); setReviews([]); return; }
     setTab(type); setReviews([]); setRevLoading(true);
     try {
-      const d = await api.get(`/users/${spotifyId}/reviews?type=${type}&offset=0&limit=20`);
+      const d = await api.get(`/users/me/reviews?type=${type}&offset=0&limit=20`);
       setReviews(d.reviews ?? []);
     } catch {} finally { setRevLoading(false); }
   }
@@ -79,7 +86,7 @@ export default function Me() {
           <div className="p-0.5 rounded-full" style={{ background: 'linear-gradient(135deg, #B14EFF, #FF3FA4)', boxShadow: '0 0 24px rgba(177,78,255,0.5)' }}>
             <Avatar name={user?.display_name ?? appUser?.displayName ?? '?'} src={user?.images?.[0]?.url ?? appUser?.avatarUrl} size={96} className="ring-2 ring-bg" />
           </div>
-          <h2 className="text-[22px] font-bold text-fg">{user?.display_name ?? appUser?.displayName ?? '—'}</h2>
+          <h2 className="text-[22px] font-bold text-fg">{appUser?.displayName ?? user?.display_name ?? '—'}</h2>
           {user?.id && <p className="text-[12px] text-cyan tracking-widest">@{user.id}</p>}
         </div>
 
@@ -101,57 +108,80 @@ export default function Me() {
           </div>
         </div>
 
-        {/* Top genres */}
-        {topGenres.length > 0 && (
-          <>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Top genres</p>
-            <div className="rounded-2xl border border-white/8 bg-white/4 p-4 mb-6 flex flex-col gap-3">
-              {topGenres.map(([name, count], i) => (
-                <div key={name} className="flex items-center gap-3">
-                  <span className="text-[12px] font-medium text-fg w-28 shrink-0 truncate">{name}</span>
-                  <div className="flex-1 h-2 rounded-full bg-white/8 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${(count / maxCount) * 100}%`, background: GENRE_COLORS[i] }} />
-                  </div>
-                </div>
-              ))}
+        {/* Spotify-personalised sections — hidden for unlinked email users */}
+        {isEmailOnly ? (
+          <div className="rounded-2xl border border-white/8 bg-white/4 p-6 mb-6 flex flex-col items-center gap-3 text-center">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-white/20">
+              <circle cx="12" cy="12" r="11" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M7 14.5c1.4-.9 3.2-1.4 5-1.4s3.6.5 5 1.4M6 11c1.8-1.2 4-1.9 6-1.9s4.2.7 6 1.9M8.5 17.5c1-.6 2.2-1 3.5-1s2.5.4 3.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <div>
+              <p className="text-[14px] font-semibold text-fg">Connect your Spotify account</p>
+              <p className="text-[12px] text-fg3 mt-1">Unlock top artists, genres, and the Now Playing widget</p>
             </div>
-          </>
-        )}
-
-        {/* Top artists */}
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-fg3">Top artists</p>
-          <div className="flex gap-1.5">
-            {([['short_term', '4w'], ['medium_term', '6m'], ['long_term', 'All']] as const).map(([range, label]) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className="px-2 py-1 rounded-full text-[10px] font-bold border cursor-pointer"
-                style={{
-                  borderColor: timeRange === range ? 'rgba(177,78,255,0.5)' : 'rgba(255,255,255,0.08)',
-                  background:  timeRange === range ? 'rgba(177,78,255,0.15)' : 'transparent',
-                  color:       timeRange === range ? '#B14EFF' : '#8A7FAC',
-                }}
-              >
-                {label}
-              </button>
-            ))}
+            <button
+              onClick={connectSpotify}
+              className="mt-1 px-5 py-2 rounded-full text-[13px] font-bold text-white cursor-pointer transition-opacity hover:opacity-80"
+              style={{ background: 'linear-gradient(135deg, #B14EFF, #FF3FA4)' }}
+            >
+              Connect Spotify
+            </button>
           </div>
-        </div>
-        {topArtists.length > 0 && (
-          <div className="flex flex-col gap-2 mb-6">
-            {topArtists.map((a, i) => (
-              <button key={a.id} onClick={() => nav(`/artist/${a.id}`)} className="flex items-center gap-3 p-2.5 rounded-xl border border-white/8 bg-white/4 hover:bg-white/8 transition-colors cursor-pointer text-left">
-                <span className="text-[12px] font-bold w-6 text-center" style={{ color: i < 3 ? '#B14EFF' : '#5A4F78' }}>{i + 1}</span>
-                {a.images?.[2]?.url ? <img src={a.images[2].url} alt="" className="w-10 h-10 rounded-full object-cover" /> : <div className="w-10 h-10 rounded-full bg-white/8" />}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-fg truncate">{a.name}</p>
-                  {a.genres?.[0] && <p className="text-[11px] text-fg3 truncate">{a.genres[0]}</p>}
+        ) : (
+          <>
+            {/* Top genres */}
+            {topGenres.length > 0 && (
+              <>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Top genres</p>
+                <div className="rounded-2xl border border-white/8 bg-white/4 p-4 mb-6 flex flex-col gap-3">
+                  {topGenres.map(([name, count], i) => (
+                    <div key={name} className="flex items-center gap-3">
+                      <span className="text-[12px] font-medium text-fg w-28 shrink-0 truncate">{name}</span>
+                      <div className="flex-1 h-2 rounded-full bg-white/8 overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${(count / maxCount) * 100}%`, background: GENRE_COLORS[i] }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <span className="text-fg4 text-sm">›</span>
-              </button>
-            ))}
-          </div>
+              </>
+            )}
+
+            {/* Top artists */}
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-fg3">Top artists</p>
+              <div className="flex gap-1.5">
+                {([['short_term', '4w'], ['medium_term', '6m'], ['long_term', 'All']] as const).map(([range, label]) => (
+                  <button
+                    key={range}
+                    onClick={() => setTimeRange(range)}
+                    className="px-2 py-1 rounded-full text-[10px] font-bold border cursor-pointer"
+                    style={{
+                      borderColor: timeRange === range ? 'rgba(177,78,255,0.5)' : 'rgba(255,255,255,0.08)',
+                      background:  timeRange === range ? 'rgba(177,78,255,0.15)' : 'transparent',
+                      color:       timeRange === range ? '#B14EFF' : '#8A7FAC',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {topArtists.length > 0 && (
+              <div className="flex flex-col gap-2 mb-6">
+                {topArtists.map((a, i) => (
+                  <button key={a.id} onClick={() => nav(`/artist/${a.id}`)} className="flex items-center gap-3 p-2.5 rounded-xl border border-white/8 bg-white/4 hover:bg-white/8 transition-colors cursor-pointer text-left">
+                    <span className="text-[12px] font-bold w-6 text-center" style={{ color: i < 3 ? '#B14EFF' : '#5A4F78' }}>{i + 1}</span>
+                    {a.images?.[2]?.url ? <img src={a.images[2].url} alt="" className="w-10 h-10 rounded-full object-cover" /> : <div className="w-10 h-10 rounded-full bg-white/8" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-fg truncate">{a.name}</p>
+                      {a.genres?.[0] && <p className="text-[11px] text-fg3 truncate">{a.genres[0]}</p>}
+                    </div>
+                    <span className="text-fg4 text-sm">›</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* Reviews */}

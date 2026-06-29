@@ -11,6 +11,7 @@ import listRoutes    from './routes.ts/lists';
 import artistRoutes  from './routes.ts/artists';
 import trackRoutes        from './routes.ts/tracks';
 import notificationRoutes from './routes.ts/notifications';
+import feedbackRoutes    from './routes.ts/feedback';
 
 dotenv.config();
 connectDB();
@@ -29,6 +30,7 @@ app.use('/lists',   listRoutes);
 app.use('/artists', artistRoutes);
 app.use('/tracks',         trackRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/feedback',     feedbackRoutes);
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on http://localhost:${process.env.PORT}`);

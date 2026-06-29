@@ -12,13 +12,18 @@ setInterval(() => {
 }, 15 * 60 * 1000);
 
 router.get('/login', (req: Request, res: Response) => {
-  const redirectBase = req.query.redirect as string | undefined;
+  const redirectBase = req.query.redirect  as string | undefined;
+  const linkId       = req.query.linkId    as string | undefined; // email:<uuid> spotifyId — stable, never rotates
+  const linkToken    = req.query.linkToken as string | undefined; // legacy fallback (mobile)
+  const statePayload = redirectBase || linkId || linkToken
+    ? Buffer.from(JSON.stringify({ redirect: redirectBase, linkId, linkToken })).toString('base64')
+    : undefined;
   const params = new URLSearchParams({
     client_id: process.env.CLIENT_ID!,
     response_type: 'code',
     redirect_uri: process.env.REDIRECT_URI!,
     scope: 'user-read-private user-read-email user-top-read user-read-currently-playing user-read-playback-state',
-    ...(redirectBase ? { state: Buffer.from(redirectBase).toString('base64') } : {}),
+    ...(statePayload ? { state: statePayload } : {}),
   });
   res.redirect(`https://accounts.spotify.com/authorize?${params}`);
 });
@@ -27,9 +32,23 @@ router.get('/callback', async (req: Request, res: Response) => {
   const code = req.query.code as string;
   const state = req.query.state as string | undefined;
   const fallbackBase = process.env.FRONTEND_BASE ?? `http://${process.env.IP_ADDRESS}:8081`;
-  const successURL = state
-    ? Buffer.from(state, 'base64').toString('utf8')
-    : `${fallbackBase}/auth/success`;
+
+  let successURL = `${fallbackBase}/auth/success`;
+  let linkId: string | undefined;
+  let linkToken: string | undefined;
+  if (state) {
+    const raw = Buffer.from(state, 'base64').toString('utf8');
+    try {
+      const parsed = JSON.parse(raw) as { redirect?: string; linkId?: string; linkToken?: string };
+      if (parsed.redirect) successURL = parsed.redirect;
+      linkId    = parsed.linkId    || undefined; // empty string → undefined (falsy guard)
+      linkToken = parsed.linkToken || undefined;
+    } catch {
+      // Legacy format: plain URL string (mobile deep-link)
+      successURL = raw;
+    }
+  }
+
   const loginURL = successURL.replace('auth/success', 'auth/login');
 
   if (!code) { res.status(400).json({ error: 'Missing code' }); return; }
@@ -91,24 +110,43 @@ router.get('/callback', async (req: Request, res: Response) => {
         updatedAt:      new Date(),
       };
 
-      // Account linking: if an email-signup user exists with this email, merge Spotify into it
-      const existingByEmail = await User.findOne({ email: profile.email });
-      if (existingByEmail && existingByEmail.spotifyId !== profile.id) {
-        await User.findOneAndUpdate(
-          { _id: existingByEmail._id },
-          { ...spotifyCredentials, avatarUrl: profile.images?.[0]?.url ?? existingByEmail.avatarUrl }
-        );
+      if (linkId || linkToken) {
+        // "Connect Spotify" from an active session — find by the stable email:uuid spotifyId (preferred)
+        // or by accessToken as legacy fallback (mobile)
+        const linkedUser = linkId
+          ? await User.findOne({ spotifyId: linkId })
+          : await User.findOne({ accessToken: linkToken });
+        if (linkedUser) {
+          // If another account already owns this Spotify ID, strip their credentials first
+          await User.updateOne(
+            { spotifyId: profile.id, _id: { $ne: linkedUser._id } },
+            { $set: { spotifyId: `email:${crypto.randomUUID()}`, refreshToken: '' } }
+          );
+          await User.findOneAndUpdate(
+            { _id: linkedUser._id },
+            { ...spotifyCredentials, avatarUrl: profile.images?.[0]?.url ?? linkedUser.avatarUrl }
+          );
+        }
       } else {
-        await User.findOneAndUpdate(
-          { spotifyId: profile.id },
-          {
-            ...spotifyCredentials,
-            displayName: profile.display_name,
-            email:       profile.email,
-            avatarUrl:   profile.images?.[0]?.url ?? '',
-          },
-          { upsert: true, returnDocument: 'after' }
-        );
+        // Fresh Spotify login — merge by email if an email-signup account exists
+        const existingByEmail = await User.findOne({ email: profile.email });
+        if (existingByEmail && existingByEmail.spotifyId !== profile.id) {
+          await User.findOneAndUpdate(
+            { _id: existingByEmail._id },
+            { ...spotifyCredentials, avatarUrl: profile.images?.[0]?.url ?? existingByEmail.avatarUrl }
+          );
+        } else {
+          await User.findOneAndUpdate(
+            { spotifyId: profile.id },
+            {
+              ...spotifyCredentials,
+              displayName: profile.display_name,
+              email:       profile.email,
+              avatarUrl:   profile.images?.[0]?.url ?? '',
+            },
+            { upsert: true, returnDocument: 'after' }
+          );
+        }
       }
     } catch (err) {
       console.error('❌ Could not save user to DB:', err);
@@ -202,6 +240,35 @@ router.post('/email-login', async (req: Request, res: Response) => {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) { res.status(401).json({ error: 'Invalid email or password' }); return; }
 
+  // Linked Spotify account — refresh the Spotify token so proxy calls work
+  if (user.refreshToken) {
+    try {
+      const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type:    'refresh_token',
+          refresh_token: user.refreshToken,
+          client_id:     process.env.CLIENT_ID!,
+          client_secret: process.env.CLIENT_SECRET!,
+        }),
+      });
+      const tokens = await tokenRes.json() as { access_token?: string; expires_in?: number };
+      if (tokens.access_token && tokens.expires_in) {
+        const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+        await User.findOneAndUpdate(
+          { email },
+          { accessToken: tokens.access_token, tokenExpiresAt: expiresAt, updatedAt: new Date() }
+        );
+        res.json({ access_token: tokens.access_token, spotify_id: user.spotifyId, expires_at: expiresAt.getTime() });
+        return;
+      }
+    } catch (err) {
+      console.error('Spotify refresh failed during email-login:', err);
+    }
+  }
+
+  // Pure email user (or Spotify refresh failed) — issue a random long-lived token
   const accessToken = crypto.randomBytes(40).toString('hex');
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 

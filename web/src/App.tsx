@@ -12,7 +12,9 @@ import Home         from './pages/Home';
 import Search       from './pages/Search';
 import Feed         from './pages/Feed';
 import Notifications from './pages/Notifications';
-import Me           from './pages/Me';
+import Me            from './pages/Me';
+import Feedback      from './pages/Feedback';
+import AdminFeedback from './pages/AdminFeedback';
 import Song         from './pages/Song';
 import Album        from './pages/Album';
 import Artist       from './pages/Artist';
@@ -36,6 +38,8 @@ export default function App() {
                 <Route path="/feed"          element={<Feed />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/me"            element={<Me />} />
+                <Route path="/feedback"        element={<Feedback />} />
+                <Route path="/admin/feedback" element={<AdminFeedback />} />
                 <Route path="/song/:id"      element={<Song />} />
                 <Route path="/album/:id"     element={<Album />} />
                 <Route path="/artist/:id"    element={<Artist />} />
