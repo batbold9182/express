@@ -51,14 +51,14 @@ router.get('/top', requireAuth, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /reviews/leaderboard?type=most-rated|track|album|artist&limit=100
+// GET /reviews/leaderboard?type=most-rated|top-scored|track|album|artist&limit=100
 router.get('/leaderboard', requireAuth, async (req: AuthRequest, res: Response) => {
   const type  = (req.query.type as string) || 'most-rated';
   const limit = Math.min(parseInt(req.query.limit as string) || 100, 100);
   try {
     let pipeline: any[];
 
-    if (type === 'most-rated') {
+    if (type === 'most-rated' || type === 'top-scored') {
       pipeline = [
         {
           $group: {
@@ -81,7 +81,7 @@ router.get('/leaderboard', requireAuth, async (req: AuthRequest, res: Response) 
             spotifyArtistId: { $first: '$spotifyArtistId' },
           },
         },
-        { $sort: { reviewCount: -1, avgScore: -1 } },
+        { $sort: type === 'top-scored' ? { avgScore: -1, reviewCount: -1 } : { reviewCount: -1, avgScore: -1 } },
         { $limit: limit },
         { $project: { _id: 0, type: '$_id.type', avgScore: { $round: ['$avgScore', 1] }, reviewCount: 1, trackName: 1, artistName: 1, albumArt: 1, spotifyTrackId: 1, spotifyAlbumId: 1, spotifyArtistId: 1 } },
       ];

@@ -2,21 +2,26 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { scoreColor } from '@tunelog/shared';
-import type { FeedItem } from '@tunelog/shared';
+
+type TopItem = {
+  type?: string; trackName: string; artistName: string; albumArt?: string;
+  avgScore: number; reviewCount: number;
+  spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string;
+};
 
 export function TopScoredWidget() {
   const nav = useNavigate();
-  const [items, setItems] = useState<FeedItem[]>([]);
+  const [items, setItems] = useState<TopItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<{ items: FeedItem[] }>('/reviews/top?offset=0&limit=5')
+    api.get<{ items: TopItem[] }>('/reviews/leaderboard?type=top-scored&limit=5')
       .then(d => setItems(d.items ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  function navItem(item: FeedItem) {
+  function navItem(item: TopItem) {
     if (item.type === 'artist' && item.spotifyArtistId) nav(`/artist/${item.spotifyArtistId}`);
     else if (item.type === 'album' && item.spotifyAlbumId) nav(`/album/${item.spotifyAlbumId}`);
     else if (item.spotifyTrackId) nav(`/song/${item.spotifyTrackId}`);
@@ -44,10 +49,11 @@ export function TopScoredWidget() {
       <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-2">Top Scores</p>
 
       {items.map(item => {
-        const color = scoreColor(item.score);
+        const color = scoreColor(item.avgScore);
+        const key = `${item.type}-${item.spotifyTrackId ?? item.spotifyAlbumId ?? item.spotifyArtistId}`;
         return (
           <button
-            key={item._id}
+            key={key}
             onClick={() => navItem(item)}
             className="flex items-center gap-3 py-2 rounded-xl hover:bg-white/5 -mx-2 px-2 transition-colors cursor-pointer text-left"
           >
@@ -59,7 +65,7 @@ export function TopScoredWidget() {
               <p className="text-[11px] text-fg4 truncate">{item.artistName}</p>
             </div>
             <span className="shrink-0 text-[13px] font-bold tabular-nums" style={{ color }}>
-              {item.score.toFixed(1)}
+              {item.avgScore.toFixed(1)}
             </span>
           </button>
         );
