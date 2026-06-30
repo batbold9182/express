@@ -32,15 +32,15 @@ export default function ForgotPassword() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(177,78,255,0.14) 0%, transparent 55%)' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 60% at 80% 90%, rgba(255,63,164,0.10) 0%, transparent 60%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255,255,255,0.14) 0%, transparent 55%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 60% at 80% 90%, rgba(224,104,92,0.10) 0%, transparent 60%)' }} />
       </div>
 
       <div className="relative w-full max-w-sm flex flex-col gap-6">
         <div className="flex flex-col items-center gap-1 mb-2">
           <h1
             className="text-[40px] font-bold leading-none tracking-tight bg-clip-text text-transparent"
-            style={{ backgroundImage: 'linear-gradient(90deg, #00D9FF 0%, #B14EFF 50%, #FF3FA4 100%)' }}
+            style={{ backgroundImage: 'linear-gradient(90deg, #4FA3D1 0%, #FFFFFF 50%, #E0685C 100%)' }}
           >
             tunelog
           </h1>
@@ -56,7 +56,7 @@ export default function ForgotPassword() {
             <button
               onClick={() => nav('/login')}
               className="w-full py-3.5 rounded-xl font-bold text-[14px] cursor-pointer transition-transform hover:scale-[1.02] active:scale-95"
-              style={{ background: 'linear-gradient(90deg, #B14EFF, #FF3FA4)', color: '#fff' }}
+              style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)', color: '#fff' }}
             >
               Back to Sign in
             </button>
@@ -75,8 +75,8 @@ export default function ForgotPassword() {
               onChange={e => setEmail(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') void submit(); }}
               className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-150"
-              style={{ background: 'rgba(0,0,0,0.35)', color: '#E6E2F2', border: '1px solid rgba(255,255,255,0.10)' }}
-              onFocus={e => (e.target.style.borderColor = 'rgba(177,78,255,0.6)')}
+              style={{ background: 'rgba(0,0,0,0.35)', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.10)' }}
+              onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.6)')}
               onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
             />
 
@@ -85,13 +85,13 @@ export default function ForgotPassword() {
             <div className="relative group">
               <div
                 className="absolute inset-0 rounded-xl blur-md opacity-0 group-hover:opacity-50 transition-opacity duration-300 pointer-events-none"
-                style={{ background: 'linear-gradient(90deg, #B14EFF, #FF3FA4)' }}
+                style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)' }}
               />
               <button
                 onClick={submit}
                 disabled={loading}
                 className="relative w-full py-3.5 rounded-xl font-bold text-[14px] cursor-pointer transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: 'linear-gradient(90deg, #B14EFF, #FF3FA4)', color: '#fff' }}
+                style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)', color: '#fff' }}
               >
                 {loading ? '…' : 'Send reset link'}
               </button>

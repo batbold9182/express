@@ -1,28 +1,28 @@
 export const C = {
   ink950: '#07050D',
-  ink900: '#0B0816',
-  ink850: '#110D1F',
+  ink900: '#000000',
+  ink850: '#121010',
   ink800: '#181227',
   ink700: '#221A35',
-  ink300: '#8A7FAC',
-  ink200: '#B4ADCF',
-  ink100: '#E6E2F2',
+  ink300: '#978A74',
+  ink200: '#C9BCA6',
+  ink100: '#FFFFFF',
 
-  bg:      '#0B0816',
-  fg:      '#E6E2F2',
-  fg2:     '#B4ADCF',
-  fg3:     '#8A7FAC',
-  fg4:     '#5A4F78',
+  bg:      '#000000',
+  fg:      '#FFFFFF',
+  fg2:     '#C9BCA6',
+  fg3:     '#978A74',
+  fg4:     '#5C5142',
 
-  violet:      '#B14EFF',
+  violet:      '#FFFFFF',
   violetDeep:  '#7E22CE',
-  pink:        '#FF3FA4',
+  pink:        '#E0685C',
   pinkBright:  '#FF6FBA',
-  cyan:        '#00D9FF',
+  cyan:        '#4FA3D1',
   cyanBright:  '#5BE9FF',
-  lime:        '#C6FF3D',
-  amber:       '#FFB547',
-  red:         '#FF4D6D',
+  lime:        '#4B4E53',
+  amber:       '#EDA63E',
+  red:         '#FFFFFF',
 
   glass:        'rgba(255,255,255,0.06)',
   glassThin:    'rgba(255,255,255,0.04)',
@@ -35,28 +35,28 @@ export const C = {
 } as const;
 
 export const GRAD = {
-  violetPink: ['#B14EFF', '#FF3FA4'] as [string, string],
-  rotation:   ['#00D9FF', '#B14EFF', '#FF3FA4'] as [string, string, string],
-  cyanViolet: ['#00D9FF', '#B14EFF'] as [string, string],
+  violetPink: ['#FFFFFF', '#E0685C'] as [string, string],
+  rotation:   ['#4FA3D1', '#FFFFFF', '#E0685C'] as [string, string, string],
+  cyanViolet: ['#4FA3D1', '#FFFFFF'] as [string, string],
 };
 
 export const COVER_GRAD: Record<string, [string, string]> = {
-  'cyan-drift':     ['#004D5C', '#00D9FF'],
-  'heat-wave':      ['#8B1A00', '#FF4D6D'],
-  'lime-pulse':     ['#2D5A00', '#C6FF3D'],
-  'violet-static':  ['#2D0050', '#B14EFF'],
+  'cyan-drift':     ['#004D5C', '#4FA3D1'],
+  'heat-wave':      ['#8B1A00', '#FFFFFF'],
+  'lime-pulse':     ['#2D5A00', '#4B4E53'],
+  'violet-static':  ['#2D0050', '#FFFFFF'],
   'midnight-orbit': ['#06040C', '#221A35'],
-  'pink-noise':     ['#5C0030', '#FF3FA4'],
-  'chrome-rain':    ['#1E1A2E', '#5A4F78'],
-  'solar-gold':     ['#5C2800', '#FFB547'],
+  'pink-noise':     ['#5C0030', '#E0685C'],
+  'chrome-rain':    ['#1E1A2E', '#5C5142'],
+  'solar-gold':     ['#5C2800', '#EDA63E'],
 };
 
 export const AVATAR_COLORS: Record<string, [string, string]> = {
-  mira:  ['#5C1A8C', '#B14EFF'],
-  jules: ['#004D5C', '#00D9FF'],
-  kai:   ['#2D5A00', '#C6FF3D'],
-  sora:  ['#8C0044', '#FF3FA4'],
-  devon: ['#5C2800', '#FFB547'],
+  mira:  ['#5C1A8C', '#FFFFFF'],
+  jules: ['#004D5C', '#4FA3D1'],
+  kai:   ['#2D5A00', '#4B4E53'],
+  sora:  ['#8C0044', '#E0685C'],
+  devon: ['#5C2800', '#EDA63E'],
   zain:  ['#004D5C', '#5BE9FF'],
 };
 
@@ -66,8 +66,8 @@ export const R = {
 
 export function scoreColor(s: number | null): string {
   if (s == null)  return C.fg3;
-  if (s < 5)      return C.red;
+  if (s < 5)      return '#7A5230';
   if (s < 7)      return C.amber;
   if (s < 8.5)    return C.violet;
-  return C.lime;
+  return '#E5484D';
 }

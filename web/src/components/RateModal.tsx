@@ -134,7 +134,7 @@ export function RateModal() {
               onClick={submit}
               disabled={busy}
               className="w-full py-3 rounded-xl font-semibold text-[14px] transition-opacity disabled:opacity-50 cursor-pointer"
-              style={{ background: 'linear-gradient(135deg, #B14EFF, #FF3FA4)', color: '#fff' }}
+              style={{ background: 'linear-gradient(135deg, #FFFFFF, #E0685C)', color: '#fff' }}
             >
               {busy ? 'Posting…' : 'Post review'}
             </button>

@@ -70,7 +70,7 @@ export default function Home() {
       {/* Header */}
       <div
         className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-white/8 sticky top-0 z-10 shrink-0"
-        style={{ background: 'rgba(11,8,22,0.92)', backdropFilter: 'blur(12px)' }}
+        style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}
       >
         <div className="flex gap-2 flex-1">
           {TABS.map(t => (
@@ -79,9 +79,9 @@ export default function Home() {
               onClick={() => setTab(t.key)}
               className="flex-1 py-2 rounded-xl text-[13px] font-semibold border transition-all cursor-pointer"
               style={{
-                borderColor: tab === t.key ? 'rgba(177,78,255,0.5)' : 'rgba(255,255,255,0.08)',
-                background:  tab === t.key ? 'rgba(177,78,255,0.15)' : 'rgba(255,255,255,0.04)',
-                color:       tab === t.key ? '#B14EFF' : '#8A7FAC',
+                borderColor: tab === t.key ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)',
+                background:  tab === t.key ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                color:       tab === t.key ? '#FFFFFF' : '#978A74',
               }}
             >
               {t.label}

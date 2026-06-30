@@ -8,6 +8,34 @@ import { stripNullAuthors } from '../lib/stripNullAuthors';
 
 const router = Router();
 
+// Builds the Mongo filter for a user's reviews, optionally narrowed by type and a
+// case-insensitive search over the display name (trackName) and artistName.
+function buildReviewFilter(userId: any, type?: string, q?: string): any {
+  const filter: any = { userId };
+
+  const typeCond =
+    type === 'album' || type === 'artist'
+      ? { type }
+      : type === 'track'
+        ? { $or: [{ type: 'track' }, { type: { $exists: false } }] }
+        : null;
+
+  const search = q?.trim();
+  const searchCond = search
+    ? (() => {
+        const rx = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+        return { $or: [{ trackName: rx }, { artistName: rx }] };
+      })()
+    : null;
+
+  // Both type (track) and search use $or, so combine via $and to avoid clobbering.
+  if (typeCond && searchCond) filter.$and = [typeCond, searchCond];
+  else if (typeCond) Object.assign(filter, typeCond);
+  else if (searchCond) Object.assign(filter, searchCond);
+
+  return filter;
+}
+
 // GET /users/search?q= — search users by display name
 router.get('/search', optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
@@ -56,10 +84,7 @@ router.get('/me/reviews', requireAuth, async (req: AuthRequest, res: Response) =
   const offset = parseInt(req.query.offset as string) || 0;
   const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
   try {
-    const type = req.query.type as string | undefined;
-    const filter: any = { userId: req.user!._id };
-    if (type === 'album' || type === 'artist') filter.type = type;
-    else if (type === 'track') filter.$or = [{ type: 'track' }, { type: { $exists: false } }];
+    const filter = buildReviewFilter(req.user!._id, req.query.type as string, req.query.q as string);
     const [total, raw] = await Promise.all([
       Review.countDocuments(filter),
       Review.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit)
@@ -169,10 +194,7 @@ router.get('/:id/reviews', async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findOne({ spotifyId: req.params.id });
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
-    const type = req.query.type as string | undefined;
-    const filter: any = { userId: user._id };
-    if (type === 'album' || type === 'artist') filter.type = type;
-    else if (type === 'track') filter.$or = [{ type: 'track' }, { type: { $exists: false } }];
+    const filter = buildReviewFilter(user._id, req.query.type as string, req.query.q as string);
     const [total, raw] = await Promise.all([
       Review.countDocuments(filter),
       Review.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit)

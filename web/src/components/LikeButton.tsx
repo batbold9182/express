@@ -33,9 +33,9 @@ export function LikeButton({ reviewId, likes, myId }: Props) {
       onClick={toggle}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors cursor-pointer"
       style={{
-        borderColor: liked ? 'rgba(255,63,164,0.5)' : 'rgba(255,255,255,0.08)',
-        background:  liked ? 'rgba(255,63,164,0.12)' : 'transparent',
-        color:       liked ? '#FF3FA4' : '#8A7FAC',
+        borderColor: liked ? 'rgba(224,104,92,0.5)' : 'rgba(255,255,255,0.08)',
+        background:  liked ? 'rgba(224,104,92,0.12)' : 'transparent',
+        color:       liked ? '#E0685C' : '#978A74',
       }}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">

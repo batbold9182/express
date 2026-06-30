@@ -6,9 +6,9 @@ const MAX = 1000;
 type FeedbackType = 'bug' | 'feature' | 'other';
 
 const TYPES: { value: FeedbackType; label: string; color: string }[] = [
-  { value: 'bug',     label: 'Bug',             color: '#FF3FA4' },
-  { value: 'feature', label: 'Feature request',  color: '#B14EFF' },
-  { value: 'other',   label: 'Other',            color: '#00D9FF' },
+  { value: 'bug',     label: 'Bug',             color: '#E0685C' },
+  { value: 'feature', label: 'Feature request',  color: '#FFFFFF' },
+  { value: 'other',   label: 'Other',            color: '#4FA3D1' },
 ];
 
 export default function Feedback() {
@@ -35,7 +35,7 @@ export default function Feedback() {
 
   return (
     <div className="h-screen overflow-y-auto">
-      <div className="sticky top-0 z-10 px-4 py-3 border-b border-white/8" style={{ background: 'rgba(11,8,22,0.92)', backdropFilter: 'blur(12px)' }}>
+      <div className="sticky top-0 z-10 px-4 py-3 border-b border-white/8" style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}>
         <h1 className="text-[18px] font-bold text-fg">Send Feedback</h1>
       </div>
 
@@ -50,7 +50,7 @@ export default function Feedback() {
             <button
               onClick={() => nav(-1)}
               className="px-6 py-3 rounded-xl font-bold text-[14px] cursor-pointer transition-transform hover:scale-[1.02] active:scale-95"
-              style={{ background: 'linear-gradient(90deg, #B14EFF, #FF3FA4)', color: '#fff' }}
+              style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)', color: '#fff' }}
             >
               Go back
             </button>
@@ -60,7 +60,7 @@ export default function Feedback() {
             {/* Info banner */}
             <div
               className="flex items-center gap-3 px-4 py-3 rounded-2xl"
-              style={{ background: 'linear-gradient(135deg, rgba(177,78,255,0.10), rgba(255,63,164,0.07))', border: '1px solid rgba(177,78,255,0.20)' }}
+              style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(224,104,92,0.07))', border: '1px solid rgba(255,255,255,0.20)' }}
             >
               <span style={{ fontSize: 18, lineHeight: 1 }}>📬</span>
               <p className="text-[13px] font-medium" style={{ color: '#C4AEFF' }}>
@@ -76,7 +76,7 @@ export default function Feedback() {
                     onClick={() => setType(value)}
                     className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold border cursor-pointer transition-all"
                     style={{
-                      color:        type === value ? color : '#8A7FAC',
+                      color:        type === value ? color : '#978A74',
                       borderColor:  type === value ? `${color}60` : 'rgba(255,255,255,0.08)',
                       background:   type === value ? `${color}18` : 'rgba(255,255,255,0.04)',
                     }}
@@ -105,13 +105,13 @@ export default function Feedback() {
             <div className="relative group">
               <div
                 className="absolute inset-0 rounded-xl blur-md opacity-0 group-hover:opacity-50 transition-opacity duration-300 pointer-events-none"
-                style={{ background: 'linear-gradient(90deg, #B14EFF, #FF3FA4)' }}
+                style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)' }}
               />
               <button
                 onClick={submit}
                 disabled={loading}
                 className="relative w-full py-3.5 rounded-xl font-bold text-[14px] cursor-pointer transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: 'linear-gradient(90deg, #B14EFF, #FF3FA4)', color: '#fff' }}
+                style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)', color: '#fff' }}
               >
                 {loading ? 'Sending…' : 'Send feedback'}
               </button>

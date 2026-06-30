@@ -117,12 +117,12 @@ export default function Song() {
       {albumArt && (
         <div className="absolute inset-x-0 top-0 h-80 overflow-hidden pointer-events-none" style={{ opacity: 0.35 }}>
           <img src={albumArt} alt="" className="w-full h-full object-cover blur-2xl scale-110" />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent, #0B0816)' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent, #000000)' }} />
         </div>
       )}
 
       {/* Back button */}
-      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 pt-4 pb-2" style={{ background: 'rgba(11,8,22,0.7)', backdropFilter: 'blur(12px)' }}>
+      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 pt-4 pb-2" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)' }}>
         <button onClick={() => nav(-1)} className="p-2 rounded-full bg-white/8 border border-white/10 cursor-pointer text-fg hover:text-violet">
           ← Back
         </button>
@@ -150,7 +150,7 @@ export default function Song() {
               <button
                 onClick={rateTrack}
                 className="px-5 py-2.5 rounded-xl font-semibold text-[13px] cursor-pointer text-white"
-                style={{ background: 'linear-gradient(135deg, #B14EFF, #FF3FA4)' }}
+                style={{ background: 'linear-gradient(135deg, #FFFFFF, #E0685C)' }}
               >
                 Rate it
               </button>
@@ -178,7 +178,7 @@ export default function Song() {
                   className="flex-1 rounded-sm"
                   style={{
                     height: `${Math.max(4, (v / maxDist) * 100)}%`,
-                    background: i >= 7 ? '#C6FF3D' : i >= 4 ? '#B14EFF' : i >= 2 ? '#FFB547' : '#FF4D6D',
+                    background: i >= 7 ? '#4B4E53' : i >= 4 ? '#FFFFFF' : i >= 2 ? '#EDA63E' : '#FFFFFF',
                   }}
                 />
               ))}

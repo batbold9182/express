@@ -1,13 +1,8 @@
-import { NavLink, Link, Outlet, Navigate, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { NavLink, Link, Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import { RateModal } from './RateModal';
 import { NowPlaying } from './NowPlaying';
-import { Avatar } from './Avatar';
-import { api } from '../lib/api';
-
-type MeUser = { displayName: string; avatarUrl?: string; spotifyId: string };
 
 const NAV = [
   { to: '/',              icon: HomeIcon,    label: 'Home'          },
@@ -18,17 +13,8 @@ const NAV = [
 ];
 
 export function Layout() {
-  const { token } = useAuth();
+  const { token, clearToken } = useAuth();
   const { unreadCount } = useNotif();
-  const nav = useNavigate();
-  const [me, setMe] = useState<MeUser | null>(null);
-
-  useEffect(() => {
-    if (!token) return;
-    api.get<MeUser>('/users/me')
-      .then(u => setMe(u))
-      .catch(() => {});
-  }, [token]);
 
   if (!token) return <Navigate to="/login" replace />;
 
@@ -68,16 +54,13 @@ export function Layout() {
         <NowPlaying />
 
         <div className="mt-auto pt-4 border-t border-white/8 flex flex-col gap-1">
-          {/* User avatar row */}
-          {me && (
-            <button
-              onClick={() => nav('/me')}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-white/6 transition-colors cursor-pointer border border-transparent"
-            >
-              <Avatar name={me.displayName} src={me.avatarUrl} size={28} />
-              <span className="text-[13px] font-semibold text-fg truncate flex-1">{me.displayName}</span>
-            </button>
-          )}
+          <button
+            onClick={() => { if (window.confirm('Log out?')) clearToken(); }}
+            className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium text-fg2 hover:bg-white/6 hover:text-fg transition-colors border border-transparent cursor-pointer text-left"
+          >
+            <LogoutIcon size={17} />
+            Log out
+          </button>
 
           <Link
             to="/feedback"
@@ -102,7 +85,7 @@ export function Layout() {
       </main>
 
       {/* Bottom nav (mobile) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-white/8 z-40" style={{ background: 'rgba(11,8,22,0.95)', backdropFilter: 'blur(12px)' }}>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-white/8 z-40" style={{ background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(12px)' }}>
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
@@ -173,6 +156,13 @@ function FeedbackIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+    </svg>
+  );
+}
+function LogoutIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
     </svg>
   );
 }

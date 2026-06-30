@@ -72,7 +72,7 @@ export default function Notifications() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <div className="px-4 py-4 border-b border-white/8 sticky top-0 z-10 flex items-center justify-between" style={{ background: 'rgba(11,8,22,0.92)', backdropFilter: 'blur(12px)' }}>
+      <div className="px-4 py-4 border-b border-white/8 sticky top-0 z-10 flex items-center justify-between" style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}>
         <h1 className="text-[18px] font-bold text-fg">Notifications</h1>
         {items.some(n => !n.read) && (
           <button onClick={markAllRead} className="text-[12px] text-violet cursor-pointer hover:opacity-80">Mark all read</button>
@@ -94,7 +94,7 @@ export default function Notifications() {
                 key={n._id}
                 onClick={() => navigate(n)}
                 className="flex items-start gap-3 w-full px-4 py-3.5 hover:bg-white/4 transition-colors cursor-pointer text-left"
-                style={{ background: n.read ? 'transparent' : 'rgba(177,78,255,0.05)' }}
+                style={{ background: n.read ? 'transparent' : 'rgba(255,255,255,0.05)' }}
               >
                 {/* Actors avatars */}
                 <div className="relative shrink-0" style={{ width: 40, height: 40 }}>

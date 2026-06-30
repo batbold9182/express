@@ -77,9 +77,9 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
       {/* Layered background gradients */}
       <div className="absolute inset-0 pointer-events-none">
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 50% at 20% 10%, rgba(0,217,255,0.08) 0%, transparent 60%)' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 60% at 80% 90%, rgba(255,63,164,0.10) 0%, transparent 60%)' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(177,78,255,0.14) 0%, transparent 55%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 50% at 20% 10%, rgba(79,163,209,0.08) 0%, transparent 60%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 60% at 80% 90%, rgba(224,104,92,0.10) 0%, transparent 60%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255,255,255,0.14) 0%, transparent 55%)' }} />
       </div>
 
       <div className="relative flex flex-col items-center gap-8 w-full max-w-sm">
@@ -88,11 +88,11 @@ export default function Login() {
           <div className="relative">
             <div
               className="absolute inset-0 blur-2xl opacity-40 pointer-events-none"
-              style={{ background: 'linear-gradient(90deg, #00D9FF, #B14EFF, #FF3FA4)', borderRadius: '50%', transform: 'scale(1.4) translateY(10%)' }}
+              style={{ background: 'linear-gradient(90deg, #4FA3D1, #FFFFFF, #E0685C)', borderRadius: '50%', transform: 'scale(1.4) translateY(10%)' }}
             />
             <h1
               className="relative text-[52px] font-bold leading-none tracking-tight bg-clip-text text-transparent"
-              style={{ backgroundImage: 'linear-gradient(90deg, #00D9FF 0%, #B14EFF 50%, #FF3FA4 100%)' }}
+              style={{ backgroundImage: 'linear-gradient(90deg, #4FA3D1 0%, #FFFFFF 50%, #E0685C 100%)' }}
             >
               express
             </h1>
@@ -140,7 +140,7 @@ export default function Login() {
             <button
               onClick={() => setShowEmail(true)}
               className="w-full py-4 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2.5 cursor-pointer transition-transform duration-150 hover:scale-[1.02] active:scale-95"
-              style={{ background: 'rgba(255,255,255,0.06)', color: '#E6E2F2', border: '1px solid rgba(255,255,255,0.10)' }}
+              style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.10)' }}
             >
               <MailIcon />
               Continue with Email
@@ -155,9 +155,9 @@ export default function Login() {
                     onClick={() => switchMode(m)}
                     className="flex-1 py-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-all duration-150"
                     style={{
-                      background: mode === m ? 'rgba(177,78,255,0.25)' : 'transparent',
-                      color: mode === m ? '#E6E2F2' : '#5A4F78',
-                      border: mode === m ? '1px solid rgba(177,78,255,0.35)' : '1px solid transparent',
+                      background: mode === m ? 'rgba(255,255,255,0.25)' : 'transparent',
+                      color: mode === m ? '#FFFFFF' : '#5C5142',
+                      border: mode === m ? '1px solid rgba(255,255,255,0.35)' : '1px solid transparent',
                     }}
                   >
                     {m === 'signin' ? 'Sign in' : 'Create account'}
@@ -177,10 +177,10 @@ export default function Login() {
                     className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-150"
                     style={{
                       background: 'rgba(0,0,0,0.35)',
-                      color: '#E6E2F2',
+                      color: '#FFFFFF',
                       border: '1px solid rgba(255,255,255,0.10)',
                     }}
-                    onFocus={e => (e.target.style.borderColor = 'rgba(177,78,255,0.6)')}
+                    onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.6)')}
                     onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
                   />
                 )}
@@ -193,10 +193,10 @@ export default function Login() {
                   className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-150"
                   style={{
                     background: 'rgba(0,0,0,0.35)',
-                    color: '#E6E2F2',
+                    color: '#FFFFFF',
                     border: '1px solid rgba(255,255,255,0.10)',
                   }}
-                  onFocus={e => (e.target.style.borderColor = 'rgba(177,78,255,0.6)')}
+                  onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.6)')}
                   onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
                 />
                 <input
@@ -208,10 +208,10 @@ export default function Login() {
                   className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-150"
                   style={{
                     background: 'rgba(0,0,0,0.35)',
-                    color: '#E6E2F2',
+                    color: '#FFFFFF',
                     border: '1px solid rgba(255,255,255,0.10)',
                   }}
-                  onFocus={e => (e.target.style.borderColor = 'rgba(177,78,255,0.6)')}
+                  onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.6)')}
                   onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
                 />
                 {mode === 'signin' && (
@@ -231,10 +231,10 @@ export default function Login() {
                     className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-150"
                     style={{
                       background: 'rgba(0,0,0,0.35)',
-                      color: '#E6E2F2',
+                      color: '#FFFFFF',
                       border: '1px solid rgba(255,255,255,0.10)',
                     }}
-                    onFocus={e => (e.target.style.borderColor = 'rgba(177,78,255,0.6)')}
+                    onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.6)')}
                     onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
                   />
                 )}
@@ -246,13 +246,13 @@ export default function Login() {
                 <div className="relative group mt-1">
                   <div
                     className="absolute inset-0 rounded-xl blur-md opacity-0 group-hover:opacity-50 transition-opacity duration-300 pointer-events-none"
-                    style={{ background: 'linear-gradient(90deg, #B14EFF, #FF3FA4)' }}
+                    style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)' }}
                   />
                   <button
                     type="submit"
                     disabled={loading}
                     className="relative w-full py-3.5 rounded-xl font-bold text-[14px] cursor-pointer transition-transform duration-150 hover:scale-[1.02] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{ background: 'linear-gradient(90deg, #B14EFF, #FF3FA4)', color: '#fff' }}
+                    style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)', color: '#fff' }}
                   >
                     {loading ? '…' : mode === 'signin' ? 'Sign in' : 'Create account'}
                   </button>

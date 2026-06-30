@@ -59,11 +59,11 @@ export default function Artist() {
       {img && (
         <div className="absolute inset-x-0 top-0 h-72 overflow-hidden pointer-events-none" style={{ opacity: 0.3 }}>
           <img src={img} alt="" className="w-full h-full object-cover blur-2xl scale-110" />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent, #0B0816)' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent, #000000)' }} />
         </div>
       )}
 
-      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 pt-4 pb-2" style={{ background: 'rgba(11,8,22,0.7)', backdropFilter: 'blur(12px)' }}>
+      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 pt-4 pb-2" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)' }}>
         <button onClick={() => nav(-1)} className="p-2 rounded-full bg-white/8 border border-white/10 cursor-pointer text-fg hover:text-violet">← Back</button>
       </div>
 
@@ -84,7 +84,7 @@ export default function Artist() {
           <div className="flex gap-3 mt-2 flex-wrap justify-center">
             {alreadyReviewed
               ? <span className="px-5 py-2.5 rounded-xl border border-white/10 text-fg3 text-[13px] font-semibold">Already reviewed</span>
-              : <button onClick={rateArtist} className="px-5 py-2.5 rounded-xl font-semibold text-[13px] cursor-pointer text-white" style={{ background: 'linear-gradient(135deg, #B14EFF, #FF3FA4)' }}>Rate artist</button>}
+              : <button onClick={rateArtist} className="px-5 py-2.5 rounded-xl font-semibold text-[13px] cursor-pointer text-white" style={{ background: 'linear-gradient(135deg, #FFFFFF, #E0685C)' }}>Rate artist</button>}
             {artist.external_urls?.spotify && <a href={artist.external_urls.spotify} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-[13px]" style={{ background: '#1DB954', color: '#000' }}>▶ Spotify</a>}
           </div>
         </div>

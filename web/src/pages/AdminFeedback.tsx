@@ -13,9 +13,9 @@ type FeedbackItem = {
 };
 
 const TYPE_STYLE: Record<string, { label: string; color: string }> = {
-  bug:     { label: 'Bug',     color: '#FF3FA4' },
-  feature: { label: 'Feature', color: '#B14EFF' },
-  other:   { label: 'Other',   color: '#00D9FF' },
+  bug:     { label: 'Bug',     color: '#E0685C' },
+  feature: { label: 'Feature', color: '#FFFFFF' },
+  other:   { label: 'Other',   color: '#4FA3D1' },
 };
 
 export default function AdminFeedback() {
@@ -38,7 +38,7 @@ export default function AdminFeedback() {
 
   return (
     <div className="h-screen overflow-y-auto">
-      <div className="sticky top-0 z-10 px-4 py-3 border-b border-white/8 flex items-center gap-3" style={{ background: 'rgba(11,8,22,0.92)', backdropFilter: 'blur(12px)' }}>
+      <div className="sticky top-0 z-10 px-4 py-3 border-b border-white/8 flex items-center gap-3" style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}>
         <button onClick={() => nav(-1)} className="text-fg3 hover:text-fg transition-colors cursor-pointer text-xl leading-none">←</button>
         <h1 className="text-[18px] font-bold text-fg">Feedback</h1>
         <span className="ml-auto text-[12px] text-fg4">{items.length} total</span>
@@ -63,14 +63,14 @@ export default function AdminFeedback() {
             <div className="flex gap-2 mb-6">
               {(['all', 'bug', 'feature', 'other'] as const).map(f => {
                 const count = f === 'all' ? items.length : counts[f];
-                const color = f === 'all' ? '#E6E2F2' : TYPE_STYLE[f].color;
+                const color = f === 'all' ? '#FFFFFF' : TYPE_STYLE[f].color;
                 return (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
                     className="px-3 py-1.5 rounded-full text-[12px] font-semibold border cursor-pointer transition-all capitalize"
                     style={{
-                      color:       filter === f ? color : '#8A7FAC',
+                      color:       filter === f ? color : '#978A74',
                       borderColor: filter === f ? `${color}50` : 'rgba(255,255,255,0.08)',
                       background:  filter === f ? `${color}18` : 'transparent',
                     }}

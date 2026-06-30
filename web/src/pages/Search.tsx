@@ -82,9 +82,9 @@ export default function Search() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-white/8 sticky top-0 z-10 flex flex-col gap-2" style={{ background: 'rgba(11,8,22,0.92)', backdropFilter: 'blur(12px)' }}>
+      <div className="px-4 pt-4 pb-3 border-b border-white/8 sticky top-0 z-10 flex flex-col gap-2" style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}>
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/15 bg-white/6">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A7FAC" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#978A74" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
@@ -101,9 +101,9 @@ export default function Search() {
               onClick={() => setScope(i)}
               className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border shrink-0 cursor-pointer transition-all"
               style={{
-                borderColor: i === scope ? 'rgba(177,78,255,0.5)' : 'rgba(255,255,255,0.08)',
-                background:  i === scope ? 'rgba(177,78,255,0.15)' : 'rgba(255,255,255,0.04)',
-                color:       i === scope ? '#B14EFF' : '#8A7FAC',
+                borderColor: i === scope ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)',
+                background:  i === scope ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                color:       i === scope ? '#FFFFFF' : '#978A74',
               }}
             >
               {sc}
@@ -121,7 +121,7 @@ export default function Search() {
             <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-1">🔥 Trending now</p>
             {trending.map((item, i) => (
               <button key={`${item.type}-${item.spotifyTrackId ?? item.spotifyAlbumId ?? item.spotifyArtistId}`} onClick={() => navTrending(item)} className="flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-white/4 hover:bg-white/8 transition-colors cursor-pointer text-left w-full">
-                <span className="text-[13px] font-bold w-6 text-center" style={{ color: i === 0 ? '#B14EFF' : '#5A4F78' }}>{i + 1}</span>
+                <span className="text-[13px] font-bold w-6 text-center" style={{ color: i === 0 ? '#FFFFFF' : '#5C5142' }}>{i + 1}</span>
                 {item.albumArt
                   ? <img src={item.albumArt} alt="" className="w-10 h-10 rounded-lg object-cover" />
                   : <div className="w-10 h-10 rounded-lg bg-white/8" />}
@@ -256,9 +256,9 @@ function UserRow({ user, myId, nav }: { user: UserResult; myId: string; nav: (p:
           disabled={busy}
           className="px-3 py-1.5 rounded-full text-[12px] font-semibold cursor-pointer transition-all"
           style={{
-            background:  following ? 'transparent' : '#B14EFF',
-            color:       following ? '#B14EFF' : '#fff',
-            border:      `1px solid #B14EFF`,
+            background:  following ? 'transparent' : '#FFFFFF',
+            color:       following ? '#FFFFFF' : '#fff',
+            border:      `1px solid #FFFFFF`,
           }}
         >
           {busy ? '…' : following ? 'Following' : 'Follow'}

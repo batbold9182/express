@@ -14,9 +14,9 @@ const FILTERS: { key: TypeFilter; label: string }[] = [
 ];
 
 const TYPE_CFG: Record<string, { label: string; color: string }> = {
-  album:  { label: 'Album',  color: '#00D9FF' },
-  artist: { label: 'Artist', color: '#FF3FA4' },
-  track:  { label: 'Track',  color: '#8A7FAC' },
+  album:  { label: 'Album',  color: '#4FA3D1' },
+  artist: { label: 'Artist', color: '#E0685C' },
+  track:  { label: 'Track',  color: '#978A74' },
 };
 
 type LeaderboardItem = {
@@ -61,7 +61,7 @@ export default function Ranking() {
       {/* Header */}
       <div
         className="px-4 pt-4 pb-3 border-b border-white/8 sticky top-0 z-10 shrink-0"
-        style={{ background: 'rgba(11,8,22,0.92)', backdropFilter: 'blur(12px)' }}
+        style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}
       >
         <div className="flex items-center gap-2 mb-3">
           <TrophyIcon />
@@ -74,9 +74,9 @@ export default function Ranking() {
               onClick={() => setFilter(f.key)}
               className="px-3 py-1.5 rounded-xl text-[12px] font-semibold border transition-all cursor-pointer"
               style={{
-                borderColor: filter === f.key ? 'rgba(177,78,255,0.5)' : 'rgba(255,255,255,0.08)',
-                background:  filter === f.key ? 'rgba(177,78,255,0.15)' : 'rgba(255,255,255,0.04)',
-                color:       filter === f.key ? '#B14EFF' : '#8A7FAC',
+                borderColor: filter === f.key ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)',
+                background:  filter === f.key ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                color:       filter === f.key ? '#FFFFFF' : '#978A74',
               }}
             >
               {f.label}
@@ -163,7 +163,7 @@ export default function Ranking() {
 
 function TrophyIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B14EFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/>
       <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
       <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
