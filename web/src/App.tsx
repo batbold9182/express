@@ -19,6 +19,7 @@ import Song           from './pages/Song';
 import Album          from './pages/Album';
 import Artist         from './pages/Artist';
 import Profile        from './pages/Profile';
+import SharedReview   from './pages/SharedReview';
 
 export default function App() {
   return (
@@ -31,6 +32,8 @@ export default function App() {
               <Route path="/auth/callback"   element={<AuthCallback />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password"  element={<ResetPassword />} />
+              {/* Public shareable review post — no auth gate */}
+              <Route path="/r/:id"           element={<SharedReview />} />
 
               <Route element={<Layout />}>
                 <Route path="/"              element={<Home />} />

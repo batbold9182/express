@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { ShareButton } from './ShareButton';
 import { scoreColor, MOOD_LIST } from '@tunelog/shared';
 import type { ProfileReview } from '@tunelog/shared';
 
@@ -133,12 +134,21 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
         <p className="text-fg3 text-center text-[13px] py-8">{query ? 'No matches' : 'No reviews yet'}</p>
       ) : (
         <div className="flex flex-col gap-3">
-          {reviews.map(r => (
-            <button key={r._id} onClick={() => {
+          {reviews.map(r => {
+            const goto = () => {
               if (r.type === 'artist' && r.spotifyArtistId) nav(`/artist/${r.spotifyArtistId}`);
               else if (r.type === 'album' && r.spotifyAlbumId) nav(`/album/${r.spotifyAlbumId}`);
               else if (r.spotifyTrackId) nav(`/song/${r.spotifyTrackId}`);
-            }} className="flex gap-3 p-3 rounded-2xl border border-white/8 bg-white/4 hover:bg-white/8 transition-colors cursor-pointer text-left w-full">
+            };
+            return (
+            <div
+              key={r._id}
+              role="button"
+              tabIndex={0}
+              onClick={goto}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto(); } }}
+              className="flex gap-3 p-3 rounded-2xl border border-white/8 bg-white/4 hover:bg-white/8 transition-colors cursor-pointer text-left w-full items-start"
+            >
               {r.albumArt ? <img src={r.albumArt} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" /> : <div className="w-12 h-12 rounded-lg bg-white/8 shrink-0" />}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -153,8 +163,12 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
                   </div>
                 )}
               </div>
-            </button>
-          ))}
+              <div className="shrink-0" onClick={e => e.stopPropagation()}>
+                <ShareButton review={r} iconOnly className="p-1.5 rounded-lg text-fg3 hover:text-fg cursor-pointer flex items-center" />
+              </div>
+            </div>
+            );
+          })}
         </div>
       )}
 

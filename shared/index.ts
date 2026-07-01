@@ -3,3 +3,4 @@ export * from './constants';
 export * from './theme';
 export * from './timeAgo';
 export * from './validators';
+export * from './share';

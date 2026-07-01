@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Avatar } from './Avatar';
 import { LikeButton } from './LikeButton';
 import { CommentSection } from './CommentSection';
+import { ShareButton } from './ShareButton';
 import { api } from '../lib/api';
-import { timeAgo, scoreColor, MOOD_LIST } from '@tunelog/shared';
+import { timeAgo, scoreColor, MOOD_LIST, spotifyUrlFor } from '@tunelog/shared';
 import type { FeedItem } from '@tunelog/shared';
 
 const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
@@ -59,13 +60,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
     onDelete();
   }
 
-  const spotifyUrl = item.type === 'artist' && item.spotifyArtistId
-    ? `https://open.spotify.com/artist/${item.spotifyArtistId}`
-    : item.type === 'album' && item.spotifyAlbumId
-      ? `https://open.spotify.com/album/${item.spotifyAlbumId}`
-      : item.spotifyTrackId
-        ? `https://open.spotify.com/track/${item.spotifyTrackId}`
-        : null;
+  const spotifyUrl = spotifyUrlFor(item);
 
   const scoreCol  = scoreColor(dispScore);
   const commentCount = ((item as any).comments ?? []).length;
@@ -214,6 +209,8 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
           )}
 
           <div className="flex-1" />
+
+          <ShareButton review={item} />
 
           {spotifyUrl && (
             <a

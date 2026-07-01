@@ -159,10 +159,14 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// GET /reviews/:id — public single review (used by the shareable /r/:id post page + OG image).
+// Populates the author so the public card can render name + avatar.
 router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const review = await Review.findById(req.params.id);
+    const review = await Review.findById(req.params.id)
+      .populate({ path: 'userId', select: '_id displayName avatarUrl spotifyId' });
     if (!review) { res.status(404).json({ error: 'Review not found' }); return; }
+    if (!review.userId) { res.status(404).json({ error: 'Review author no longer exists' }); return; }
     res.json(review);
   } catch {
     res.status(500).json({ error: 'Failed to fetch review' });
