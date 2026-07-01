@@ -1,6 +1,9 @@
 // Node serverless function: serves the SPA shell for /r/:id with per-review Open Graph
 // tags injected, so shared links unfurl with the review's card/title in chats & social.
 // Humans still get the full SPA (it boots and React Router renders SharedReview.tsx).
+//
+// Reached via a vercel.json rewrite: /r/:id -> /api/r?id=:id  (flat file + query param,
+// so it doesn't depend on `[id]` dynamic-segment function routing).
 
 const API_BASE = process.env.VITE_API_BASE || '';
 

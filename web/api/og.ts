@@ -63,7 +63,7 @@ function fallback(width: number, height: number): ImageResponse {
 
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  const id = url.pathname.split('/').pop() || '';
+  const id = url.searchParams.get('id') || '';
   const story = url.searchParams.get('format') === 'story';
   const width  = story ? 1080 : 1200;
   const height = story ? 1920 : 630;
