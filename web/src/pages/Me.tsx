@@ -12,7 +12,7 @@ type SpotifyArtist = { id: string; name: string; images: { url: string }[]; genr
 const GENRE_COLORS = ['#FFFFFF', '#E0685C', '#4FA3D1', '#4B4E53'];
 
 export default function Me() {
-  const { token, spotifyId } = useAuth();
+  const { token, spotifyId, clearToken } = useAuth();
   const nav = useNavigate();
   const isEmailOnly = spotifyId?.startsWith('email:');
   const apiBase = (import.meta.env.VITE_API_BASE as string) ?? '';
@@ -59,8 +59,16 @@ export default function Me() {
 
   return (
     <div className="h-screen overflow-y-auto">
-      <div className="sticky top-0 z-10 px-4 py-3 border-b border-white/8" style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}>
+      <div className="sticky top-0 z-10 px-4 py-3 border-b border-white/8 flex items-center justify-between" style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}>
         <h1 className="text-[18px] font-bold text-fg">My Profile</h1>
+        {/* Mobile-only logout — the desktop sidebar already has one */}
+        <button
+          onClick={() => { if (window.confirm('Log out?')) clearToken(); }}
+          className="md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-fg2 border border-white/10 active:scale-95 transition-transform cursor-pointer"
+        >
+          <LogoutIcon size={15} />
+          Log out
+        </button>
       </div>
 
       <div className="max-w-5xl mx-auto px-4 pb-20 lg:grid lg:grid-cols-2 lg:gap-8 lg:items-start">
@@ -183,5 +191,13 @@ export default function Me() {
         <ProfileReviews endpointBase="/users/me/reviews" counts={counts} />
       </div>
     </div>
+  );
+}
+
+function LogoutIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
   );
 }
