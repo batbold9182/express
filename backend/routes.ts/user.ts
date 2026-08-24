@@ -1,8 +1,9 @@
 import { Router, Response } from 'express';
+import crypto from 'crypto';
 import { Review } from '../models/review';
 import { User } from '../models/User';
 import { List } from '../models/List';
-import { requireAuth, optionalAuth, AuthRequest } from '../middleware/auth';
+import { requireAuth, optionalAuth, AuthRequest, invalidateToken } from '../middleware/auth';
 import { notify } from '../lib/notify';
 import { stripNullAuthors } from '../lib/stripNullAuthors';
 
@@ -62,6 +63,43 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
     res.json({ ...user.toObject(), followerCount, followingCount, isFollowing: false });
   } catch {
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// DELETE /users/me/spotify — unlink Spotify, keep the account and all its reviews.
+// Mirrors the "strip Spotify from the previous owner" branch in auth.ts /callback.
+router.delete('/me/spotify', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findById(req.user!._id);
+    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+
+    if ((user.spotifyId as string | undefined)?.startsWith('email:')) {
+      res.status(400).json({ error: 'Spotify is not connected' }); return;
+    }
+    // Web login is email-only, so an account with no password and no Spotify has no way back in.
+    if (!user.passwordHash) {
+      res.status(409).json({
+        error: 'Set a password first — without one you would be locked out of this account.',
+      });
+      return;
+    }
+
+    // The stored accessToken IS the Spotify token for linked users, so it has to be swapped for
+    // an app session token — same shape /auth/register and /auth/email-login issue.
+    const oldToken   = user.accessToken as string;
+    const accessToken = crypto.randomBytes(40).toString('hex');
+    const expiresAt   = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const spotifyId   = `email:${crypto.randomUUID()}`;
+
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { spotifyId, refreshToken: '', accessToken, tokenExpiresAt: expiresAt, updatedAt: new Date() } }
+    );
+    invalidateToken(oldToken);
+
+    res.json({ access_token: accessToken, spotify_id: spotifyId, expires_at: expiresAt.getTime() });
+  } catch {
+    res.status(500).json({ error: 'Failed to disconnect Spotify' });
   }
 });
 

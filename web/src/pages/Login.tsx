@@ -4,11 +4,25 @@ import { useAuth } from '../context/auth';
 
 const BASE = import.meta.env.VITE_API_BASE as string;
 
+const BRAND_GRADIENT = 'linear-gradient(90deg, #4FA3D1 0%, #FFFFFF 50%, #E0685C 100%)';
+
+// Fluid scale. clamp(min, preferred, max) interpolates against viewport width, so type and
+// spacing grow smoothly between sizes instead of jumping at a breakpoint — that continuity is
+// what makes the page feel like one design at every width.
+const LAYOUT_MAX   = '1240px';                          // stops the composition spreading on ultrawide
+const GUTTER       = 'clamp(1.25rem, 4vw, 3.5rem)';     // 20px → 56px page inset
+const WORDMARK_SIZE = 'clamp(2.5rem, 6vw, 3.5rem)';     // 40px → 56px
+const TAGLINE_SIZE  = 'clamp(0.8125rem, 1.4vw, 0.9375rem)'; // 13px → 15px
+
 const FEATURES = [
-  { icon: '★', label: 'Rate tracks, albums & artists 0–10' },
-  { icon: '♪', label: 'Build a profile that shows your taste' },
-  { icon: '◎', label: "Follow people, see what they're loving" },
+  { icon: '★', color: '#4FA3D1', label: 'Rate tracks, albums & artists 0–10' },
+  { icon: '♪', color: '#FFFFFF', label: 'Build a profile that shows your taste' },
+  { icon: '◎', color: '#E0685C', label: "Follow people, see what they're loving" },
 ];
+
+// TODO: dummy for now — wire up i18n and real policy pages later.
+const LANGUAGES = ['English (US)', 'Polski', 'Deutsch', 'Español'];
+const POLICY_LINKS = ['Privacy Policy', 'Cookies', 'Terms'];
 
 type EmailMode = 'signin' | 'signup';
 
@@ -16,20 +30,16 @@ export default function Login() {
   const { token, saveToken } = useAuth();
   const nav = useNavigate();
   const [mode, setMode] = useState<EmailMode>('signin');
-  const [showEmail, setShowEmail] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => { if (token) nav('/', { replace: true }); }, [token]);
-
-  function loginWithSpotify() {
-    const callbackUrl = `${window.location.origin}/auth/callback`;
-    window.location.href = `${BASE}/auth/login?redirect=${encodeURIComponent(callbackUrl)}`;
-  }
 
   async function submitEmail() {
     setError('');
@@ -71,219 +81,367 @@ export default function Login() {
     setError('');
     setPassword('');
     setConfirm('');
+    setShowPassword(false);
+    setShowConfirm(false);
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
-      {/* Layered background gradients */}
+    // 100svh (not 100vh) so mobile browser chrome can't push the footer off-screen.
+    <div className="min-h-svh flex flex-col relative overflow-hidden" style={{ background: '#050505' }}>
+      {/* Ambient wash — cool top-left, warm bottom-right, matching the wordmark ramp */}
       <div className="absolute inset-0 pointer-events-none">
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 50% at 20% 10%, rgba(79,163,209,0.08) 0%, transparent 60%)' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 60% at 80% 90%, rgba(224,104,92,0.10) 0%, transparent 60%)' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255,255,255,0.14) 0%, transparent 55%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 50% 50% at 30% 32%, rgba(79,163,209,0.10) 0%, transparent 65%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 55% 55% at 78% 78%, rgba(224,104,92,0.11) 0%, transparent 65%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 45% at 32% 30%, rgba(255,255,255,0.05) 0%, transparent 60%)' }} />
       </div>
 
-      <div className="relative flex flex-col items-center gap-8 w-full max-w-sm">
-        {/* Wordmark */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative">
+      {/* ═══ Main row — capped so the composition stays together on ultrawide ═══ */}
+      <main
+        className="relative flex-1 w-full mx-auto flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-8"
+        style={{ maxWidth: LAYOUT_MAX, padding: GUTTER }}
+      >
+        {/* ─── Left — full brand mark (lg and up) ─── */}
+        <section className="hidden lg:flex flex-1 items-center justify-center">
+          <div className="relative aspect-square flex items-center justify-center" style={{ width: 'min(40vw, 440px)' }}>
+            {/* Soft halo behind the mark */}
             <div
-              className="absolute inset-0 blur-2xl opacity-40 pointer-events-none"
-              style={{ background: 'linear-gradient(90deg, #4FA3D1, #FFFFFF, #E0685C)', borderRadius: '50%', transform: 'scale(1.4) translateY(10%)' }}
+              className="absolute inset-0 rounded-full blur-3xl opacity-35 pointer-events-none"
+              style={{ background: 'radial-gradient(circle at 50% 38%, rgba(79,163,209,0.45) 0%, rgba(224,104,92,0.28) 48%, transparent 70%)' }}
             />
-            <h1
-              className="relative text-[52px] font-bold leading-none tracking-tight bg-clip-text text-transparent"
-              style={{ backgroundImage: 'linear-gradient(90deg, #4FA3D1 0%, #FFFFFF 50%, #E0685C 100%)' }}
-            >
-              express
-            </h1>
-          </div>
-          <p className="text-fg3 text-[15px] text-center tracking-wide">Rate music. Build your taste.</p>
-        </div>
+            {/* Faint ring */}
+            <div className="absolute inset-0 rounded-full" style={{ border: '1px solid rgba(255,255,255,0.055)' }} />
 
-        {/* Feature bullets */}
-        <div className="w-full flex flex-col gap-3">
-          {FEATURES.map(({ icon, label }) => (
-            <div key={label} className="flex items-center gap-3">
-              <span className="text-violet text-[13px] w-4 text-center shrink-0">{icon}</span>
-              <span className="text-fg2 text-[14px]">{label}</span>
-            </div>
-          ))}
-        </div>
+            <div className="relative flex flex-col items-center px-12 text-center">
+              <Wordmark />
+              <p className="tracking-wide mt-3" style={{ color: '#978A74', fontSize: TAGLINE_SIZE }}>
+                Rate music. Build your taste.
+              </p>
 
-        {/* Auth section */}
-        <div className="w-full flex flex-col gap-4">
-          {/* Spotify */}
-          <div className="relative group">
-            <div
-              className="absolute inset-0 rounded-2xl blur-md opacity-0 group-hover:opacity-60 transition-opacity duration-300 pointer-events-none"
-              style={{ background: '#1DB954' }}
-            />
-            <button
-              onClick={loginWithSpotify}
-              className="relative w-full py-4 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2.5 cursor-pointer transition-transform duration-150 hover:scale-[1.02] active:scale-95"
-              style={{ background: '#1DB954', color: '#000' }}
-            >
-              <SpotifyIcon />
-              Continue with Spotify
-            </button>
-          </div>
+              <div className="w-12 h-px my-5" style={{ background: 'rgba(255,255,255,0.10)' }} />
 
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-            <span className="text-fg4 text-[12px] tracking-widest uppercase">or</span>
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-          </div>
-
-          {/* Email toggle */}
-          {!showEmail ? (
-            <button
-              onClick={() => setShowEmail(true)}
-              className="w-full py-4 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2.5 cursor-pointer transition-transform duration-150 hover:scale-[1.02] active:scale-95"
-              style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.10)' }}
-            >
-              <MailIcon />
-              Continue with Email
-            </button>
-          ) : (
-            <div className="w-full flex flex-col gap-4 rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              {/* Sign in / Create account tabs */}
-              <div className="flex rounded-xl p-1 gap-1" style={{ background: 'rgba(0,0,0,0.3)' }}>
-                {(['signin', 'signup'] as EmailMode[]).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => switchMode(m)}
-                    className="flex-1 py-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-all duration-150"
-                    style={{
-                      background: mode === m ? 'rgba(255,255,255,0.25)' : 'transparent',
-                      color: mode === m ? '#FFFFFF' : '#5C5142',
-                      border: mode === m ? '1px solid rgba(255,255,255,0.35)' : '1px solid transparent',
-                    }}
-                  >
-                    {m === 'signin' ? 'Sign in' : 'Create account'}
-                  </button>
+              <div className="flex flex-col gap-3.5">
+                {FEATURES.map(({ icon, color, label }) => (
+                  <div key={label} className="flex items-center gap-3 text-left">
+                    <span
+                      className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px]"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color }}
+                    >
+                      {icon}
+                    </span>
+                    <span className="text-[13px] leading-snug" style={{ color: '#978A74' }}>{label}</span>
+                  </div>
                 ))}
               </div>
-
-              {/* Form */}
-              <form onSubmit={e => { e.preventDefault(); void submitEmail(); }} className="flex flex-col gap-3">
-                {mode === 'signup' && (
-                  <input
-                    type="text"
-                    placeholder="Display name"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-150"
-                    style={{
-                      background: 'rgba(0,0,0,0.35)',
-                      color: '#FFFFFF',
-                      border: '1px solid rgba(255,255,255,0.10)',
-                    }}
-                    onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.6)')}
-                    onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
-                  />
-                )}
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-150"
-                  style={{
-                    background: 'rgba(0,0,0,0.35)',
-                    color: '#FFFFFF',
-                    border: '1px solid rgba(255,255,255,0.10)',
-                  }}
-                  onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.6)')}
-                  onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
-                />
-                <input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-150"
-                  style={{
-                    background: 'rgba(0,0,0,0.35)',
-                    color: '#FFFFFF',
-                    border: '1px solid rgba(255,255,255,0.10)',
-                  }}
-                  onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.6)')}
-                  onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
-                />
-                {mode === 'signin' && (
-                  <div className="text-right -mt-1">
-                    <Link to="/forgot-password" className="text-[12px] text-fg4 hover:text-violet transition-colors">
-                      Forgot password?
-                    </Link>
-                  </div>
-                )}
-                {mode === 'signup' && (
-                  <input
-                    type="password"
-                    placeholder="Confirm password"
-                    value={confirm}
-                    onChange={e => setConfirm(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-150"
-                    style={{
-                      background: 'rgba(0,0,0,0.35)',
-                      color: '#FFFFFF',
-                      border: '1px solid rgba(255,255,255,0.10)',
-                    }}
-                    onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.6)')}
-                    onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
-                  />
-                )}
-
-                {error && (
-                  <p className="text-red text-[12px] text-center">{error}</p>
-                )}
-
-                <div className="relative group mt-1">
-                  <div
-                    className="absolute inset-0 rounded-xl blur-md opacity-0 group-hover:opacity-50 transition-opacity duration-300 pointer-events-none"
-                    style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)' }}
-                  />
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="relative w-full py-3.5 rounded-xl font-bold text-[14px] cursor-pointer transition-transform duration-150 hover:scale-[1.02] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)', color: '#fff' }}
-                  >
-                    {loading ? '…' : mode === 'signin' ? 'Sign in' : 'Create account'}
-                  </button>
-                </div>
-              </form>
             </div>
-          )}
+          </div>
+        </section>
 
-          <p className="text-[11px] text-fg4 text-center leading-5">
-            By continuing you agree to our terms.<br />
-            We don't store your Spotify password.
+        {/* ─── Compact brand (below lg) — the identity relocates, it never disappears ─── */}
+        <div className="lg:hidden flex flex-col items-center text-center shrink-0">
+          <Wordmark />
+          <p className="tracking-wide mt-2.5" style={{ color: '#978A74', fontSize: TAGLINE_SIZE }}>
+            Rate music. Build your taste.
           </p>
         </div>
-      </div>
+
+        {/* ─── Right — auth card ─── */}
+        <section className="w-full lg:w-[42%] flex justify-center lg:justify-end">
+          <div
+            className="w-full max-w-[400px] rounded-2xl px-7 sm:px-8 pt-7 pb-8"
+            style={{
+              background: 'rgba(255,255,255,0.035)',
+              border: '1px solid rgba(255,255,255,0.09)',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.55)',
+            }}
+          >
+            {/* Tabs */}
+            <nav className="flex items-center justify-between">
+              {(['signin', 'signup'] as EmailMode[]).map(m => (
+                <button
+                  key={m}
+                  onClick={() => switchMode(m)}
+                  className="relative pb-2.5 text-[13px] font-semibold cursor-pointer transition-colors duration-150"
+                  style={{ color: mode === m ? '#FFFFFF' : '#5C5142' }}
+                >
+                  {m === 'signin' ? 'Login' : 'Create account'}
+                  {mode === m && (
+                    <span
+                      className="absolute left-0 right-0 bottom-0 h-[2px] rounded-full"
+                      style={{ background: BRAND_GRADIENT }}
+                    />
+                  )}
+                </button>
+              ))}
+            </nav>
+
+            {/* Heading */}
+            <header className="text-center mt-9 mb-6">
+              <h2
+                className="text-[22px] font-bold leading-tight bg-clip-text text-transparent"
+                style={{ backgroundImage: BRAND_GRADIENT }}
+              >
+                {mode === 'signin' ? 'Welcome to express' : 'Create your account'}
+              </h2>
+              <p className="text-[12px] mt-2 leading-snug" style={{ color: '#978A74' }}>
+                {mode === 'signin'
+                  ? 'Sign in to pick up where you left off.'
+                  : 'Start rating and build your taste profile.'}
+              </p>
+            </header>
+
+            {/* Form */}
+            <form onSubmit={e => { e.preventDefault(); void submitEmail(); }} className="flex flex-col gap-3">
+              {mode === 'signup' && (
+                <Field
+                  icon={<UserIcon />}
+                  type="text"
+                  placeholder="Display name"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  required
+                />
+              )}
+              <Field
+                icon={<MailIcon />}
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
+              <Field
+                icon={<LockIcon />}
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                trailing={
+                  <RevealButton shown={showPassword} onClick={() => setShowPassword(v => !v)} />
+                }
+              />
+              {mode === 'signup' && (
+                <Field
+                  icon={<LockIcon />}
+                  type={showConfirm ? 'text' : 'password'}
+                  placeholder="Confirm password"
+                  value={confirm}
+                  onChange={e => setConfirm(e.target.value)}
+                  required
+                  trailing={
+                    <RevealButton shown={showConfirm} onClick={() => setShowConfirm(v => !v)} />
+                  }
+                />
+              )}
+
+              {error && <p className="text-[12px] text-center leading-snug" style={{ color: '#E0685C' }}>{error}</p>}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 mt-2 rounded-xl font-bold text-[14px] cursor-pointer transition-all duration-150 hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ background: BRAND_GRADIENT, color: '#0A0A0A' }}
+              >
+                {loading ? '…' : (
+                  <span className="inline-flex items-center gap-2">
+                    {mode === 'signin' ? 'Login' : 'Create account'}
+                    <span aria-hidden>→</span>
+                  </span>
+                )}
+              </button>
+            </form>
+
+            {/* Fine print */}
+            <div className="text-center mt-5 flex flex-col gap-1.5">
+              {mode === 'signin' && (
+                <Link to="/forgot-password" className="text-[12px] transition-colors hover:text-white" style={{ color: '#978A74' }}>
+                  Forgot password?
+                </Link>
+              )}
+              <p className="text-[10.5px] leading-relaxed" style={{ color: '#5C5142' }}>
+                By continuing you agree to our terms.
+                <br />
+                We do not store any of your passwords, 
+                <br />
+                and we will never post to your social media accounts.
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* ═══ Footer — languages left, policies right (all placeholders) ═══ */}
+      <footer
+        className="relative w-full mx-auto pb-6 pt-2"
+        style={{ maxWidth: LAYOUT_MAX, paddingLeft: GUTTER, paddingRight: GUTTER }}
+      >
+        {/* Stacks and centres on narrow screens, splits left/right from sm up */}
+        <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 sm:gap-6 text-[11px]">
+          <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
+            <PlaceholderLink active>
+              <span className="inline-flex items-center gap-1">
+                {LANGUAGES[0]}
+                <ChevronDown />
+              </span>
+            </PlaceholderLink>
+            {LANGUAGES.slice(1).map(lang => (
+              <PlaceholderLink key={lang}>{lang}</PlaceholderLink>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
+            {POLICY_LINKS.map(label => (
+              <PlaceholderLink key={label}>{label}</PlaceholderLink>
+            ))}
+            <span style={{ color: '#5C5142' }}>© {new Date().getFullYear()} express</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function SpotifyIcon() {
+/* ─────────── Brand ─────────── */
+
+// One wordmark, two placements — inside the circle on lg+, above the card below it.
+function Wordmark() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="#000">
-      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+    <h1
+      className="font-bold leading-none tracking-tight bg-clip-text text-transparent"
+      style={{ backgroundImage: BRAND_GRADIENT, fontSize: WORDMARK_SIZE }}
+    >
+      express
+    </h1>
+  );
+}
+
+/* ─────────── Form primitives ─────────── */
+
+type FieldProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  icon: React.ReactNode;
+  trailing?: React.ReactNode;
+};
+
+function Field({ icon, trailing, ...props }: FieldProps) {
+  return (
+    <div className="relative">
+      <span
+        className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center"
+        style={{ color: '#5C5142' }}
+      >
+        {icon}
+      </span>
+      <input
+        {...props}
+        className={`w-full pl-10 ${trailing ? 'pr-11' : 'pr-4'} py-3 rounded-xl text-[14px] outline-none transition-all duration-150`}
+        style={{
+          background: 'rgba(0,0,0,0.35)',
+          color: '#FFFFFF',
+          border: '1px solid rgba(255,255,255,0.10)',
+        }}
+        onFocus={e => {
+          e.target.style.borderColor = 'rgba(255,255,255,0.55)';
+          e.target.style.boxShadow = '0 0 0 3px rgba(79,163,209,0.16)';
+        }}
+        onBlur={e => {
+          e.target.style.borderColor = 'rgba(255,255,255,0.10)';
+          e.target.style.boxShadow = 'none';
+        }}
+      />
+      {trailing && (
+        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center">{trailing}</span>
+      )}
+    </div>
+  );
+}
+
+function RevealButton({ shown, onClick }: { shown: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={shown ? 'Hide password' : 'Show password'}
+      className="p-1.5 rounded-lg transition-colors cursor-pointer hover:text-white"
+      style={{ color: '#5C5142' }}
+    >
+      {shown ? <EyeOffIcon /> : <EyeIcon />}
+    </button>
+  );
+}
+
+// Non-functional footer entry — real language switching and policy pages are still to come.
+function PlaceholderLink({ children, active = false }: { children: React.ReactNode; active?: boolean }) {
+  return (
+    <button
+      type="button"
+      title="Coming soon"
+      className="transition-colors duration-150 hover:text-white cursor-pointer"
+      style={{ color: active ? '#C9BCA6' : '#5C5142' }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ─────────── Icons ─────────── */
+
+const stroke = {
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.6,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+};
+
+function UserIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" {...stroke}>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
     </svg>
   );
 }
 
 function MailIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" {...stroke}>
       <rect x="2" y="4" width="20" height="16" rx="2" />
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" {...stroke}>
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" {...stroke}>
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" {...stroke}>
+      <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.4 0 10 7 10 7a17.6 17.6 0 0 1-2.55 3.53M6.1 6.1A17.8 17.8 0 0 0 2 11s3.6 7 10 7a9 9 0 0 0 4.2-1" />
+      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24M2 2l20 20" />
+    </svg>
+  );
+}
+
+function ChevronDown() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" {...stroke}>
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }

@@ -13,6 +13,12 @@ setInterval(() => {
   for (const [k, v] of tokenCache) if (v.expiresAt < now) tokenCache.delete(k);
 }, 10 * 60 * 1000);
 
+// Drop a token from the cache immediately — call after rotating a user's accessToken,
+// otherwise the old one keeps resolving for up to the 4-min TTL.
+export function invalidateToken(token: string) {
+  tokenCache.delete(token);
+}
+
 async function resolveUser(token: string): Promise<typeof User.prototype | null> {
   const cached = tokenCache.get(token);
   if (cached && cached.expiresAt > Date.now()) return cached.user;

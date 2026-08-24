@@ -4,6 +4,8 @@ const BASE = import.meta.env.VITE_API_BASE as string;
 let _token: string | null = null;
 let _onAuthFailure: (() => void) | null = null;
 
+export type ApiError = Error & { status?: number; body?: { error?: string } };
+
 export function configureApi(token: string | null, onAuthFailure: () => void) {
   _token = token;
   _onAuthFailure = onAuthFailure;
@@ -26,7 +28,14 @@ async function request<T = any>(method: string, path: string, body?: object, sig
     throw new Error('401');
   }
   if (res.status === 204) return null as T;
-  if (!res.ok) throw new Error(`${res.status} ${path}`);
+  if (!res.ok) {
+    // Keep the old message shape, but carry the status and parsed body so callers
+    // can show the server's own error text instead of a generic failure.
+    const err = new Error(`${res.status} ${path}`) as ApiError;
+    err.status = res.status;
+    try { err.body = await res.json(); } catch { /* non-JSON error body */ }
+    throw err;
+  }
   return res.json();
 }
 

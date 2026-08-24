@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
 import { ProfileReviews } from '../components/ProfileReviews';
-import { api } from '../lib/api';
+import { api, type ApiError } from '../lib/api';
 import { useAuth } from '../context/auth';
 
 type SpotifyUser = { display_name: string; id: string; images: { url: string }[] };
@@ -12,14 +12,33 @@ type SpotifyArtist = { id: string; name: string; images: { url: string }[]; genr
 const GENRE_COLORS = ['#FFFFFF', '#E0685C', '#4FA3D1', '#4B4E53'];
 
 export default function Me() {
-  const { token, spotifyId, clearToken } = useAuth();
+  const { token, spotifyId, clearToken, saveToken } = useAuth();
   const nav = useNavigate();
   const isEmailOnly = spotifyId?.startsWith('email:');
   const apiBase = (import.meta.env.VITE_API_BASE as string) ?? '';
 
   function connectSpotify() {
     const callbackUrl = window.location.origin + '/auth/callback';
+    // The backend appends its own `?access_token=…` to the redirect URL, so the
+    // return path can't ride along as a query param — stash it for AuthCallback.
+    sessionStorage.setItem('post_auth_redirect', '/me');
     window.location.href = `${apiBase}/auth/login?redirect=${encodeURIComponent(callbackUrl)}&linkId=${encodeURIComponent(spotifyId ?? '')}`;
+  }
+
+  async function disconnectSpotify() {
+    if (!window.confirm('Log out of Spotify?\n\nYour account and reviews stay. You lose top artists, genres and Now Playing until you reconnect.')) return;
+    setDisconnecting(true);
+    try {
+      // The server issues a fresh app session token — the current one is the Spotify token.
+      const d = await api.del('/users/me/spotify') as { access_token: string; spotify_id: string };
+      saveToken(d.access_token, d.spotify_id);
+      setUser(null);
+      setTopArtists([]);
+    } catch (e) {
+      window.alert((e as ApiError)?.body?.error ?? 'Could not disconnect Spotify. Please try again.');
+    } finally {
+      setDisconnecting(false);
+    }
   }
 
   const [user,       setUser]       = useState<SpotifyUser | null>(null);
@@ -27,6 +46,7 @@ export default function Me() {
   const [topArtists, setTopArtists] = useState<SpotifyArtist[]>([]);
   const [counts,     setCounts]     = useState({ track: 0, album: 0, artist: 0 });
   const [loading,    setLoading]    = useState(true);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [timeRange,  setTimeRange]  = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
 
   useEffect(() => {
@@ -183,6 +203,16 @@ export default function Me() {
                 ))}
               </div>
             )}
+
+            {/* Unlink Spotify — the account and its reviews are kept */}
+            <button
+              onClick={() => void disconnectSpotify()}
+              disabled={disconnecting}
+              className="w-full mb-6 py-2.5 rounded-xl border border-white/10 text-[13px] font-semibold text-fg2 flex items-center justify-center gap-2 hover:bg-white/5 hover:text-fg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <SpotifyIcon size={14} />
+              {disconnecting ? 'Logging out…' : 'Log out of Spotify'}
+            </button>
           </>
         )}
         </div>
@@ -191,6 +221,14 @@ export default function Me() {
         <ProfileReviews endpointBase="/users/me/reviews" counts={counts} />
       </div>
     </div>
+  );
+}
+
+function SpotifyIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="#1DB954">
+      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+    </svg>
   );
 }
 

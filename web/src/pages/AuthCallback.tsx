@@ -10,9 +10,12 @@ export default function AuthCallback() {
     const params = new URLSearchParams(window.location.search);
     const token     = params.get('access_token');
     const spotifyId = params.get('spotify_id');
+    // Set by "Connect Spotify" on /me so linking returns you to your profile.
+    const next = sessionStorage.getItem('post_auth_redirect');
+    sessionStorage.removeItem('post_auth_redirect');
     if (token && spotifyId) {
       saveToken(token, spotifyId);
-      nav('/', { replace: true });
+      nav(next ?? '/', { replace: true });
     } else {
       nav('/login', { replace: true });
     }

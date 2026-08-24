@@ -14,7 +14,7 @@ express is a social music review app where users rate tracks, albums, and artist
 | Database | MongoDB Atlas (Mongoose) |
 | Mobile | React Native, Expo SDK 54, expo-router |
 | Web | React + Vite + TypeScript, React Router v6, Tailwind CSS v4 |
-| Auth | Spotify OAuth 2.0 + Email/password (bcrypt) |
+| Auth | Email/password (bcrypt); Spotify OAuth 2.0 for connecting Spotify to an account |
 | Music data | Spotify Web API + Client Credentials |
 | Email | Nodemailer + Gmail |
 
@@ -105,13 +105,13 @@ cd frontend && npx expo start --clear
 
 ## Auth
 
-express supports two login methods:
+**Email / Password** is the only way to sign in on web. Music metadata is fetched using a shared app-level Client Credentials token, so search, artist pages, and ratings all work without a Spotify account.
 
-**Spotify OAuth** — full experience including personal top artists and now-playing.
+**Connecting Spotify** is optional and happens *after* signing in, from the `/me` page. It unlocks the personalised extras — top artists, top genres, and the Now Playing widget. The OAuth callback merges the Spotify credentials into the account you're already signed into.
 
-**Email / Password** — creates an account without Spotify. Music metadata is fetched using a shared app-level Client Credentials token so search, artist pages, and ratings all work. If the same email is later used to log in via Spotify, the accounts are merged automatically — no data loss.
+Password reset is handled via email (Nodemailer + Gmail). Reset links expire in 15 minutes. Accounts originally created through Spotify OAuth have no password — use **Forgot password** once to set one.
 
-Password reset is handled via email (Nodemailer + Gmail). Reset links expire in 15 minutes.
+> The mobile app still logs in with Spotify directly; converting it to email/password is separate future work.
 
 ---
 
@@ -140,7 +140,7 @@ All routes require `Authorization: Bearer <token>` unless noted.
 |---|---|
 | `POST /auth/register` | Email signup |
 | `POST /auth/email-login` | Email login |
-| `GET /auth/login` | Spotify OAuth redirect |
+| `GET /auth/login` | Spotify OAuth redirect (web: Connect Spotify from `/me`; mobile: login) |
 | `GET /auth/callback` | Spotify OAuth callback + account linking |
 | `POST /auth/forgot-password` | Send password reset email |
 | `POST /auth/reset-password` | Verify token and set new password |
@@ -176,7 +176,8 @@ Spotify OAuth requires HTTPS for non-localhost URIs. For testing on a physical d
 
 ## Known Limits
 
-- Spotify OAuth login: 25-user allowlist cap in Dev Mode (only affects users who sign in *with* Spotify — email users are unlimited)
+- Spotify OAuth: 25-user allowlist cap in Dev Mode. On web this now only limits who can *connect* Spotify from `/me`; signing up is unlimited. Still caps mobile login
+- Connecting Spotify from `/me` replaces the 30-day app session token with a 1-hour Spotify token, and the web client has no refresh — roughly an hour later, Search / Now Playing / top artists 502 until you log out and back in. Fix requires separating the app session token from the Spotify token server-side
 - In-memory Spotify response cache clears on backend restart
 - No push notifications in Expo Go — requires a dev build with `expo-notifications`
 - Artist discography always returns Spotify's default page size (explicit `limit` rejected by Client Credentials)
