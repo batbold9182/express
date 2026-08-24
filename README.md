@@ -107,7 +107,7 @@ cd frontend && npx expo start --clear
 
 **Email / Password** is the only way to sign in on web. Music metadata is fetched using a shared app-level Client Credentials token, so search, artist pages, and ratings all work without a Spotify account.
 
-**Connecting Spotify** is optional and happens *after* signing in, from the `/me` page. It unlocks the personalised extras — top artists, top genres, and the Now Playing widget. The OAuth callback merges the Spotify credentials into the account you're already signed into.
+**Connecting Spotify** is optional and happens *after* signing in, from the `/me` page. It unlocks the personalised extras — top artists, top genres, and the Now Playing widget. The OAuth callback merges the Spotify credentials into the account you're already signed into. A **Log out of Spotify** button on the same page unlinks it again, keeping the account and all its reviews.
 
 Password reset is handled via email (Nodemailer + Gmail). Reset links expire in 15 minutes. Accounts originally created through Spotify OAuth have no password — use **Forgot password** once to set one.
 
@@ -154,6 +154,7 @@ All routes require `Authorization: Bearer <token>` unless noted.
 | `GET /reviews/top` | Highest scored reviews (score ≥ 7) |
 | `GET /feed/me` | Feed from followed users |
 | `GET /users/suggested?limit=` | Users to follow — excludes self + already following, sorted by follower count |
+| `DELETE /users/me/spotify` | Unlink Spotify, keep the account. Returns a fresh app session token |
 | `GET /notifications` | Paginated notifications |
 | `POST /users/:id/follow` | Follow a user |
 | `POST /feedback` | Submit feedback (bug / feature / other) |

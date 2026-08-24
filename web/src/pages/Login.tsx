@@ -260,10 +260,6 @@ export default function Login() {
               )}
               <p className="text-[10.5px] leading-relaxed" style={{ color: '#5C5142' }}>
                 By continuing you agree to our terms.
-                <br />
-                We do not store any of your passwords, 
-                <br />
-                and we will never post to your social media accounts.
               </p>
             </div>
           </div>
