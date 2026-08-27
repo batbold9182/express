@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ShareButton } from './ShareButton';
-import { scoreColor } from '@tunelog/shared';
+import { scoreColor, MOOD_COLOR, subjectPath } from '@tunelog/shared';
 import type { ProfileReview } from '@tunelog/shared';
-import { MOOD_COLOR, subjectPath } from '../lib/review';
 import { SearchIcon } from './icons';
 import { Spinner } from './Spinner';
 

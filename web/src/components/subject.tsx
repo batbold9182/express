@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from './Avatar';
 import { Score } from './Score';
-import { MOOD_COLOR } from '../lib/review';
+import { MOOD_COLOR } from '@tunelog/shared';
 
 /**
  * The pieces Song, Album and Artist render identically.

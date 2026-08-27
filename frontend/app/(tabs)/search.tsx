@@ -7,6 +7,7 @@ import { Eyebrow, Icon } from '../components';
 import { C, R, scoreColor } from '../theme';
 import { useAuth } from '../context/auth';
 import { api } from '../lib/api';
+import { subjectPath } from '@tunelog/shared';
 
 type Track  = { id: string; name: string; artists: { name: string }[]; album: { id: string; images: { url: string }[] } };
 type Album  = { id: string; name: string; artists: { name: string }[]; images: { url: string }[] };
@@ -137,10 +138,8 @@ export default function Search() {
   }
 
   function navigateTrending(item: TrendingItem) {
-    if (item.type === 'artist' && item.spotifyArtistId) router.push(`/artist/${item.spotifyArtistId}` as any);
-    else if (item.type === 'album' && item.spotifyAlbumId) router.push(`/album/${item.spotifyAlbumId}` as any);
-    else if (item.spotifyTrackId) router.push(`/song/${item.spotifyTrackId}` as any);
-    else if (item.spotifyAlbumId) router.push(`/album/${item.spotifyAlbumId}` as any);
+    const path = subjectPath(item);
+    if (path) router.push(path as any);
   }
 
   function selectTrack(t: Track) {

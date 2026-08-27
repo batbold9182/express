@@ -3,28 +3,18 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-
 import { useRouter } from 'expo-router';
 import { GCard, Icon, MoodTag, Score } from '../components';
 import { C, R, scoreColor } from '../theme';
-import { MOOD_LIST } from '../lib/constants';
+import { MOOD_COLOR, TYPE_CFG, subjectPath } from '@tunelog/shared';
 import type { ProfileReview } from '../lib/types';
 
 export type { ProfileReview };
 
-const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
-
-const TYPE_LABEL: Record<string, { label: string; color: string }> = {
-  album:  { label: 'Album',  color: C.cyan },
-  artist: { label: 'Artist', color: C.pink },
-  track:  { label: 'Track',  color: C.fg3 },
-};
-
 export function ProfileReviewCard({ r }: { r: ProfileReview }) {
   const router = useRouter();
-  const typeCfg = TYPE_LABEL[r.type ?? 'track'];
+  const typeCfg = TYPE_CFG[r.type ?? 'track'];
 
   function navigateToSubject() {
-    if (r.type === 'artist' && r.spotifyArtistId) router.push(`/artist/${r.spotifyArtistId}` as any);
-    else if (r.type === 'album' && r.spotifyAlbumId) router.push(`/album/${r.spotifyAlbumId}` as any);
-    else if (r.spotifyTrackId) router.push(`/song/${r.spotifyTrackId}` as any);
-    else if (r.spotifyAlbumId) router.push(`/album/${r.spotifyAlbumId}` as any);
+    const path = subjectPath(r);
+    if (path) router.push(path as any);
   }
 
   return (

@@ -4,8 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { Avatar } from '../components/Avatar';
-import { scoreColor } from '@tunelog/shared';
-import { subjectPath } from '../lib/review';
+import { scoreColor, subjectPath } from '@tunelog/shared';
 import { SearchIcon } from '../components/icons';
 import { Spinner } from '../components/Spinner';
 

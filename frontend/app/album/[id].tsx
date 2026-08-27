@@ -10,6 +10,7 @@ import { GCard, Eyebrow, Icon, Score } from '../components';
 import { C, R, scoreColor } from '../theme';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
+import { msToMin } from '@tunelog/shared';
 import { api } from '../lib/api';
 import { shareUrl } from '../lib/share';
 import { ProfileReviewCard, type ProfileReview } from '../profile/ReviewCard';
@@ -33,11 +34,6 @@ type SpotifyAlbum = {
 };
 
 type AlbumReview = ProfileReview & { type?: string };
-
-function msToMin(ms: number) {
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
 
 export default function AlbumDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();

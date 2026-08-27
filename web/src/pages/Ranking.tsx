@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
-import { scoreColor } from '@tunelog/shared';
-import { TYPE_CFG, subjectPath } from '../lib/review';
+import { scoreColor, TYPE_CFG, subjectPath } from '@tunelog/shared';
 import { TrophyIcon } from '../components/icons';
 import { Spinner } from '../components/Spinner';
 

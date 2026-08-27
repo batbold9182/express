@@ -34,4 +34,5 @@ app.use('/feedback',     feedbackRoutes);
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on http://localhost:${process.env.PORT}`);
+  console.log('total users: ', process.env.TOTAL_USERS);
 });

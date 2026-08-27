@@ -4,7 +4,7 @@ import { Avatar } from '../components/Avatar';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
-import { timeAgo } from '@tunelog/shared';
+import { timeAgo, subjectPath } from '@tunelog/shared';
 import { Spinner } from '../components/Spinner';
 
 type NotifEntity = { spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string; type?: string };
@@ -52,9 +52,10 @@ export default function Notifications() {
       if (first) nav(`/profile/${first.spotifyId}`);
       return;
     }
-    if (type === 'artist' && artistId) nav(`/artist/${artistId}`);
-    else if (type === 'album' && albumId) nav(`/album/${albumId}`);
-    else if (trackId) nav(`/song/${trackId}`);
+    const path = subjectPath({
+      type, spotifyTrackId: trackId, spotifyAlbumId: albumId, spotifyArtistId: artistId,
+    });
+    if (path) nav(path);
   }
 
   function describeNotif(n: Notif): string {

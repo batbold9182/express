@@ -5,9 +5,8 @@ import { LikeButton } from './LikeButton';
 import { CommentSection } from './CommentSection';
 import { ShareButton } from './ShareButton';
 import { api } from '../lib/api';
-import { timeAgo, scoreColor, MOOD_LIST, spotifyUrlFor } from '@tunelog/shared';
+import { timeAgo, scoreColor, MOOD_LIST, spotifyUrlFor, MOOD_COLOR, TYPE_CFG, subjectPath } from '@tunelog/shared';
 import type { FeedItem } from '@tunelog/shared';
-import { MOOD_COLOR, TYPE_CFG, subjectPath } from '../lib/review';
 import { ChatBubbleIcon, SpotifyIcon } from './icons';
 
 type Props = { item: FeedItem; myId: string; onDelete: () => void };

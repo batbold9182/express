@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
-import { msToMin } from '../lib/format';
+import { msToMin } from '@tunelog/shared';
 import { PageSpinner } from '../components/Spinner';
 import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
 

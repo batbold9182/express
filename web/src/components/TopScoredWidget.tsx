@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { scoreColor } from '@tunelog/shared';
-import { subjectPath } from '../lib/review';
+import { scoreColor, subjectPath } from '@tunelog/shared';
 
 type TopItem = {
   type?: string; trackName: string; artistName: string; albumArt?: string;

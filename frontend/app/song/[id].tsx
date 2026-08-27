@@ -8,9 +8,7 @@ import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { api } from '../lib/api';
 import { shareUrl } from '../lib/share';
-import { MOOD_LIST } from '../lib/constants';
-
-const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
+import { MOOD_COLOR, msToMin } from '@tunelog/shared';
 
 type SpotifyTrack = {
   id: string;
@@ -29,11 +27,6 @@ type TrackReview = {
   moods?: string[];
   createdAt: string;
 };
-
-function msToMin(ms: number) {
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
 
 export default function SongDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();

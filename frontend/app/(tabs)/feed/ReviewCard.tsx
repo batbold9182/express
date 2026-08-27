@@ -10,6 +10,7 @@ import type { FeedItem } from './types';
 import { LikeButton } from './LikeButton';
 import { CommentSection } from './CommentSection';
 import { MOOD_LIST } from '../../lib/constants';
+import { MOOD_COLOR, TYPE_CFG, subjectPath } from '@tunelog/shared';
 
 function formatTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -19,25 +20,15 @@ function formatTime(iso: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
-
-const TYPE_LABEL: Record<string, { label: string; color: string }> = {
-  album:  { label: 'Album',  color: C.cyan },
-  artist: { label: 'Artist', color: C.pink },
-  track:  { label: 'Track',  color: C.fg3 },
-};
-
 type Props = { item: FeedItem; token: string; myId: string; onDelete: () => void };
 
 export function ReviewCard({ item, token, myId, onDelete }: Props) {
   const router = useRouter();
-  const typeCfg = TYPE_LABEL[item.type ?? 'track'];
+  const typeCfg = TYPE_CFG[item.type ?? 'track'];
 
   function navigateToSubject() {
-    if (item.type === 'artist' && item.spotifyArtistId) router.push(`/artist/${item.spotifyArtistId}` as any);
-    else if (item.type === 'album' && item.spotifyAlbumId) router.push(`/album/${item.spotifyAlbumId}` as any);
-    else if (item.spotifyTrackId) router.push(`/song/${item.spotifyTrackId}` as any);
-    else if (item.spotifyAlbumId) router.push(`/album/${item.spotifyAlbumId}` as any);
+    const path = subjectPath(item);
+    if (path) router.push(path as any);
   }
   const [showActions, setShowActions] = useState(false);
   const [editing, setEditing]         = useState(false);

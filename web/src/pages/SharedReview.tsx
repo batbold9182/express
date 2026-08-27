@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
-import { scoreColor, spotifyUrlFor } from '@tunelog/shared';
-import { MOOD_COLOR, TYPE_CFG } from '../lib/review';
+import { scoreColor, spotifyUrlFor, MOOD_COLOR, TYPE_CFG } from '@tunelog/shared';
 import { API_BASE } from '../lib/api';
 import { SpotifyIcon } from '../components/icons';
 

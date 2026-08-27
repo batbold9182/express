@@ -7,7 +7,7 @@ import { C, R } from '../theme';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import { api } from '../lib/api';
-import { timeAgo } from '@tunelog/shared';
+import { timeAgo, subjectPath } from '@tunelog/shared';
 
 type Actor = { _id: string; displayName: string; avatarUrl?: string; spotifyId: string };
 type NotifEntity = { spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string; type?: string };
@@ -168,9 +168,10 @@ export default function Notifications() {
                   const trackId   = snap?.spotifyTrackId  ?? eid?.spotifyTrackId;
                   const albumId   = snap?.spotifyAlbumId  ?? eid?.spotifyAlbumId;
                   const artistId  = snap?.spotifyArtistId ?? eid?.spotifyArtistId;
-                  if (type === 'artist' && artistId) router.push(`/artist/${artistId}` as any);
-                  else if (type === 'album' && albumId) router.push(`/album/${albumId}` as any);
-                  else if (trackId) router.push(`/song/${trackId}` as any);
+                  const path = subjectPath({
+                    type, spotifyTrackId: trackId, spotifyAlbumId: albumId, spotifyArtistId: artistId,
+                  });
+                  if (path) router.push(path as any);
                 }
               }}
             >
