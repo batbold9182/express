@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { timeAgo } from '@tunelog/shared';
+import { Spinner } from '../components/Spinner';
 
 type FeedbackItem = {
   _id: string;
@@ -47,7 +48,7 @@ export default function AdminFeedback() {
       <div className="max-w-2xl mx-auto px-4 py-6 pb-20">
         {loading && (
           <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-2 border-violet/30 border-t-violet rounded-full animate-spin" />
+            <Spinner />
           </div>
         )}
 

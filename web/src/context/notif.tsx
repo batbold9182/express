@@ -2,9 +2,9 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { useAuth } from './auth';
 import { api } from '../lib/api';
 
-type NotifCtx = { unreadCount: number; refreshUnread: () => void; markAllRead: () => void };
+type NotifCtx = { unreadCount: number; markAllRead: () => void };
 
-const NotifContext = createContext<NotifCtx>({ unreadCount: 0, refreshUnread: () => {}, markAllRead: () => {} });
+const NotifContext = createContext<NotifCtx>({ unreadCount: 0, markAllRead: () => {} });
 
 export function NotifProvider({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -27,7 +27,7 @@ export function NotifProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { refreshUnread(); }, [refreshUnread]);
 
   return (
-    <NotifContext.Provider value={{ unreadCount, refreshUnread, markAllRead }}>
+    <NotifContext.Provider value={{ unreadCount, markAllRead }}>
       {children}
     </NotifContext.Provider>
   );

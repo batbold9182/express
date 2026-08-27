@@ -2,7 +2,6 @@
 
 @theme {
   --color-bg:          #000000;
-  --color-bg2:         #121010;
   --color-fg:          #FFFFFF;
   --color-fg2:         #C9BCA6;
   --color-fg3:         #978A74;
@@ -10,10 +9,7 @@
   --color-violet:      #FFFFFF;
   --color-pink:        #E0685C;
   --color-cyan:        #4FA3D1;
-  --color-lime:        #4B4E53;
-  --color-amber:       #EDA63E;
   --color-red:         #FFFFFF;
-  --color-spotify:     #1DB954;
 }
 
 * { box-sizing: border-box; }

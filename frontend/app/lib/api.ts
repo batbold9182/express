@@ -13,14 +13,16 @@ export function configureRefresh(cfg: RefreshConfig) {
   _refresh = cfg;
 }
 
-async function tryRefresh(): Promise<string | null> {
+async function tryRefresh(currentToken: string): Promise<string | null> {
   if (!_refresh) return null;
   if (_refreshPromise) return _refreshPromise;
   _refreshPromise = (async () => {
     try {
       const res = await fetch(`${BASE}/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...NGROK },
+        // The backend identifies the account by this token — spotifyId is public and no longer
+        // trusted for identity. The token may be expired; it must still be the one on record.
+        headers: { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json', ...NGROK },
         body: JSON.stringify({ spotifyId: _refresh!.spotifyId }),
       });
       if (!res.ok) return null;
@@ -45,7 +47,7 @@ async function get(path: string, token: string, signal?: AbortSignal) {
     signal,
   });
   if (res.status === 401) {
-    const newToken = await tryRefresh();
+    const newToken = await tryRefresh(token);
     if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
     const retry = await fetch(`${BASE}${path}`, {
       headers: { Authorization: `Bearer ${newToken}`, ...NGROK },
@@ -65,7 +67,7 @@ async function post(path: string, token: string, body: object) {
     body: JSON.stringify(body),
   });
   if (res.status === 401) {
-    const newToken = await tryRefresh();
+    const newToken = await tryRefresh(token);
     if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
     const retry = await fetch(`${BASE}${path}`, {
       method: 'POST',
@@ -86,7 +88,7 @@ async function put(path: string, token: string, body: object) {
     body: JSON.stringify(body),
   });
   if (res.status === 401) {
-    const newToken = await tryRefresh();
+    const newToken = await tryRefresh(token);
     if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
     const retry = await fetch(`${BASE}${path}`, {
       method: 'PUT',
@@ -106,7 +108,7 @@ async function del(path: string, token: string) {
     headers: { Authorization: `Bearer ${token}`, ...NGROK },
   });
   if (res.status === 401) {
-    const newToken = await tryRefresh();
+    const newToken = await tryRefresh(token);
     if (!newToken) { _refresh?.onAuthFailure(); throw new Error('401'); }
     const retry = await fetch(`${BASE}${path}`, {
       method: 'DELETE',

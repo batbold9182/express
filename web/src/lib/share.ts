@@ -2,7 +2,7 @@ import { postUrl, buildShareCaption } from '@tunelog/shared';
 import type { ShareItem } from '@tunelog/shared';
 
 export type ShareReviewInput = ShareItem & { _id: string };
-export type ShareResult = 'shared' | 'copied' | 'cancelled';
+type ShareResult = 'shared' | 'copied' | 'cancelled';
 
 type Nav = Navigator & { canShare?: (data?: unknown) => boolean };
 

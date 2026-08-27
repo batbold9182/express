@@ -61,7 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     try {
                         const res = await fetch(`${BASE}/auth/refresh`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            // Identity comes from the token now, not the spotifyId in the body.
+                            headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
                             body: JSON.stringify({ spotifyId: id }),
                         });
                         if (res.ok) {

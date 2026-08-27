@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import { timeAgo } from '@tunelog/shared';
+import { Spinner } from '../components/Spinner';
 
 type NotifEntity = { spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string; type?: string };
 type Notif = {
@@ -81,7 +82,7 @@ export default function Notifications() {
 
       <div className="flex-1 overflow-y-auto pb-20 md:pb-4">
         {loading ? (
-          <div className="flex justify-center pt-24"><div className="w-8 h-8 border-2 border-violet/30 border-t-violet rounded-full animate-spin" /></div>
+          <div className="flex justify-center pt-24"><Spinner /></div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-3 pt-24 text-center px-8">
             <span className="text-4xl">🔔</span>

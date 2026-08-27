@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ShareButton } from './ShareButton';
-import { scoreColor, MOOD_LIST } from '@tunelog/shared';
+import { scoreColor } from '@tunelog/shared';
 import type { ProfileReview } from '@tunelog/shared';
-
-const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
+import { MOOD_COLOR, subjectPath } from '../lib/review';
+import { SearchIcon } from './icons';
+import { Spinner } from './Spinner';
 
 type Filter = 'all' | 'track' | 'album' | 'artist';
 type Counts = { track: number; album: number; artist: number };
@@ -96,7 +97,7 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
 
       {/* Search box */}
       <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/15 bg-white/6 mb-3">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#978A74" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <SearchIcon size={16} stroke="#978A74" caps={false} />
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
@@ -129,16 +130,15 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
 
       {/* List */}
       {loading ? (
-        <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-violet/30 border-t-violet rounded-full animate-spin" /></div>
+        <div className="flex justify-center py-8"><Spinner size="md" /></div>
       ) : reviews.length === 0 ? (
         <p className="text-fg3 text-center text-[13px] py-8">{query ? 'No matches' : 'No reviews yet'}</p>
       ) : (
         <div className="flex flex-col gap-3">
           {reviews.map(r => {
             const goto = () => {
-              if (r.type === 'artist' && r.spotifyArtistId) nav(`/artist/${r.spotifyArtistId}`);
-              else if (r.type === 'album' && r.spotifyAlbumId) nav(`/album/${r.spotifyAlbumId}`);
-              else if (r.spotifyTrackId) nav(`/song/${r.spotifyTrackId}`);
+              const p = subjectPath(r);
+              if (p) nav(p);
             };
             return (
             <div
@@ -175,7 +175,7 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
       {/* Infinite-scroll sentinel + bottom spinner */}
       <div ref={sentinelRef} />
       {!loading && hasMore && (
-        <div className="flex justify-center py-6"><div className="w-5 h-5 border-2 border-violet/30 border-t-violet rounded-full animate-spin" /></div>
+        <div className="flex justify-center py-6"><Spinner size="sm" /></div>
       )}
     </div>
   );

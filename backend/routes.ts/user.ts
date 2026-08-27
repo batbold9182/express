@@ -37,6 +37,26 @@ function buildReviewFilter(userId: any, type?: string, q?: string): any {
   return filter;
 }
 
+// Fields publicProfile() reads. A positive allowlist: a negative `.select()` fails open,
+// so every field later added to the User model would ship to the client by default.
+const PROFILE_FIELDS = '_id spotifyId displayName avatarUrl createdAt following';
+
+// The wire shape of a user profile. Built field by field rather than spreading the Mongoose
+// document, so nothing reaches the client that isn't named here. `following` is selected for
+// the count but deliberately not returned — /users/:id/following already serves that list.
+function publicProfile(user: any, followerCount: number, isFollowing: boolean) {
+  return {
+    _id:            user._id,
+    spotifyId:      user.spotifyId,
+    displayName:    user.displayName,
+    avatarUrl:      user.avatarUrl,
+    createdAt:      user.createdAt,
+    followerCount,
+    followingCount: user.following?.length ?? 0,
+    isFollowing,
+  };
+}
+
 // GET /users/search?q= — search users by display name
 router.get('/search', optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
@@ -56,11 +76,11 @@ router.get('/search', optionalAuth, async (req: AuthRequest, res: Response) => {
 // GET /users/me — own profile, always returns the authenticated user's record
 router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const user = await User.findById(req.user!._id).select('-accessToken -refreshToken');
+    // email is the caller's own, so it is included here but never on the public /:id route.
+    const user = await User.findById(req.user!._id).select(`${PROFILE_FIELDS} email`);
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
     const followerCount = await User.countDocuments({ following: user._id });
-    const followingCount = user.following?.length ?? 0;
-    res.json({ ...user.toObject(), followerCount, followingCount, isFollowing: false });
+    res.json({ ...publicProfile(user, followerCount, false), email: user.email });
   } catch {
     res.status(500).json({ error: 'Failed to fetch user' });
   }
@@ -171,14 +191,14 @@ router.get('/suggested', requireAuth, async (req: AuthRequest, res: Response) =>
 // GET /users/:id — get a user profile
 router.get('/:id', optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const user = await User.findOne({ spotifyId: req.params.id }).select('-accessToken -refreshToken');
+    // Public route (optionalAuth) — must never return email, passwordHash, or reset fields.
+    const user = await User.findOne({ spotifyId: req.params.id }).select(PROFILE_FIELDS);
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
     const followerCount = await User.countDocuments({ following: user._id });
-    const followingCount = user.following?.length ?? 0;
     const isFollowing = req.user
       ? (req.user.following ?? []).some((id: any) => id.equals(user._id))
       : false;
-    res.json({ ...user.toObject(), followerCount, followingCount, isFollowing });
+    res.json(publicProfile(user, followerCount, isFollowing));
   } catch {
     res.status(500).json({ error: 'Failed to fetch user' });
   }

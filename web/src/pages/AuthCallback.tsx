@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth';
+import { Spinner } from '../components/Spinner';
 
 export default function AuthCallback() {
   const { saveToken } = useAuth();
@@ -23,7 +24,7 @@ export default function AuthCallback() {
 
   return (
     <div className="flex items-center justify-center h-screen flex-col gap-4">
-      <div className="w-8 h-8 border-2 border-violet/30 border-t-violet rounded-full animate-spin" />
+      <Spinner />
       <p className="text-fg3 text-[14px]">Signing you in…</p>
     </div>
   );

@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Score } from '../components/Score';
-import { Avatar } from '../components/Avatar';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
-import { MOOD_LIST } from '@tunelog/shared';
-
-const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
+import { msToMin } from '../lib/format';
+import { PageSpinner } from '../components/Spinner';
+import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
 
 type SpotifyAlbum = {
   id: string; name: string; images: { url: string }[];
@@ -21,11 +19,6 @@ type AlbumReview = {
   userId: { _id: string; displayName: string; avatarUrl?: string; spotifyId: string };
   score: number; text?: string; moods?: string[];
 };
-
-function msToMin(ms: number) {
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
 
 export default function Album() {
   const { id } = useParams<{ id: string }>();
@@ -70,7 +63,7 @@ export default function Album() {
     });
   }
 
-  if (loading) return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-2 border-violet/30 border-t-violet rounded-full animate-spin" /></div>;
+  if (loading) return <PageSpinner />;
   if (!album) return <div className="flex items-center justify-center h-screen text-fg3">Album not found.</div>;
 
   const art = album.images[0]?.url;
@@ -78,16 +71,9 @@ export default function Album() {
 
   return (
     <div className="h-screen overflow-y-auto">
-      {art && (
-        <div className="absolute inset-x-0 top-0 h-72 overflow-hidden pointer-events-none" style={{ opacity: 0.3 }}>
-          <img src={art} alt="" className="w-full h-full object-cover blur-2xl scale-110" />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent, #000000)' }} />
-        </div>
-      )}
+      {art && <HeroBackdrop src={art} heightClass="h-72" opacity={0.3} />}
 
-      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 pt-4 pb-2" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)' }}>
-        <button onClick={() => nav(-1)} className="p-2 rounded-full bg-white/8 border border-white/10 cursor-pointer text-fg hover:text-violet">← Back</button>
-      </div>
+      <BackHeader onBack={() => nav(-1)} />
 
       <div className="relative max-w-2xl mx-auto px-4 pb-20">
         {/* Hero */}
@@ -98,12 +84,7 @@ export default function Album() {
           <h1 className="text-[24px] font-bold text-fg text-center leading-tight">{album.name}</h1>
           <button onClick={() => nav(`/artist/${album.artists[0]?.id}`)} className="text-[15px] text-violet cursor-pointer hover:opacity-80">{artistStr} ›</button>
           <p className="text-[11px] text-fg3 uppercase tracking-widest">{album.release_date?.slice(0, 4)} · {album.total_tracks} tracks</p>
-          {avgScore !== null && (
-            <div className="flex flex-col items-center gap-1">
-              <Score value={avgScore} size="lg" />
-              <p className="text-[12px] text-fg3">{reviews.length} {reviews.length === 1 ? 'rating' : 'ratings'}</p>
-            </div>
-          )}
+          {avgScore !== null && <AvgScore value={avgScore} count={reviews.length} />}
           <div className="flex gap-3 mt-2 flex-wrap justify-center">
             {alreadyReviewed
               ? <span className="px-5 py-2.5 rounded-xl border border-white/10 text-fg3 text-[13px] font-semibold">Already reviewed</span>
@@ -130,23 +111,7 @@ export default function Album() {
           ? <p className="text-fg3 text-[13px] text-center py-8">No reviews yet — be the first!</p>
           : <div className="flex flex-col gap-3">
               {reviews.map(r => (
-                <div key={r._id} className="rounded-2xl border border-white/8 bg-white/4 p-3 flex gap-3">
-                  <button onClick={() => nav(`/profile/${r.userId.spotifyId}`)} className="cursor-pointer shrink-0">
-                    <Avatar name={r.userId.displayName || '?'} src={r.userId.avatarUrl} size={36} />
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <button onClick={() => nav(`/profile/${r.userId.spotifyId}`)} className="text-[13px] font-semibold text-fg cursor-pointer hover:text-violet">{r.userId.displayName}</button>
-                      <Score value={r.score} size="sm" />
-                    </div>
-                    {r.text && <p className="text-[13px] text-fg2 leading-[1.5]">{r.text}</p>}
-                    {(r.moods?.length ?? 0) > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {r.moods!.map(m => <span key={m} className="text-[10px] font-semibold px-2 py-0.5 rounded-full border" style={{ color: MOOD_COLOR[m], borderColor: `${MOOD_COLOR[m]}50`, background: `${MOOD_COLOR[m]}18` }}>{m}</span>)}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <SubjectReviewRow key={r._id} review={r} />
               ))}
             </div>}
       </div>

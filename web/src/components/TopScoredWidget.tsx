@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { scoreColor } from '@tunelog/shared';
+import { subjectPath } from '../lib/review';
 
 type TopItem = {
   type?: string; trackName: string; artistName: string; albumArt?: string;
@@ -22,9 +23,8 @@ export function TopScoredWidget() {
   }, []);
 
   function navItem(item: TopItem) {
-    if (item.type === 'artist' && item.spotifyArtistId) nav(`/artist/${item.spotifyArtistId}`);
-    else if (item.type === 'album' && item.spotifyAlbumId) nav(`/album/${item.spotifyAlbumId}`);
-    else if (item.spotifyTrackId) nav(`/song/${item.spotifyTrackId}`);
+    const p = subjectPath(item);
+    if (p) nav(p);
   }
 
   if (loading) {

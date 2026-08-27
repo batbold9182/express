@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { configureApi } from '../lib/api';
 
 const TOKEN_KEY    = 'tunelog_token';
@@ -7,20 +7,27 @@ const SPOTIFY_KEY  = 'tunelog_spotify_id';
 type AuthCtx = {
   token: string | null;
   spotifyId: string | null;
-  loading: boolean;
   saveToken: (token: string, spotifyId: string) => void;
   clearToken: () => void;
 };
 
 const AuthContext = createContext<AuthCtx>({
-  token: null, spotifyId: null, loading: true,
+  token: null, spotifyId: null,
   saveToken: () => {}, clearToken: () => {},
 });
 
+// Both keys must be present — a half-written pair counts as signed out.
+function readStored(): { token: string | null; spotifyId: string | null } {
+  const token     = localStorage.getItem(TOKEN_KEY);
+  const spotifyId = localStorage.getItem(SPOTIFY_KEY);
+  return token && spotifyId ? { token, spotifyId } : { token: null, spotifyId: null };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token,     setToken]     = useState<string | null>(null);
-  const [spotifyId, setSpotifyId] = useState<string | null>(null);
-  const [loading,   setLoading]   = useState(true);
+  // Read during initialization, not in an effect. Hydrating in an effect renders one frame with
+  // token === null, so every load briefly paints the signed-out UI before correcting itself.
+  const [token,     setToken]     = useState<string | null>(() => readStored().token);
+  const [spotifyId, setSpotifyId] = useState<string | null>(() => readStored().spotifyId);
 
   function wire(t: string | null) {
     configureApi(t, () => {
@@ -31,12 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-  useEffect(() => {
-    const t  = localStorage.getItem(TOKEN_KEY);
-    const id = localStorage.getItem(SPOTIFY_KEY);
-    if (t && id) { setToken(t); setSpotifyId(id); wire(t); }
-    setLoading(false);
-  }, []);
+  // Deliberately during render rather than in an effect. Child effects run before the parent's,
+  // so now that a token exists on the first render, a child would call api.get() before
+  // configureApi had set it — an unauthenticated request and an instant 401. configureApi only
+  // assigns module-level state, so running it every render is idempotent and keeps the API
+  // client in sync with `token` by construction.
+  wire(token);
 
   function saveToken(t: string, id: string) {
     localStorage.setItem(TOKEN_KEY, t);
@@ -55,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ token, spotifyId, loading, saveToken, clearToken }}>
+    <AuthContext.Provider value={{ token, spotifyId, saveToken, clearToken }}>
       {children}
     </AuthContext.Provider>
   );

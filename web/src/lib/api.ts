@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const BASE = import.meta.env.VITE_API_BASE as string;
+export const API_BASE = import.meta.env.VITE_API_BASE as string;
+const BASE = API_BASE;
 
 let _token: string | null = null;
 let _onAuthFailure: (() => void) | null = null;

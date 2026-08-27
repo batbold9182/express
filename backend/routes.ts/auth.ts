@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User';
 import { sendPasswordReset } from '../lib/mailer';
+import { invalidateToken } from '../middleware/auth';
 
 const router = Router();
 const usedCodes = new Map<string, number>(); // code -> timestamp
@@ -157,6 +158,10 @@ router.get('/callback', async (req: Request, res: Response) => {
   res.redirect(`${successURL}?access_token=${tokens.access_token}&spotify_id=${spotifyId}&expires_at=${expiresAt}`);
 });
 
+// Reset tokens are stored as a SHA-256 hash. The plaintext exists only in the email we send,
+// so leaking a user document no longer yields a redeemable token.
+const hashResetToken = (t: string) => crypto.createHash('sha256').update(t).digest('hex');
+
 router.post('/forgot-password', async (req: Request, res: Response) => {
   const { email } = req.body as { email?: string };
   if (!email) { res.status(400).json({ error: 'Missing email' }); return; }
@@ -170,9 +175,10 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
   await User.findOneAndUpdate(
     { email },
-    { resetToken, resetExpires }
+    { resetToken: hashResetToken(resetToken), resetExpires }
   );
 
+  // The plaintext token goes to the inbox and nowhere else.
   sendPasswordReset(email, resetToken).catch(err => console.error('Failed to send reset email:', err));
   res.json({ message: 'If that email exists, a reset link has been sent' });
 });
@@ -187,7 +193,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
   }
 
   const user = await User.findOne({ email });
-  if (!user || user.resetToken !== resetToken || !user.resetExpires || user.resetExpires < new Date()) {
+  if (!user || user.resetToken !== hashResetToken(resetToken) || !user.resetExpires || user.resetExpires < new Date()) {
     res.status(400).json({ error: 'Invalid or expired reset token' }); return;
   }
 
@@ -281,11 +287,16 @@ router.post('/email-login', async (req: Request, res: Response) => {
 });
 
 router.post('/refresh', async (req: Request, res: Response) => {
-  const { spotifyId } = req.body;
-  if (!spotifyId) { res.status(400).json({ error: 'Missing spotifyId' }); return; }
+  // Identify the caller by the token they already hold, never by the spotifyId in the body.
+  // spotifyId is public — it ships in most API responses — so trusting it let anyone mint a
+  // fresh session for any account. The presented token may be expired; it only has to still be
+  // the one on record, which is what proves possession.
+  const currentToken = req.headers.authorization?.split(' ')[1];
+  if (!currentToken) { res.status(401).json({ error: 'Missing token' }); return; }
 
-  const user = await User.findOne({ spotifyId });
-  if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+  const user = await User.findOne({ accessToken: currentToken });
+  if (!user) { res.status(401).json({ error: 'Invalid token' }); return; }
+  const spotifyId = user.spotifyId;
 
   // Email users — issue a new long-lived token instead of calling Spotify
   if (!user.refreshToken) {
@@ -295,6 +306,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
       { spotifyId },
       { accessToken, tokenExpiresAt: new Date(Date.now() + expiresIn * 1000), updatedAt: new Date() }
     );
+    invalidateToken(currentToken); // else the replaced token keeps resolving from the 4-min cache
     res.json({ access_token: accessToken, expires_in: expiresIn }); return;
   }
 
@@ -320,6 +332,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
     }
   );
 
+  invalidateToken(currentToken); // else the replaced token keeps resolving from the 4-min cache
   res.json({ access_token: tokens.access_token, expires_in: tokens.expires_in });
 });
 

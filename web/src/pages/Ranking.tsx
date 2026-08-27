@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { scoreColor } from '@tunelog/shared';
+import { TYPE_CFG, subjectPath } from '../lib/review';
+import { TrophyIcon } from '../components/icons';
+import { Spinner } from '../components/Spinner';
 
 type TypeFilter = 'most-rated' | 'track' | 'album' | 'artist';
 
@@ -12,12 +15,6 @@ const FILTERS: { key: TypeFilter; label: string }[] = [
   { key: 'album',      label: 'Albums'     },
   { key: 'artist',     label: 'Artists'    },
 ];
-
-const TYPE_CFG: Record<string, { label: string; color: string }> = {
-  album:  { label: 'Album',  color: '#4FA3D1' },
-  artist: { label: 'Artist', color: '#E0685C' },
-  track:  { label: 'Track',  color: '#978A74' },
-};
 
 type LeaderboardItem = {
   type: 'track' | 'album' | 'artist';
@@ -51,9 +48,8 @@ export default function Ranking() {
   }, [filter, token]);
 
   function navItem(item: LeaderboardItem) {
-    if (item.type === 'artist' && item.spotifyArtistId) nav(`/artist/${item.spotifyArtistId}`);
-    else if (item.type === 'album' && item.spotifyAlbumId) nav(`/album/${item.spotifyAlbumId}`);
-    else if (item.spotifyTrackId) nav(`/song/${item.spotifyTrackId}`);
+    const p = subjectPath(item);
+    if (p) nav(p);
   }
 
   return (
@@ -64,7 +60,7 @@ export default function Ranking() {
         style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}
       >
         <div className="flex items-center gap-2 mb-3">
-          <TrophyIcon />
+          <TrophyIcon stroke="#FFFFFF" />
           <h1 className="text-[18px] font-bold text-fg">Ranking</h1>
         </div>
         <div className="flex gap-2">
@@ -161,16 +157,3 @@ export default function Ranking() {
   );
 }
 
-function TrophyIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/>
-      <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-      <path d="M18 2H6v7a6 6 0 0012 0V2z"/>
-    </svg>
-  );
-}
-function Spinner() {
-  return <div className="w-8 h-8 border-2 border-violet/30 border-t-violet rounded-full animate-spin" />;
-}

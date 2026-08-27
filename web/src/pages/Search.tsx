@@ -5,6 +5,9 @@ import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { Avatar } from '../components/Avatar';
 import { scoreColor } from '@tunelog/shared';
+import { subjectPath } from '../lib/review';
+import { SearchIcon } from '../components/icons';
+import { Spinner } from '../components/Spinner';
 
 type Track  = { id: string; name: string; artists: { name: string }[]; album: { id: string; images: { url: string }[] } };
 type Album  = { id: string; name: string; artists: { name: string }[]; images: { url: string }[] };
@@ -72,9 +75,8 @@ export default function Search() {
   }, [q, scope, token]);
 
   function navTrending(item: TrendingItem) {
-    if (item.type === 'artist' && item.spotifyArtistId) nav(`/artist/${item.spotifyArtistId}`);
-    else if (item.type === 'album' && item.spotifyAlbumId) nav(`/album/${item.spotifyAlbumId}`);
-    else if (item.spotifyTrackId) nav(`/song/${item.spotifyTrackId}`);
+    const p = subjectPath(item);
+    if (p) nav(p);
   }
 
   const hasResults = tracks.length > 0 || albums.length > 0 || artists.length > 0;
@@ -84,7 +86,7 @@ export default function Search() {
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-white/8 sticky top-0 z-10 flex flex-col gap-2" style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}>
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/15 bg-white/6">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#978A74" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <SearchIcon size={16} stroke="#978A74" caps={false} />
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
@@ -139,7 +141,7 @@ export default function Search() {
         )}
 
         {!loading && !q && isPeople && (
-          <div className="flex flex-col items-center gap-3 pt-12 text-fg3"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><p>Find people to follow</p></div>
+          <div className="flex flex-col items-center gap-3 pt-12 text-fg3"><SearchIcon size={32} strokeWidth={1.5} caps={false} /><p>Find people to follow</p></div>
         )}
 
         {!loading && !!q && !hasResults && !isPeople && (
@@ -268,6 +270,3 @@ function UserRow({ user, myId, nav }: { user: UserResult; myId: string; nav: (p:
   );
 }
 
-function Spinner() {
-  return <div className="w-8 h-8 border-2 border-violet/30 border-t-violet rounded-full animate-spin" />;
-}

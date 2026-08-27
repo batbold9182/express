@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/auth';
-
-const BASE = import.meta.env.VITE_API_BASE as string;
+import { API_BASE } from '../lib/api';
 
 const BRAND_GRADIENT = 'linear-gradient(90deg, #4FA3D1 0%, #FFFFFF 50%, #E0685C 100%)';
 
@@ -22,7 +21,7 @@ const FEATURES = [
 
 // TODO: dummy for now — wire up i18n and real policy pages later.
 const LANGUAGES = ['English (US)', 'Polski', 'Deutsch', 'Español'];
-const POLICY_LINKS = ['Privacy Policy', 'Cookies', 'Terms'];
+const POLICY_LINKS = ['Privacy Policy', 'Cookies', 'Terms' , 'Report'];
 
 type EmailMode = 'signin' | 'signup';
 
@@ -55,7 +54,7 @@ export default function Login() {
         ? { email, displayName: name, password }
         : { email, password };
 
-      const res = await fetch(`${BASE}${endpoint}`, {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -260,9 +259,6 @@ export default function Login() {
               )}
               <p className="text-[10.5px] leading-relaxed" style={{ color: '#5C5142' }}>
                 By continuing you agree to our terms.
-                <br>
-                test
-                </br>
               </p>
             </div>
           </div>

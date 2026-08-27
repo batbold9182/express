@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { GlowButton } from '../components/authKit';
 
 const MAX = 1000;
 type FeedbackType = 'bug' | 'feature' | 'other';
@@ -102,20 +103,9 @@ export default function Feedback() {
 
             {error && <p className="text-red text-[12px]">{error}</p>}
 
-            <div className="relative group">
-              <div
-                className="absolute inset-0 rounded-xl blur-md opacity-0 group-hover:opacity-50 transition-opacity duration-300 pointer-events-none"
-                style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)' }}
-              />
-              <button
-                onClick={submit}
-                disabled={loading}
-                className="relative w-full py-3.5 rounded-xl font-bold text-[14px] cursor-pointer transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)', color: '#fff' }}
-              >
-                {loading ? 'Sending…' : 'Send feedback'}
-              </button>
-            </div>
+            <GlowButton onClick={submit} disabled={loading}>
+              {loading ? 'Sending…' : 'Send feedback'}
+            </GlowButton>
           </div>
         )}
       </div>

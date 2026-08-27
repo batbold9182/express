@@ -4,6 +4,8 @@ import { Avatar } from '../components/Avatar';
 import { ProfileReviews } from '../components/ProfileReviews';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
+import { PageSpinner } from '../components/Spinner';
+import { BackHeader } from '../components/subject';
 
 type AppUser = { displayName: string; avatarUrl?: string; spotifyId: string; followerCount: number; followingCount: number; isFollowing: boolean };
 
@@ -41,14 +43,12 @@ export default function Profile() {
 
   const isOwn = id === myId;
 
-  if (loading) return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-2 border-violet/30 border-t-violet rounded-full animate-spin" /></div>;
+  if (loading) return <PageSpinner />;
   if (!user) return <div className="flex items-center justify-center h-screen text-fg3">User not found.</div>;
 
   return (
     <div className="h-screen overflow-y-auto">
-      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 pt-4 pb-2" style={{ background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(12px)' }}>
-        <button onClick={() => nav(-1)} className="p-2 rounded-full bg-white/8 border border-white/10 cursor-pointer text-fg hover:text-violet">← Back</button>
-      </div>
+      <BackHeader onBack={() => nav(-1)} bg="rgba(0,0,0,0.9)" />
 
       <div className="max-w-2xl mx-auto px-4 pb-20">
         {/* Identity */}

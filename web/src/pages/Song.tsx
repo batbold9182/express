@@ -1,13 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Avatar } from '../components/Avatar';
-import { Score } from '../components/Score';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
-import { MOOD_LIST } from '@tunelog/shared';
-
-const MOOD_COLOR = Object.fromEntries(MOOD_LIST.map(([m, c]) => [m, c]));
+import { msToMin } from '../lib/format';
+import { Spinner, PageSpinner } from '../components/Spinner';
+import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
 
 type SpotifyTrack = {
   id: string; name: string; duration_ms: number;
@@ -20,11 +18,6 @@ type TrackReview = {
   userId: { _id: string; displayName: string; avatarUrl?: string; spotifyId: string };
   score: number; text?: string; moods?: string[]; createdAt: string;
 };
-
-function msToMin(ms: number) {
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
 
 export default function Song() {
   const { id } = useParams<{ id: string }>();
@@ -97,7 +90,7 @@ export default function Song() {
     });
   }
 
-  if (loading) return <CenterSpinner />;
+  if (loading) return <PageSpinner />;
 
   if (!track) return (
     <div className="flex flex-col items-center justify-center h-screen gap-4">
@@ -114,19 +107,10 @@ export default function Song() {
   return (
     <div className="h-screen overflow-y-auto" onScroll={onScroll}>
       {/* Blurred hero */}
-      {albumArt && (
-        <div className="absolute inset-x-0 top-0 h-80 overflow-hidden pointer-events-none" style={{ opacity: 0.35 }}>
-          <img src={albumArt} alt="" className="w-full h-full object-cover blur-2xl scale-110" />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent, #000000)' }} />
-        </div>
-      )}
+      {albumArt && <HeroBackdrop src={albumArt} heightClass="h-80" opacity={0.35} />}
 
       {/* Back button */}
-      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 pt-4 pb-2" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)' }}>
-        <button onClick={() => nav(-1)} className="p-2 rounded-full bg-white/8 border border-white/10 cursor-pointer text-fg hover:text-violet">
-          ← Back
-        </button>
-      </div>
+      <BackHeader onBack={() => nav(-1)} />
 
       <div className="relative max-w-2xl mx-auto px-4 pb-20">
         {/* Hero content */}
@@ -137,12 +121,7 @@ export default function Song() {
           <h1 className="text-[26px] font-bold text-fg text-center leading-tight">{track.name}</h1>
           <p className="text-[15px] text-fg2">{artistStr}</p>
           <p className="text-[11px] text-fg3 uppercase tracking-widest">{year} · {msToMin(track.duration_ms)}</p>
-          {avgScore !== null && (
-            <div className="flex flex-col items-center gap-1">
-              <Score value={avgScore} size="lg" />
-              <p className="text-[12px] text-fg3">{reviews.length} {reviews.length === 1 ? 'rating' : 'ratings'}</p>
-            </div>
-          )}
+          {avgScore !== null && <AvgScore value={avgScore} count={reviews.length} />}
           <div className="flex gap-3 mt-2 flex-wrap justify-center">
             {alreadyReviewed ? (
               <span className="px-5 py-2.5 rounded-xl border border-white/10 text-fg3 text-[13px] font-semibold">Already reviewed</span>
@@ -196,27 +175,9 @@ export default function Song() {
         ) : (
           <div className="flex flex-col gap-3">
             {reviews.map(r => (
-              <div key={r._id} className="rounded-2xl border border-white/8 bg-white/4 p-3 flex gap-3">
-                <button onClick={() => nav(`/profile/${r.userId.spotifyId}`)} className="cursor-pointer shrink-0">
-                  <Avatar name={r.userId.displayName || '?'} src={r.userId.avatarUrl} size={36} />
-                </button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <button onClick={() => nav(`/profile/${r.userId.spotifyId}`)} className="text-[13px] font-semibold text-fg cursor-pointer hover:text-violet">{r.userId.displayName}</button>
-                    <Score value={r.score} size="sm" />
-                  </div>
-                  {r.text && <p className="text-[13px] text-fg2 leading-[1.5]">{r.text}</p>}
-                  {(r.moods?.length ?? 0) > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {r.moods!.map(m => (
-                        <span key={m} className="text-[10px] font-semibold px-2 py-0.5 rounded-full border" style={{ color: MOOD_COLOR[m], borderColor: `${MOOD_COLOR[m]}50`, background: `${MOOD_COLOR[m]}18` }}>{m}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <SubjectReviewRow key={r._id} review={r} />
             ))}
-            {loadingMore && <div className="flex justify-center py-4"><div className="w-6 h-6 border-2 border-violet/30 border-t-violet rounded-full animate-spin" /></div>}
+            {loadingMore && <div className="flex justify-center py-4"><Spinner size="md" /></div>}
           </div>
         )}
       </div>
@@ -224,6 +185,3 @@ export default function Song() {
   );
 }
 
-function CenterSpinner() {
-  return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-2 border-violet/30 border-t-violet rounded-full animate-spin" /></div>;
-}

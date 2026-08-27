@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const BASE = import.meta.env.VITE_API_BASE as string;
+import { API_BASE } from '../lib/api';
+import { AuthBackdrop, AuthWordmark, AuthInput, GlowButton } from '../components/authKit';
 
 export default function ForgotPassword() {
   const nav = useNavigate();
@@ -15,7 +15,7 @@ export default function ForgotPassword() {
     if (!email) { setError('Enter your email address'); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/auth/forgot-password`, {
+      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -31,20 +31,10 @@ export default function ForgotPassword() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none">
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255,255,255,0.14) 0%, transparent 55%)' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 60% at 80% 90%, rgba(224,104,92,0.10) 0%, transparent 60%)' }} />
-      </div>
+      <AuthBackdrop />
 
       <div className="relative w-full max-w-sm flex flex-col gap-6">
-        <div className="flex flex-col items-center gap-1 mb-2">
-          <h1
-            className="text-[40px] font-bold leading-none tracking-tight bg-clip-text text-transparent"
-            style={{ backgroundImage: 'linear-gradient(90deg, #4FA3D1 0%, #FFFFFF 50%, #E0685C 100%)' }}
-          >
-            tunelog
-          </h1>
-        </div>
+        <AuthWordmark text="tunelog" />
 
         {done ? (
           <div className="flex flex-col items-center gap-5 text-center rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -68,34 +58,19 @@ export default function ForgotPassword() {
               <p className="text-fg3 text-[13px] mt-1">Enter your email and we'll send you a reset link.</p>
             </div>
 
-            <input
+            <AuthInput
               type="email"
               placeholder="Email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') void submit(); }}
-              className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-150"
-              style={{ background: 'rgba(0,0,0,0.35)', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.10)' }}
-              onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.6)')}
-              onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.10)')}
             />
 
             {error && <p className="text-red text-[12px]">{error}</p>}
 
-            <div className="relative group">
-              <div
-                className="absolute inset-0 rounded-xl blur-md opacity-0 group-hover:opacity-50 transition-opacity duration-300 pointer-events-none"
-                style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)' }}
-              />
-              <button
-                onClick={submit}
-                disabled={loading}
-                className="relative w-full py-3.5 rounded-xl font-bold text-[14px] cursor-pointer transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: 'linear-gradient(90deg, #FFFFFF, #E0685C)', color: '#fff' }}
-              >
-                {loading ? '…' : 'Send reset link'}
-              </button>
-            </div>
+            <GlowButton onClick={submit} disabled={loading}>
+              {loading ? '…' : 'Send reset link'}
+            </GlowButton>
 
             <button onClick={() => nav('/login')} className="text-fg4 text-[12px] text-center hover:text-fg3 transition-colors cursor-pointer">
               Back to sign in
