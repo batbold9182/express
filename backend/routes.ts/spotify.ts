@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
-import { spotifyHeaders, isEmailUser } from './_spotifyHeaders';
+import { spotifyHeaders, hasPersonalSpotify } from './_spotifyHeaders';
 
 const router = Router();
 
 async function spotifyGet(url: string, req: Request, res: Response) {
   try {
-    const r = await fetch(url, { headers: spotifyHeaders(req) });
+    const r = await fetch(url, { headers: await spotifyHeaders(req) });
     if (!r.ok) {
       const t = await r.text();
       console.error('Spotify error:', r.status, url, t);
@@ -24,21 +24,21 @@ async function spotifyGet(url: string, req: Request, res: Response) {
 }
 
 router.get('/me', requireAuth, (req, res) => {
-  if (isEmailUser(req)) { res.status(502).json({ error: 'Spotify not linked' }); return; }
+  if (!hasPersonalSpotify(req)) { res.status(502).json({ error: 'Spotify not linked' }); return; }
   spotifyGet('https://api.spotify.com/v1/me', req, res);
 });
 router.get('/me/top/artists', requireAuth, (req, res) => {
-  if (isEmailUser(req)) { res.json({ items: [] }); return; }
+  if (!hasPersonalSpotify(req)) { res.json({ items: [] }); return; }
   spotifyGet(`https://api.spotify.com/v1/me/top/artists?limit=5&time_range=${req.query.time_range ?? 'medium_term'}`, req, res);
 });
 router.get('/me/top/tracks', requireAuth, (req, res) => {
-  if (isEmailUser(req)) { res.json({ items: [] }); return; }
+  if (!hasPersonalSpotify(req)) { res.json({ items: [] }); return; }
   spotifyGet(`https://api.spotify.com/v1/me/top/tracks?limit=10&time_range=${req.query.time_range ?? 'medium_term'}`, req, res);
 });
 router.get('/me/player/currently-playing', requireAuth, async (req, res) => {
-  if (isEmailUser(req)) { res.json(null); return; }
+  if (!hasPersonalSpotify(req)) { res.json(null); return; }
   try {
-    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: spotifyHeaders(req) });
+    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: await spotifyHeaders(req) });
     if (r.status === 204 || r.status === 404) { res.json(null); return; }
     const data = await r.json();
     res.json(data);

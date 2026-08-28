@@ -8,15 +8,14 @@ import { useAuth } from '../context/auth';
 import { PageSpinner } from '../components/Spinner';
 
 type SpotifyUser = { display_name: string; id: string; images: { url: string }[] };
-type AppUser     = { displayName: string; avatarUrl: string; followerCount: number; followingCount: number };
+type AppUser     = { displayName: string; avatarUrl: string; followerCount: number; followingCount: number; spotifyLinked: boolean };
 type SpotifyArtist = { id: string; name: string; images: { url: string }[]; genres: string[] };
 
 const GENRE_COLORS = ['#FFFFFF', '#E0685C', '#4FA3D1', '#4B4E53'];
 
 export default function Me() {
-  const { token, spotifyId, clearToken, saveToken } = useAuth();
+  const { token, spotifyId, clearToken } = useAuth();
   const nav = useNavigate();
-  const isEmailOnly = spotifyId?.startsWith('email:');
   const apiBase = API_BASE ?? '';
 
   function connectSpotify() {
@@ -31,9 +30,9 @@ export default function Me() {
     if (!window.confirm('Log out of Spotify?\n\nYour account and reviews stay. You lose top artists, genres and Now Playing until you reconnect.')) return;
     setDisconnecting(true);
     try {
-      // The server issues a fresh app session token — the current one is the Spotify token.
-      const d = await api.del('/users/me/spotify') as { access_token: string; spotify_id: string };
-      saveToken(d.access_token, d.spotify_id);
+      // The session survives now — accessToken is an app token, so there is no token to re-save.
+      await api.del('/users/me/spotify');
+      setAppUser(a => a ? { ...a, spotifyLinked: false } : a);
       setUser(null);
       setTopArtists([]);
     } catch (e) {
@@ -55,7 +54,10 @@ export default function Me() {
     if (!token) return;
     setLoading(true);
     Promise.allSettled([
-      isEmailOnly ? Promise.resolve(null) : api.get('/me'),
+      // Fired unconditionally: whether Spotify is linked comes from /users/me in this same
+      // batch, so gating on it would mean serialising the two. Unlinked accounts get a 502,
+      // which allSettled already absorbs — same as the top-artists call below.
+      api.get('/me'),
       api.get('/users/me'),
       api.get('/users/me/reviews/counts'),
     ]).then(([u, au, c]) => {
@@ -133,7 +135,7 @@ export default function Me() {
         </button>
 
         {/* Spotify-personalised sections — hidden for unlinked email users */}
-        {isEmailOnly ? (
+        {!appUser?.spotifyLinked ? (
           <div className="rounded-2xl border border-white/8 bg-white/4 p-6 mb-6 flex flex-col items-center gap-3 text-center">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-white/20">
               <circle cx="12" cy="12" r="11" stroke="currentColor" strokeWidth="1.5"/>

@@ -93,7 +93,12 @@ router.get('/callback', async (req: Request, res: Response) => {
     await new Promise(r => setTimeout(r, retryAfter));
   }
 
-  let spotifyId = '';
+  // Set by the fresh-login branch only. The link branch leaves them null: that user already
+  // holds a valid app session, so there is nothing to issue.
+  let sessionToken: string | null = null;
+  let sessionExpiresAt = 0;
+  let publicSpotifyId = '';
+
   if (!profileRes || !profileRes.ok) {
     console.error('❌ Spotify /me failed:', profileRes?.status, await profileRes?.text());
     res.redirect(loginURL);
@@ -101,52 +106,85 @@ router.get('/callback', async (req: Request, res: Response) => {
   } else {
     try {
       const profile = await profileRes.json() as { id: string; display_name: string; email: string; images: { url: string }[] };
-      spotifyId = profile.id;
 
+      // Spotify credentials only. `spotifyId` (the public handle) and `accessToken` (the app
+      // session) are deliberately absent — conflating them with these is the bug this phase fixes.
       const spotifyCredentials = {
-        spotifyId:      profile.id,
-        accessToken:    tokens.access_token,
-        refreshToken:   tokens.refresh_token,
-        tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-        updatedAt:      new Date(),
+        realSpotifyId:         profile.id,
+        spotifyAccessToken:    tokens.access_token,
+        spotifyTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+        refreshToken:          tokens.refresh_token,
+        updatedAt:             new Date(),
       };
 
+      // realSpotifyId is sparse+unique, so any previous owner of this Spotify identity has to
+      // release it before we can claim it. Their account and reviews survive — they just lose
+      // the Spotify link, exactly as DELETE /users/me/spotify would leave them.
+      const releasePreviousOwner = (keepId: unknown) => User.updateOne(
+        { realSpotifyId: profile.id, _id: { $ne: keepId } },
+        {
+          $unset: { realSpotifyId: '', spotifyAccessToken: '', spotifyTokenExpiresAt: '' },
+          $set:   { refreshToken: '', updatedAt: new Date() },
+        },
+      );
+
       if (linkId || linkToken) {
-        // "Connect Spotify" from an active session — find by the stable email:uuid spotifyId (preferred)
-        // or by accessToken as legacy fallback (mobile)
+        // "Connect Spotify" from an active session — find by the stable spotifyId (preferred)
+        // or by accessToken as legacy fallback (mobile).
         const linkedUser = linkId
           ? await User.findOne({ spotifyId: linkId })
           : await User.findOne({ accessToken: linkToken });
         if (linkedUser) {
-          // If another account already owns this Spotify ID, strip their credentials first
+          await releasePreviousOwner(linkedUser._id);
           await User.updateOne(
-            { spotifyId: profile.id, _id: { $ne: linkedUser._id } },
-            { $set: { spotifyId: `email:${crypto.randomUUID()}`, refreshToken: '' } }
-          );
-          await User.findOneAndUpdate(
             { _id: linkedUser._id },
-            { ...spotifyCredentials, avatarUrl: profile.images?.[0]?.url ?? linkedUser.avatarUrl }
+            { $set: { ...spotifyCredentials, avatarUrl: profile.images?.[0]?.url ?? linkedUser.avatarUrl } },
           );
+          // spotifyId and accessToken untouched: the profile handle stays stable and the client
+          // keeps the session it already holds.
+          //
+          // Evict the cached user anyway. The middleware hands out the same object for 4 minutes,
+          // and spotifyHeaders() nulls `spotifyAccessToken` on it when a refresh fails. Without
+          // this, someone who reconnects after a revoked token keeps hitting a cached copy that
+          // says "no Spotify" — Now Playing and top artists stay dead for minutes after a
+          // successful reconnect, then start working on their own.
+          invalidateToken(linkedUser.accessToken as string);
+          publicSpotifyId = linkedUser.spotifyId as string;
         }
       } else {
-        // Fresh Spotify login — merge by email if an email-signup account exists
-        const existingByEmail = await User.findOne({ email: profile.email });
-        if (existingByEmail && existingByEmail.spotifyId !== profile.id) {
-          await User.findOneAndUpdate(
-            { _id: existingByEmail._id },
-            { ...spotifyCredentials, avatarUrl: profile.images?.[0]?.url ?? existingByEmail.avatarUrl }
+        // Fresh Spotify login (the mobile path). The client has no session yet, and the Spotify
+        // token is no longer usable as one, so this branch mints an app session token.
+        sessionToken     = crypto.randomBytes(40).toString('hex');
+        sessionExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+        const session = { accessToken: sessionToken, tokenExpiresAt: new Date(sessionExpiresAt) };
+
+        // Match on either field: realSpotifyId is authoritative, but accounts created before this
+        // split — or before the backfill runs — still carry the Spotify id in spotifyId.
+        const existing = await User.findOne({ email: profile.email })
+          ?? await User.findOne({ $or: [{ realSpotifyId: profile.id }, { spotifyId: profile.id }] });
+
+        if (existing) {
+          await releasePreviousOwner(existing._id);
+          await User.updateOne(
+            { _id: existing._id },
+            { $set: { ...spotifyCredentials, ...session, avatarUrl: profile.images?.[0]?.url ?? existing.avatarUrl } },
           );
+          // This branch replaces accessToken, so evict the old one — otherwise it keeps
+          // resolving from the 4-minute cache after being rotated away.
+          invalidateToken(existing.accessToken as string);
+          publicSpotifyId = existing.spotifyId as string;
         } else {
-          await User.findOneAndUpdate(
-            { spotifyId: profile.id },
-            {
-              ...spotifyCredentials,
-              displayName: profile.display_name,
-              email:       profile.email,
-              avatarUrl:   profile.images?.[0]?.url ?? '',
-            },
-            { upsert: true, returnDocument: 'after' }
-          );
+          // Brand-new account. No prior handle exists, so the Spotify id becomes the handle —
+          // and from here it never changes again.
+          await User.create({
+            ...spotifyCredentials,
+            ...session,
+            spotifyId:   profile.id,
+            displayName: profile.display_name,
+            email:       profile.email,
+            avatarUrl:   profile.images?.[0]?.url ?? '',
+          });
+          publicSpotifyId = profile.id;
         }
       }
     } catch (err) {
@@ -154,8 +192,13 @@ router.get('/callback', async (req: Request, res: Response) => {
     }
   }
 
-  const expiresAt = Date.now() + tokens.expires_in * 1000;
-  res.redirect(`${successURL}?access_token=${tokens.access_token}&spotify_id=${spotifyId}&expires_at=${expiresAt}`);
+  if (sessionToken) {
+    res.redirect(`${successURL}?access_token=${sessionToken}&spotify_id=${publicSpotifyId}&expires_at=${sessionExpiresAt}`);
+  } else {
+    // Link flow. The client keeps the session it already has — re-emitting a token into a URL
+    // and the browser's history is precisely the coupling this phase removes.
+    res.redirect(`${successURL}?linked=1`);
+  }
 });
 
 // Reset tokens are stored as a SHA-256 hash. The plaintext exists only in the email we send,
@@ -246,35 +289,9 @@ router.post('/email-login', async (req: Request, res: Response) => {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) { res.status(401).json({ error: 'Invalid email or password' }); return; }
 
-  // Linked Spotify account — refresh the Spotify token so proxy calls work
-  if (user.refreshToken) {
-    try {
-      const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type:    'refresh_token',
-          refresh_token: user.refreshToken,
-          client_id:     process.env.CLIENT_ID!,
-          client_secret: process.env.CLIENT_SECRET!,
-        }),
-      });
-      const tokens = await tokenRes.json() as { access_token?: string; expires_in?: number };
-      if (tokens.access_token && tokens.expires_in) {
-        const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
-        await User.findOneAndUpdate(
-          { email },
-          { accessToken: tokens.access_token, tokenExpiresAt: expiresAt, updatedAt: new Date() }
-        );
-        res.json({ access_token: tokens.access_token, spotify_id: user.spotifyId, expires_at: expiresAt.getTime() });
-        return;
-      }
-    } catch (err) {
-      console.error('Spotify refresh failed during email-login:', err);
-    }
-  }
-
-  // Pure email user (or Spotify refresh failed) — issue a random long-lived token
+  // Always an app session token, for linked and unlinked accounts alike. This used to refresh
+  // Spotify and return *that* token whenever the account had a refreshToken, which re-created the
+  // session/Spotify coupling on every sign-in. Spotify refresh is now lazy, in spotifyHeaders().
   const accessToken = crypto.randomBytes(40).toString('hex');
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
@@ -296,44 +313,19 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
   const user = await User.findOne({ accessToken: currentToken });
   if (!user) { res.status(401).json({ error: 'Invalid token' }); return; }
-  const spotifyId = user.spotifyId;
+  // One path for everyone: a fresh app session token. The Spotify branch that used to live here
+  // returned a Spotify token as the session, which is the coupling this phase removes — Spotify
+  // credentials are now refreshed lazily and server-side in spotifyHeaders().
+  const accessToken = crypto.randomBytes(40).toString('hex');
+  const expiresIn = 30 * 24 * 60 * 60;
 
-  // Email users — issue a new long-lived token instead of calling Spotify
-  if (!user.refreshToken) {
-    const accessToken = crypto.randomBytes(40).toString('hex');
-    const expiresIn = 30 * 24 * 60 * 60;
-    await User.findOneAndUpdate(
-      { spotifyId },
-      { accessToken, tokenExpiresAt: new Date(Date.now() + expiresIn * 1000), updatedAt: new Date() }
-    );
-    invalidateToken(currentToken); // else the replaced token keeps resolving from the 4-min cache
-    res.json({ access_token: accessToken, expires_in: expiresIn }); return;
-  }
-
-  const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type:    'refresh_token',
-      refresh_token: user.refreshToken,
-      client_id:     process.env.CLIENT_ID!,
-      client_secret: process.env.CLIENT_SECRET!,
-    }),
-  });
-
-  const tokens = await tokenRes.json() as { access_token: string; expires_in: number };
-
-  await User.findOneAndUpdate(
-    { spotifyId },
-    {
-      accessToken:    tokens.access_token,
-      tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-      updatedAt:      new Date(),
-    }
+  await User.updateOne(
+    { _id: user._id },
+    { $set: { accessToken, tokenExpiresAt: new Date(Date.now() + expiresIn * 1000), updatedAt: new Date() } },
   );
 
   invalidateToken(currentToken); // else the replaced token keeps resolving from the 4-min cache
-  res.json({ access_token: tokens.access_token, expires_in: tokens.expires_in });
+  res.json({ access_token: accessToken, expires_in: expiresIn });
 });
 
 export default router;

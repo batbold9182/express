@@ -76,11 +76,17 @@ router.get('/search', optionalAuth, async (req: AuthRequest, res: Response) => {
 // GET /users/me — own profile, always returns the authenticated user's record
 router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    // email is the caller's own, so it is included here but never on the public /:id route.
-    const user = await User.findById(req.user!._id).select(`${PROFILE_FIELDS} email`);
+    // email and spotifyLinked are the caller's own, so they are included here but never on the
+    // public /:id route. spotifyLinked exists because spotifyId no longer signals it — the client
+    // used to infer it from an `email:` prefix, which stopped being true once the handle froze.
+    const user = await User.findById(req.user!._id).select(`${PROFILE_FIELDS} email spotifyAccessToken`);
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
     const followerCount = await User.countDocuments({ following: user._id });
-    res.json({ ...publicProfile(user, followerCount, false), email: user.email });
+    res.json({
+      ...publicProfile(user, followerCount, false),
+      email: user.email,
+      spotifyLinked: !!user.spotifyAccessToken,
+    });
   } catch {
     res.status(500).json({ error: 'Failed to fetch user' });
   }
@@ -93,7 +99,9 @@ router.delete('/me/spotify', requireAuth, async (req: AuthRequest, res: Response
     const user = await User.findById(req.user!._id);
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
 
-    if ((user.spotifyId as string | undefined)?.startsWith('email:')) {
+    // "Connected" now means holding a personal Spotify token, not a spotifyId shape — spotifyId
+    // is a stable handle and no longer says anything about Spotify.
+    if (!user.spotifyAccessToken) {
       res.status(400).json({ error: 'Spotify is not connected' }); return;
     }
     // Web login is email-only, so an account with no password and no Spotify has no way back in.
@@ -104,20 +112,18 @@ router.delete('/me/spotify', requireAuth, async (req: AuthRequest, res: Response
       return;
     }
 
-    // The stored accessToken IS the Spotify token for linked users, so it has to be swapped for
-    // an app session token — same shape /auth/register and /auth/email-login issue.
-    const oldToken   = user.accessToken as string;
-    const accessToken = crypto.randomBytes(40).toString('hex');
-    const expiresAt   = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    const spotifyId   = `email:${crypto.randomUUID()}`;
-
+    // Only Spotify state is cleared. accessToken is an app session token now, so the session
+    // survives — no token rotation, no cache eviction, and nothing for the client to re-save.
+    // spotifyId stays put too, so links to this profile keep resolving.
     await User.updateOne(
       { _id: user._id },
-      { $set: { spotifyId, refreshToken: '', accessToken, tokenExpiresAt: expiresAt, updatedAt: new Date() } }
+      {
+        $unset: { realSpotifyId: '', spotifyAccessToken: '', spotifyTokenExpiresAt: '' },
+        $set:   { refreshToken: '', updatedAt: new Date() },
+      },
     );
-    invalidateToken(oldToken);
 
-    res.json({ access_token: accessToken, spotify_id: spotifyId, expires_at: expiresAt.getTime() });
+    res.json({ spotifyLinked: false });
   } catch {
     res.status(500).json({ error: 'Failed to disconnect Spotify' });
   }

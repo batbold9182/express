@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { Review } from '../models/review';
 import { stripNullAuthors } from '../lib/stripNullAuthors';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { spotifyHeaders, isEmailUser } from './_spotifyHeaders';
+import { spotifyHeaders } from './_spotifyHeaders';
 import { cacheGet, cacheSet, TTL } from './_cache';
 
 const router = Router();
@@ -15,7 +15,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   const cached = cacheGet(key);
   if (cached) { res.json(cached); return; }
   try {
-    const r = await fetch(`https://api.spotify.com/v1/artists/${req.params.id}`, { headers: spotifyHeaders(req) });
+    const r = await fetch(`https://api.spotify.com/v1/artists/${req.params.id}`, { headers: await spotifyHeaders(req) });
     if (!r.ok) { const t = await r.text(); console.error('Spotify artist error:', r.status, t); res.status(r.status === 401 || r.status === 403 ? 502 : r.status).json({ error: t }); return; }
     const data = await r.json();
     cacheSet(key, data, TTL.DAY);
@@ -49,7 +49,7 @@ router.get('/:id/albums', requireAuth, async (req: Request, res: Response) => {
     return;
   }
 
-  const headers = spotifyHeaders(req);
+  const headers = await spotifyHeaders(req);
   const url = `https://api.spotify.com/v1/artists/${req.params.id}/albums?include_groups=${encodeURIComponent(group)}&market=US`;
   const promise = fetch(url, { headers })
   .then(async r => {

@@ -13,7 +13,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   const cached = cacheGet(key);
   if (cached) { res.json(cached); return; }
   try {
-    const r = await fetch(`https://api.spotify.com/v1/tracks/${req.params.id}`, { headers: spotifyHeaders(req) });
+    const r = await fetch(`https://api.spotify.com/v1/tracks/${req.params.id}`, { headers: await spotifyHeaders(req) });
     if (!r.ok) { const t = await r.text(); res.status(r.status === 401 || r.status === 403 ? 502 : r.status).json({ error: t }); return; }
     const data = await r.json();
     cacheSet(key, data, TTL.DAY);

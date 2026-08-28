@@ -13,7 +13,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   const cached = cacheGet(key);
   if (cached) { res.json(cached); return; }
   try {
-    const r = await fetch(`https://api.spotify.com/v1/albums/${req.params.id}`, { headers: spotifyHeaders(req) });
+    const r = await fetch(`https://api.spotify.com/v1/albums/${req.params.id}`, { headers: await spotifyHeaders(req) });
     if (!r.ok) { const t = await r.text(); console.error('Spotify album error:', r.status, t); res.status(r.status === 401 || r.status === 403 ? 502 : r.status).json({ error: t }); return; }
     const data = await r.json();
     cacheSet(key, data, TTL.DAY);
@@ -30,7 +30,7 @@ router.get('/:id/tracks', requireAuth, async (req: Request, res: Response) => {
   const cached = cacheGet(key);
   if (cached) { res.json(cached); return; }
   try {
-    const r = await fetch(`https://api.spotify.com/v1/albums/${req.params.id}/tracks?limit=50`, { headers: spotifyHeaders(req) });
+    const r = await fetch(`https://api.spotify.com/v1/albums/${req.params.id}/tracks?limit=50`, { headers: await spotifyHeaders(req) });
     if (!r.ok) { const t = await r.text(); console.error('Spotify tracks error:', r.status, t); res.status(r.status).json({ error: t }); return; }
     const data = await r.json();
     cacheSet(key, data, TTL.DAY);

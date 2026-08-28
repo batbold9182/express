@@ -23,28 +23,10 @@ async function resolveUser(token: string): Promise<typeof User.prototype | null>
   const cached = tokenCache.get(token);
   if (cached && cached.expiresAt > Date.now()) return cached.user;
 
-  // Fast path: token already in DB (99% of requests after first login)
-  let user = await User.findOne({ accessToken: token });
-
-  if (!user) {
-    // Fallback: DB is out of sync (e.g. token refreshed without DB update).
-    // Call Spotify once, re-sync DB, then never call Spotify for this token again.
-    try {
-      const r = await fetch('https://api.spotify.com/v1/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!r.ok) return null;
-      const { id } = await r.json() as { id: string };
-      user = await User.findOneAndUpdate(
-        { spotifyId: id },
-        { accessToken: token },
-        { new: true }
-      );
-    } catch {
-      return null;
-    }
-  }
-
+  // The DB is the sole source of truth for session tokens. There used to be a fallback here that
+  // called Spotify's /v1/me on a miss and re-synced the doc — meaningless now that a session token
+  // is never a Spotify token, and it made login latency depend on Spotify being up.
+  const user = await User.findOne({ accessToken: token });
   if (!user) return null;
   tokenCache.set(token, { user, expiresAt: Date.now() + 4 * 60 * 1000 });
   return user;
