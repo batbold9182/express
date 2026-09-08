@@ -1,8 +1,8 @@
-import { NavLink, Link, Outlet, Navigate } from 'react-router-dom';
+import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import { RateModal } from './RateModal';
-import { HomeIcon, SearchIcon, TrophyIcon, BellIcon, MeIcon, ChatBubbleIcon, LogoutIcon, AdminIcon } from './icons';
+import { HomeIcon, SearchIcon, TrophyIcon, BellIcon, MeIcon, SettingsIcon } from './icons';
 import { NowPlaying, NowPlayingBar } from './NowPlaying';
 
 const NAV = [
@@ -14,7 +14,7 @@ const NAV = [
 ];
 
 export function Layout() {
-  const { token, clearToken } = useAuth();
+  const { token } = useAuth();
   const { unreadCount } = useNotif();
 
   if (!token) return <Navigate to="/login" replace />;
@@ -54,29 +54,20 @@ export function Layout() {
 
         <NowPlaying />
 
-        <div className="mt-auto pt-4 border-t border-white/8 flex flex-col gap-1">
-          <button
-            onClick={() => { if (window.confirm('Log out?')) clearToken(); }}
-            className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium text-fg2 hover:bg-white/6 hover:text-fg transition-colors border border-transparent cursor-pointer text-left"
+        <div className="mt-auto pt-4 border-t border-white/8">
+          <NavLink
+            to="/settings"
+            className={({ isActive }: { isActive: boolean }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-colors border ${
+                isActive
+                  ? 'bg-violet/15 text-violet border-violet/30'
+                  : 'text-fg2 hover:bg-white/6 hover:text-fg border-transparent'
+              }`
+            }
           >
-            <LogoutIcon size={17} />
-            Log out
-          </button>
-
-          <Link
-            to="/feedback"
-            className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium text-fg2 hover:bg-white/6 hover:text-fg transition-colors border border-transparent"
-          >
-            <ChatBubbleIcon size={17} />
-            Feedback
-          </Link>
-          <Link
-            to="/admin/feedback"
-            className="flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] font-medium text-fg4 hover:bg-white/6 hover:text-fg3 transition-colors border border-transparent"
-          >
-            <AdminIcon size={15} />
-            Read feedback
-          </Link>
+            <SettingsIcon size={18} />
+            Settings
+          </NavLink>
         </div>
       </aside>
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { GlowButton } from '../components/authKit';
+import { CheckIcon, InboxIcon } from '../components/icons';
 
 const MAX = 1000;
 type FeedbackType = 'bug' | 'feature' | 'other';
@@ -43,7 +44,7 @@ export default function Feedback() {
       <div className="max-w-lg mx-auto px-4 py-8 pb-20">
         {done ? (
           <div className="flex flex-col items-center gap-5 text-center rounded-2xl p-8" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <div className="text-[40px]">✓</div>
+            <span className="w-12 h-12 rounded-full flex items-center justify-center bg-white/8 text-fg"><CheckIcon size={24} /></span>
             <div>
               <p className="text-fg font-semibold text-[16px]">Thanks for the feedback!</p>
               <p className="text-fg3 text-[13px] mt-1">We read every submission.</p>
@@ -63,7 +64,7 @@ export default function Feedback() {
               className="flex items-center gap-3 px-4 py-3 rounded-2xl"
               style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(224,104,92,0.07))', border: '1px solid rgba(255,255,255,0.20)' }}
             >
-              <span style={{ fontSize: 18, lineHeight: 1 }}>📬</span>
+              <InboxIcon size={18} className="text-fg2 shrink-0" />
               <p className="text-[13px] font-medium" style={{ color: '#C9BCA6' }}>
                 I read all feedback — checked weekly.
               </p>

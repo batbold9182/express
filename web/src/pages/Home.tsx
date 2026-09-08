@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ReviewCard } from '../components/ReviewCard';
-import { BellIcon } from '../components/icons';
+import { BellIcon, FlameIcon, UsersIcon } from '../components/icons';
 import { SuggestedUsers } from '../components/SuggestedUsers';
 import { TopScoredWidget } from '../components/TopScoredWidget';
 import { api } from '../lib/api';
@@ -62,7 +62,7 @@ export default function Home() {
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) loadMore();
   }
 
-  const emptyIcon = tab === 'following' ? '👥' : '🔥';
+  const EmptyIcon = tab === 'following' ? UsersIcon : FlameIcon;
   const emptyMsg  = tab === 'following' ? 'No reviews from people you follow yet.' : 'Be the first to post a review.';
   const emptyCta  = tab === 'following' ? 'Find people to follow' : 'Browse music';
   const emptyCb   = tab === 'following' ? () => nav('/search?scope=people') : () => nav('/search');
@@ -108,7 +108,7 @@ export default function Home() {
             <div className="flex items-center justify-center py-24"><Spinner /></div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center gap-4 py-24 text-center px-8">
-              <span className="text-4xl">{emptyIcon}</span>
+              <EmptyIcon size={38} className="text-fg4" />
               <p className="text-fg font-semibold">Nothing here yet</p>
               <p className="text-fg3 text-[13px]">{emptyMsg}</p>
               <button onClick={emptyCb} className="mt-1 px-5 py-2 rounded-xl border border-white/10 bg-white/6 text-fg2 text-[13px] font-semibold cursor-pointer">

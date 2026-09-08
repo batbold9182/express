@@ -13,6 +13,7 @@ import Search         from './pages/Search';
 import Ranking        from './pages/Ranking';
 import Notifications  from './pages/Notifications';
 import Me             from './pages/Me';
+import Settings       from './pages/Settings';
 import Feedback       from './pages/Feedback';
 import AdminFeedback  from './pages/AdminFeedback';
 import Song           from './pages/Song';
@@ -43,6 +44,7 @@ export default function App() {
                 <Route path="/feed"          element={<Navigate to="/ranking" replace />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/me"            element={<Me />} />
+                <Route path="/settings"      element={<Settings />} />
                 <Route path="/feedback"        element={<Feedback />} />
                 <Route path="/admin/feedback"  element={<AdminFeedback />} />
                 <Route path="/song/:id"      element={<Song />} />

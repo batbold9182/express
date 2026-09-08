@@ -27,7 +27,8 @@ type LeaderboardItem = {
   reviewCount: number;
 };
 
-const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+// Top 3 get a tinted number chip — gold / silver / bronze.
+const MEDAL_TINT: Record<number, string> = { 1: '#EDC94A', 2: '#C7CBD1', 3: '#D0894F' };
 
 export default function Ranking() {
   const { token } = useAuth();
@@ -86,18 +87,18 @@ export default function Ranking() {
           <div className="flex justify-center py-24"><Spinner /></div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-24 text-center px-8">
-            <span className="text-4xl">🏆</span>
+            <TrophyIcon size={38} stroke="#5C5142" />
             <p className="text-fg font-semibold">No reviews yet</p>
             <p className="text-fg3 text-[13px]">Rate something to see it here.</p>
           </div>
         ) : (
           <div className="flex flex-col max-w-2xl mx-auto p-4 gap-2">
             {items.map((item, idx) => {
-              const cfg      = TYPE_CFG[item.type ?? 'track'];
-              const scoreCol = scoreColor(item.avgScore);
-              const rank     = idx + 1;
-              const medal    = MEDALS[rank];
-              const isElite  = item.avgScore >= 8.5;
+              const cfg       = TYPE_CFG[item.type ?? 'track'];
+              const scoreCol  = scoreColor(item.avgScore);
+              const rank      = idx + 1;
+              const medalTint = MEDAL_TINT[rank];
+              const isElite   = item.avgScore >= 8.5;
 
               return (
                 <div
@@ -111,10 +112,13 @@ export default function Ranking() {
                   }}
                 >
                   {/* Rank */}
-                  <div className="w-9 shrink-0 text-center">
-                    {medal
-                      ? <span className="text-[18px]">{medal}</span>
-                      : <span className="text-[13px] font-bold text-fg4">#{rank}</span>}
+                  <div className="w-9 shrink-0 flex justify-center">
+                    {medalTint
+                      ? <span
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold tabular-nums"
+                          style={{ background: `${medalTint}22`, color: medalTint, border: `1px solid ${medalTint}55` }}
+                        >{rank}</span>
+                      : <span className="text-[13px] font-bold text-fg4 tabular-nums">#{rank}</span>}
                   </div>
 
                   {/* Album art */}

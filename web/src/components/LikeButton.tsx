@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../lib/api';
+import { HeartIcon } from './icons';
 
 type Props = { reviewId: string; likes: string[]; myId: string };
 
@@ -38,9 +39,7 @@ export function LikeButton({ reviewId, likes, myId }: Props) {
         color:       liked ? '#E0685C' : '#978A74',
       }}
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-      </svg>
+      <HeartIcon size={14} filled={liked} />
       <span className="text-xs font-semibold">{count > 0 ? count : ''}</span>
     </button>
   );

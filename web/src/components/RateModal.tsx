@@ -3,6 +3,7 @@ import { useRate } from '../context/rate';
 import { useAuth } from '../context/auth';
 import { api } from '../lib/api';
 import { scoreColor, MOOD_LIST, MAX_REVIEW_LENGTH, MAX_MOODS } from '@tunelog/shared';
+import { CheckIcon } from './icons';
 
 export function RateModal() {
   const { item, setItem } = useRate();
@@ -65,7 +66,7 @@ export function RateModal() {
       >
         {done ? (
           <div className="flex flex-col items-center gap-3 py-6">
-            <div className="text-4xl">✓</div>
+            <span className="w-12 h-12 rounded-full flex items-center justify-center bg-white/8 text-fg"><CheckIcon size={24} /></span>
             <p className="text-fg font-semibold text-lg">Review posted!</p>
           </div>
         ) : (

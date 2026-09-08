@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../lib/api';
 import { AuthBackdrop, AuthWordmark, AuthInput, GlowButton } from '../components/authKit';
+import { CheckIcon } from '../components/icons';
 
 export default function ResetPassword() {
   const [params] = useSearchParams();
@@ -47,7 +48,7 @@ export default function ResetPassword() {
 
         {done ? (
           <div className="flex flex-col items-center gap-5 text-center rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <div className="text-[32px]">✓</div>
+            <span className="w-12 h-12 rounded-full flex items-center justify-center bg-white/8 text-fg"><CheckIcon size={22} /></span>
             <div>
               <p className="text-fg font-semibold text-[15px]">Password updated</p>
               <p className="text-fg3 text-[13px] mt-1">You can now sign in with your new password.</p>

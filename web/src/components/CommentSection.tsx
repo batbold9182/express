@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { timeAgo, MAX_COMMENT_LENGTH } from '@tunelog/shared';
 import type { Comment } from '@tunelog/shared';
 import { useAuth } from '../context/auth';
+import { HeartIcon } from './icons';
 
 type Props = { reviewId: string; initial: Comment[]; myId: string };
 
@@ -14,14 +15,6 @@ type Props = { reviewId: string; initial: Comment[]; myId: string };
 const authorName   = (c: Comment) => (c.userId as { displayName?: string })?.displayName ?? '?';
 const authorId     = (c: Comment) => (c.userId as { _id?: string })?._id;
 const authorAvatar = (c: Comment) => (c.userId as { avatarUrl?: string })?.avatarUrl;
-
-function HeartIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-  );
-}
 
 export function CommentSection({ reviewId, initial, myId }: Props) {
   const { token } = useAuth();
@@ -260,7 +253,7 @@ function Row({ comment, reviewId, myId, onChange, onReply, isReply = false }: {
               className="flex items-center gap-1 text-[10px] cursor-pointer transition-colors"
               style={{ color: liked ? '#E0685C' : '#5C5142' }}
             >
-              <HeartIcon filled={liked} />
+              <HeartIcon size={12} filled={liked} />
               {likeCount > 0 && likeCount}
             </button>
             <button onClick={() => onReply(comment)} className="text-[10px] font-semibold text-fg4 hover:text-violet cursor-pointer">

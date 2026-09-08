@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
 import { ProfileReviews } from '../components/ProfileReviews';
 import { api, API_BASE, type ApiError } from '../lib/api';
-import { SpotifyIcon, LogoutIcon } from '../components/icons';
-import { scoreColor, subjectPath } from '@tunelog/shared';
+import { SpotifyIcon, SettingsIcon } from '../components/icons';
+import { Favorites, RatingHistogram, Stat } from '../components/TasteWidgets';
+import { tasteStats } from '../lib/taste';
 import type { ProfileReview } from '@tunelog/shared';
 import { useAuth } from '../context/auth';
 import { PageSpinner } from '../components/Spinner';
@@ -21,17 +22,8 @@ const GENRE_COLORS = ['#FFFFFF', '#E0685C', '#4FA3D1', '#EDA63E'];
 // current taste. A dedicated /users/me/stats endpoint would make them exact (backend, later).
 const STATS_SAMPLE = 50;
 
-function GearIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3.6 15a1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 3.6 8.6 1.65 1.65 0 0 0 3.27 6.78l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
-
 export default function Me() {
-  const { token, spotifyId, clearToken } = useAuth();
+  const { token, spotifyId } = useAuth();
   const nav = useNavigate();
   const apiBase = API_BASE ?? '';
 
@@ -43,7 +35,6 @@ export default function Me() {
   const [loading,    setLoading]    = useState(true);
   const [artistRange, setArtistRange] = useState<string | null>(null); // time_range the current topArtists belong to
   const [disconnecting, setDisconnecting] = useState(false);
-  const [menuOpen,   setMenuOpen]   = useState(false);
   const [timeRange,  setTimeRange]  = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
 
   function connectSpotify() {
@@ -107,12 +98,7 @@ export default function Me() {
   const maxCount  = topGenres[0]?.[1] ?? 1;
 
   const totalReviews = counts.track + counts.album + counts.artist;
-  const scores       = myReviews.map(r => r.score).filter((s): s is number => s != null);
-  const avgScore     = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
-  const favorites    = [...myReviews].sort((a, b) => b.score - a.score).slice(0, 4);
-  const dist         = Array(10).fill(0) as number[];
-  scores.forEach(s => { const b = Math.round(s) - 1; if (b >= 0 && b <= 9) dist[b]++; });
-  const maxDist      = Math.max(...dist, 1);
+  const t            = tasteStats(myReviews);
   const tasteGenres  = appUser?.spotifyLinked ? topGenres.slice(0, 2).map(([n]) => n).join(', ') : '';
 
   const joined = appUser?.createdAt
@@ -121,131 +107,56 @@ export default function Me() {
 
   if (loading) return <PageSpinner />;
 
+  const displayName = appUser?.displayName ?? user?.display_name ?? '—';
+
   return (
     <div className="h-screen overflow-y-auto">
-      {/* Mobile only — desktop has the sidebar (with logout) and doesn't need a title bar */}
+      {/* Mobile only — desktop reaches settings from the sidebar */}
       <div className="md:hidden sticky top-0 z-20 px-4 py-3 border-b border-white/8 flex items-center justify-between" style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}>
         <h1 className="text-[18px] font-bold text-fg">Profile</h1>
-        <div className="relative">
-          <button
-            onClick={() => setMenuOpen(v => !v)}
-            aria-label="Settings"
-            className="p-1.5 -m-1.5 text-fg3 hover:text-fg transition-colors cursor-pointer"
-          >
-            <GearIcon />
-          </button>
-          {menuOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 mt-2 w-40 rounded-xl border border-white/10 overflow-hidden z-30" style={{ background: '#0E0E0E', boxShadow: '0 12px 32px rgba(0,0,0,0.6)' }}>
-                <button
-                  onClick={() => { setMenuOpen(false); if (window.confirm('Log out?')) clearToken(); }}
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] text-fg2 hover:bg-white/6 hover:text-fg transition-colors cursor-pointer text-left"
-                >
-                  <LogoutIcon size={15} />
-                  Log out
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+        <Link to="/settings" aria-label="Settings" className="p-1.5 -m-1.5 text-fg3 hover:text-fg transition-colors">
+          <SettingsIcon size={18} />
+        </Link>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 pb-20 md:pt-6 lg:grid lg:grid-cols-[minmax(320px,360px)_1fr] lg:gap-10 lg:items-start">
-        {/* Left column — taste sidebar. Sticks on desktop; scrolls internally if it outgrows the viewport. */}
-        <div className="self-start lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto no-scrollbar">
-          {/* Identity */}
-          <div className="flex flex-col items-center gap-2.5 py-7 text-center">
-            <div className="p-0.5 rounded-full" style={{ background: 'linear-gradient(135deg, #FFFFFF, #E0685C)', boxShadow: '0 0 16px rgba(224,104,92,0.25)' }}>
-              <Avatar name={user?.display_name ?? appUser?.displayName ?? '?'} src={user?.images?.[0]?.url ?? appUser?.avatarUrl} size={88} className="ring-2 ring-bg" />
-            </div>
-            <h2 className="text-[20px] font-bold text-fg">{appUser?.displayName ?? user?.display_name ?? '—'}</h2>
+      <div className="max-w-6xl mx-auto px-4 pt-6 pb-20 flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_320px] lg:gap-8 lg:items-start">
+
+        {/* Identity — main column, top. Horizontal card on desktop, centred stack on mobile. */}
+        <div className="lg:col-start-1 lg:row-start-1 flex flex-col items-center text-center gap-3 pb-2 lg:flex-row lg:items-center lg:text-left lg:gap-6 lg:pb-0 lg:px-6 lg:py-5 lg:rounded-2xl lg:border lg:border-white/8 lg:bg-white/4">
+          <div className="p-0.5 rounded-full shrink-0" style={{ background: 'linear-gradient(135deg, #FFFFFF, #E0685C)', boxShadow: '0 0 16px rgba(224,104,92,0.25)' }}>
+            <Avatar name={displayName} src={user?.images?.[0]?.url ?? appUser?.avatarUrl} size={80} className="ring-2 ring-bg" />
+          </div>
+
+          <div className="lg:flex-1 min-w-0">
+            <h2 className="text-[20px] font-bold text-fg lg:truncate">{displayName}</h2>
             {user?.id
               ? <p className="text-[12px] text-cyan tracking-wide" title={`@${user.id}`}>@{user.id.length > 16 ? `${user.id.slice(0, 16)}…` : user.id}</p>
               : joined && <p className="text-[12px] text-fg4">Joined {joined}</p>}
-
-            {totalReviews > 0 && (
-              <p className="text-[12px] text-fg3 mt-1 leading-relaxed">
-                {avgScore != null && <>avg <span className="text-fg font-semibold tabular-nums">{avgScore.toFixed(1)}</span> given &nbsp;·&nbsp; </>}
-                {totalReviews} {totalReviews === 1 ? 'review' : 'reviews'}
-                {tasteGenres && <><br />mostly <span className="text-fg2">{tasteGenres}</span></>}
+            {(t.avg != null || tasteGenres) && (
+              <p className="text-[12px] text-fg3 mt-1.5 leading-relaxed">
+                {t.avg != null && <>avg <span className="text-fg font-semibold tabular-nums">{t.avg.toFixed(1)}</span> given</>}
+                {t.avg != null && tasteGenres && ' · '}
+                {tasteGenres && <>mostly <span className="text-fg2">{tasteGenres}</span></>}
               </p>
             )}
           </div>
 
-          {/* Stats */}
-          <div className="rounded-2xl border border-white/8 bg-white/4 p-4 flex justify-around mb-8">
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-[22px] font-bold text-fg tabular-nums">{appUser?.followerCount ?? 0}</span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-fg3">Followers</span>
-            </div>
-            <div className="w-px bg-white/8" />
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-[22px] font-bold text-fg tabular-nums">{appUser?.followingCount ?? 0}</span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-fg3">Following</span>
-            </div>
-            <div className="w-px bg-white/8" />
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-[22px] font-bold text-fg tabular-nums">{totalReviews}</span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-fg3">Reviews</span>
-            </div>
+          <div className="flex items-center gap-6 shrink-0 lg:pl-6 lg:border-l lg:border-white/8">
+            <Stat value={appUser?.followerCount ?? 0} label="Followers" />
+            <Stat value={appUser?.followingCount ?? 0} label="Following" />
+            <Stat value={totalReviews} label="Reviews" />
           </div>
+        </div>
 
-          {/* Favorites */}
-          {favorites.length > 0 && (
-            <div className="mb-8">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Favorites</p>
-              <div className="rounded-2xl border border-white/8 bg-white/4 p-3">
-                <div className="grid grid-cols-4 gap-2">
-                  {favorites.map(r => {
-                    const p = subjectPath(r);
-                    const dark = r.score >= 5 && r.score < 8.5;
-                    return (
-                      <button
-                        key={r._id}
-                        onClick={() => { if (p) nav(p); }}
-                        title={`${r.trackName} · ${r.score.toFixed(1)}`}
-                        className="relative aspect-square rounded-lg overflow-hidden bg-white/6 cursor-pointer"
-                      >
-                        {r.albumArt && <img src={r.albumArt} alt="" className="w-full h-full object-cover" />}
-                        <span
-                          className="absolute bottom-1 right-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md tabular-nums"
-                          style={{ background: scoreColor(r.score), color: dark ? '#0A0A0A' : '#FFFFFF' }}
-                        >
-                          {r.score.toFixed(1)}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Right rail — taste widgets. Sticks on desktop; sits between identity and reviews on mobile. */}
+        <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto no-scrollbar flex flex-col gap-6">
 
-          {/* How you rate */}
-          {scores.length > 0 && (
-            <div className="mb-8">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">How you rate</p>
-              <div className="rounded-2xl border border-white/8 bg-white/4 p-4">
-                <div className="flex items-end gap-1 h-14">
-                  {dist.map((v, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 rounded-sm"
-                      style={{ height: `${Math.max(6, (v / maxDist) * 100)}%`, background: scoreColor(i + 1) }}
-                    />
-                  ))}
-                </div>
-                <div className="flex justify-between mt-1.5 text-[9px] text-fg4">
-                  <span>1</span><span>5</span><span>10</span>
-                </div>
-              </div>
-            </div>
-          )}
+          <Favorites items={t.favorites} />
+          {t.count > 0 && <RatingHistogram dist={t.dist} maxDist={t.maxDist} label="How you rate" />}
 
           {/* Spotify-personalised sections — hidden for unlinked email users */}
           {!appUser?.spotifyLinked ? (
-            <div className="rounded-2xl border border-white/8 bg-white/4 p-6 mb-6 flex flex-col items-center gap-3 text-center">
+            <div className="rounded-2xl border border-white/8 bg-white/4 p-6 flex flex-col items-center gap-3 text-center">
               <SpotifyIcon size={32} />
               <div>
                 <p className="text-[14px] font-semibold text-fg">Connect your Spotify account</p>
@@ -260,15 +171,15 @@ export default function Me() {
               </button>
             </div>
           ) : (
-            <>
-              <div className="border-t border-white/8 pt-6 mt-2 mb-4 flex items-center gap-2">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
                 <SpotifyIcon size={13} />
                 <p className="text-[11px] font-bold uppercase tracking-widest text-fg3">From Spotify</p>
               </div>
 
               {/* Top genres */}
               {topGenres.length > 0 && (
-                <div className="rounded-2xl border border-white/8 bg-white/4 p-4 mb-6 flex flex-col gap-3">
+                <div className="rounded-2xl border border-white/8 bg-white/4 p-4 mb-5 flex flex-col gap-3">
                   {topGenres.map(([name, count], i) => (
                     <div key={name} className="flex items-center gap-3">
                       <span className="text-[12px] font-medium text-fg w-24 shrink-0 truncate">{name}</span>
@@ -303,7 +214,7 @@ export default function Me() {
               </div>
 
               {artistsLoading ? (
-                <div className="rounded-2xl border border-white/8 bg-white/4 divide-y divide-white/6 mb-6">
+                <div className="rounded-2xl border border-white/8 bg-white/4 divide-y divide-white/6 mb-5">
                   {[0, 1, 2].map(i => (
                     <div key={i} className="flex items-center gap-3 px-3 py-2.5">
                       <div className="w-5 h-3 rounded bg-white/8 shrink-0" />
@@ -313,7 +224,7 @@ export default function Me() {
                   ))}
                 </div>
               ) : topArtists.length > 0 ? (
-                <div className="rounded-2xl border border-white/8 bg-white/4 divide-y divide-white/6 mb-6">
+                <div className="rounded-2xl border border-white/8 bg-white/4 divide-y divide-white/6 mb-5">
                   {topArtists.map((a, i) => (
                     <button
                       key={a.id}
@@ -333,23 +244,23 @@ export default function Me() {
                   ))}
                 </div>
               ) : (
-                <p className="text-[12px] text-fg4 text-center py-6 mb-6">No listening history yet — play something on Spotify.</p>
+                <p className="text-[12px] text-fg4 text-center py-6 mb-5">No listening history yet — play something on Spotify.</p>
               )}
 
               {/* Unlink Spotify — the account and its reviews are kept */}
               <button
                 onClick={() => void disconnectSpotify()}
                 disabled={disconnecting}
-                className="w-full text-center py-3 mb-2 text-[12px] text-fg3 hover:text-fg2 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full text-center py-2 text-[12px] text-fg3 hover:text-fg2 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {disconnecting ? 'Logging out…' : 'Log out of Spotify'}
               </button>
-            </>
+            </div>
           )}
         </div>
 
-        {/* Right column — reviews (capped so rows don't stretch on wide screens) */}
-        <div className="lg:max-w-2xl">
+        {/* Reviews — main column, below identity */}
+        <div className="lg:col-start-1 lg:row-start-2">
           <ProfileReviews endpointBase="/users/me/reviews" counts={counts} />
         </div>
       </div>

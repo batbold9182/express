@@ -5,7 +5,7 @@ import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { Avatar } from '../components/Avatar';
 import { scoreColor, subjectPath } from '@tunelog/shared';
-import { SearchIcon } from '../components/icons';
+import { SearchIcon, FlameIcon } from '../components/icons';
 import { Spinner } from '../components/Spinner';
 
 type Track  = { id: string; name: string; artists: { name: string }[]; album: { id: string; images: { url: string }[] } };
@@ -119,7 +119,9 @@ export default function Search() {
         {/* Empty: trending */}
         {!loading && !q && !isPeople && trending.length > 0 && (
           <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-1">🔥 Trending now</p>
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-fg3 mb-1">
+              <FlameIcon size={13} className="text-pink" /> Trending now
+            </p>
             {trending.map((item, i) => (
               <button key={`${item.type}-${item.spotifyTrackId ?? item.spotifyAlbumId ?? item.spotifyArtistId}`} onClick={() => navTrending(item)} className="flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-white/4 hover:bg-white/8 transition-colors cursor-pointer text-left w-full">
                 <span className="text-[13px] font-bold w-6 text-center" style={{ color: i === 0 ? '#FFFFFF' : '#5C5142' }}>{i + 1}</span>

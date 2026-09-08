@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
 import { api } from '../lib/api';
@@ -6,6 +6,7 @@ import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import { timeAgo, subjectPath } from '@tunelog/shared';
 import { Spinner } from '../components/Spinner';
+import { HeartIcon, ChatBubbleIcon, MeIcon, ReplyIcon, BellIcon } from '../components/icons';
 
 type NotifEntity = { spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string; type?: string };
 type Notif = {
@@ -20,8 +21,12 @@ type Notif = {
   entitySnapshot?: NotifEntity & { trackName?: string; albumArt?: string };
 };
 
-const TYPE_ICONS: Record<string, string> = {
-  like: '❤️', comment: '💬', follow: '👤', reply: '↩️',
+// icon + tint for the small badge overlaid on the actor's avatar
+const TYPE_BADGE: Record<Notif['type'], { Icon: ComponentType<{ size?: number }>; tint: string }> = {
+  like:    { Icon: HeartIcon,      tint: '#E0685C' },
+  comment: { Icon: ChatBubbleIcon, tint: '#4FA3D1' },
+  follow:  { Icon: MeIcon,         tint: '#FFFFFF' },
+  reply:   { Icon: ReplyIcon,      tint: '#978A74' },
 };
 
 export default function Notifications() {
@@ -86,7 +91,7 @@ export default function Notifications() {
           <div className="flex justify-center pt-24"><Spinner /></div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-3 pt-24 text-center px-8">
-            <span className="text-4xl">🔔</span>
+            <BellIcon size={38} className="text-fg4" />
             <p className="text-fg3 text-[13px]">No notifications yet</p>
           </div>
         ) : (
@@ -98,7 +103,7 @@ export default function Notifications() {
                 className="flex items-start gap-3 w-full px-4 py-3.5 hover:bg-white/4 transition-colors cursor-pointer text-left"
                 style={{ background: n.read ? 'transparent' : 'rgba(255,255,255,0.05)' }}
               >
-                {/* Actors avatars */}
+                {/* Actor avatar + type badge */}
                 <div className="relative shrink-0" style={{ width: 40, height: 40 }}>
                   {n.actors[0] && (
                     <Avatar
@@ -107,7 +112,14 @@ export default function Notifications() {
                       size={36}
                     />
                   )}
-                  <span className="absolute -bottom-0.5 -right-0.5 text-[14px] leading-none">{TYPE_ICONS[n.type]}</span>
+                  <span
+                    className="absolute -bottom-1 -right-1 w-[18px] h-[18px] rounded-full flex items-center justify-center border border-bg"
+                    style={{ background: '#1c1c1c', color: TYPE_BADGE[n.type].tint }}
+                  >
+                    {n.type === 'like'
+                      ? <HeartIcon size={11} filled />
+                      : (() => { const I = TYPE_BADGE[n.type].Icon; return <I size={11} />; })()}
+                  </span>
                 </div>
 
                 <div className="flex-1 min-w-0">
