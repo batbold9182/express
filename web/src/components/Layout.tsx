@@ -3,7 +3,7 @@ import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import { RateModal } from './RateModal';
 import { HomeIcon, SearchIcon, TrophyIcon, BellIcon, MeIcon, ChatBubbleIcon, LogoutIcon, AdminIcon } from './icons';
-import { NowPlaying } from './NowPlaying';
+import { NowPlaying, NowPlayingBar } from './NowPlaying';
 
 const NAV = [
   { to: '/',              icon: HomeIcon,    label: 'Home'          },
@@ -85,29 +85,32 @@ export function Layout() {
         <Outlet />
       </main>
 
-      {/* Bottom nav (mobile) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-white/8 z-40" style={{ background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(12px)' }}>
-        {NAV.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }: { isActive: boolean }) =>
-              `flex-1 flex flex-col items-center py-2 gap-0.5 text-[10px] font-medium transition-colors relative ${
-                isActive ? 'text-violet' : 'text-fg4'
-              }`
-            }
-          >
-            <Icon size={22} />
-            {label}
-            {label === 'Notifications' && unreadCount > 0 && (
-              <span className="absolute top-1 right-1/3 translate-x-3 bg-pink text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </NavLink>
-        ))}
-      </nav>
+      {/* Now Playing bar + bottom nav (mobile) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
+        <NowPlayingBar />
+        <nav className="flex border-t border-white/8" style={{ background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(12px)' }}>
+          {NAV.map(({ to, icon: Icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }: { isActive: boolean }) =>
+                `flex-1 flex flex-col items-center py-2 gap-0.5 text-[10px] font-medium transition-colors relative ${
+                  isActive ? 'text-violet' : 'text-fg4'
+                }`
+              }
+            >
+              <Icon size={22} />
+              {label}
+              {label === 'Notifications' && unreadCount > 0 && (
+                <span className="absolute top-1 right-1/3 translate-x-3 bg-pink text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
 
       <RateModal />
     </div>

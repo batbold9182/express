@@ -64,7 +64,7 @@ export default function Feedback() {
               style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(224,104,92,0.07))', border: '1px solid rgba(255,255,255,0.20)' }}
             >
               <span style={{ fontSize: 18, lineHeight: 1 }}>📬</span>
-              <p className="text-[13px] font-medium" style={{ color: '#C4AEFF' }}>
+              <p className="text-[13px] font-medium" style={{ color: '#C9BCA6' }}>
                 I read all feedback — checked weekly.
               </p>
             </div>

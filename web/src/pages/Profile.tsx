@@ -66,7 +66,7 @@ export default function Profile() {
               className="px-5 py-2 rounded-full text-[13px] font-semibold border transition-all cursor-pointer disabled:opacity-50"
               style={{
                 background:  following ? 'transparent' : '#FFFFFF',
-                color:       following ? '#FFFFFF' : '#fff',
+                color:       following ? '#FFFFFF' : '#0A0A0A',
                 borderColor: '#FFFFFF',
               }}
             >

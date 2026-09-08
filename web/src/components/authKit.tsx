@@ -21,12 +21,8 @@ export function AuthBackdrop() {
 }
 
 /**
- * Gradient wordmark above the auth card.
- *
- * `text` is required and has no default on purpose: these pages currently render
- * "tunelog" while the rest of the app says "express". That inconsistency is real
- * and worth fixing, but it's a visible change — so it stays explicit at each call
- * site rather than being silently locked in by a default here.
+ * Gradient wordmark above the auth card. `text` stays an explicit prop (no default) so each
+ * auth page owns its own wording — currently all "express", matching the rest of the app.
  */
 export function AuthWordmark({ text }: { text: string }) {
   return (

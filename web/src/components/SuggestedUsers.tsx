@@ -76,7 +76,8 @@ export function SuggestedUsers() {
           </button>
           <button
             onClick={() => follow(user)}
-            className="shrink-0 text-[12px] font-semibold px-3 py-1 rounded-full border border-violet/40 text-violet hover:bg-violet/15 transition-colors cursor-pointer"
+            className="shrink-0 text-[12px] font-semibold px-3 py-1 rounded-full border border-white transition-opacity hover:opacity-80 cursor-pointer"
+            style={{ background: '#FFFFFF', color: '#0A0A0A' }}
           >
             Follow
           </button>

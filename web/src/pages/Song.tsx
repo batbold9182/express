@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
-import { msToMin } from '@tunelog/shared';
+import { msToMin, scoreColor } from '@tunelog/shared';
 import { Spinner, PageSpinner } from '../components/Spinner';
 import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
 
@@ -157,7 +157,7 @@ export default function Song() {
                   className="flex-1 rounded-sm"
                   style={{
                     height: `${Math.max(4, (v / maxDist) * 100)}%`,
-                    background: i >= 7 ? '#4B4E53' : i >= 4 ? '#FFFFFF' : i >= 2 ? '#EDA63E' : '#FFFFFF',
+                    background: scoreColor(i + 1),
                   }}
                 />
               ))}

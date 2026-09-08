@@ -61,7 +61,7 @@ export function RateModal() {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setItem(null)} />
       <div
         className="relative w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 flex flex-col gap-5 border border-white/10"
-        style={{ background: '#110D1F', zIndex: 1 }}
+        style={{ background: '#0E0E0E', zIndex: 1 }}
       >
         {done ? (
           <div className="flex flex-col items-center gap-3 py-6">

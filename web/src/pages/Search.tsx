@@ -255,11 +255,11 @@ function UserRow({ user, myId, nav }: { user: UserResult; myId: string; nav: (p:
         <button
           onClick={toggle}
           disabled={busy}
-          className="px-3 py-1.5 rounded-full text-[12px] font-semibold cursor-pointer transition-all"
+          className="px-3 py-1.5 rounded-full text-[12px] font-semibold cursor-pointer transition-all disabled:opacity-50"
           style={{
             background:  following ? 'transparent' : '#FFFFFF',
-            color:       following ? '#FFFFFF' : '#fff',
-            border:      `1px solid #FFFFFF`,
+            color:       following ? '#FFFFFF' : '#0A0A0A',
+            border:      '1px solid #FFFFFF',
           }}
         >
           {busy ? '…' : following ? 'Following' : 'Follow'}

@@ -43,7 +43,7 @@ export default function ResetPassword() {
 
       <div className="relative w-full max-w-sm flex flex-col gap-6">
         {/* Wordmark */}
-        <AuthWordmark text="tunelog" />
+        <AuthWordmark text="express" />
 
         {done ? (
           <div className="flex flex-col items-center gap-5 text-center rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
