@@ -57,7 +57,9 @@ MONGO_URI=           # MongoDB Atlas connection string
 GMAIL_USER=          # Gmail address (e.g. yourapp@gmail.com)
 GMAIL_PASS=          # Gmail App Password (not your account password)
 ADMIN_EMAIL=         # Email address that can access GET /feedback
-FRONTEND_WEB_BASE=http://localhost:5173
+FRONTEND_WEB_BASE=http://localhost:5173   # web base for password-reset links (lib/mailer.ts)
+FRONTEND_BASE=       # optional — mobile OAuth success-redirect fallback (auth/callback)
+IP_ADDRESS=          # optional — used as http://<IP_ADDRESS>:8081 when FRONTEND_BASE is unset
 ```
 
 ### `frontend/.env`
@@ -149,12 +151,12 @@ All routes require `Authorization: Bearer <token>` unless noted.
 | `GET /albums/:id` | Album metadata + community score |
 | `GET /tracks/:id` | Track metadata + community score |
 | `POST /reviews` | Post a review |
-| `GET /reviews/trending` | Most liked reviews (last 7 days) |
+| `GET /reviews/trending` | Most liked reviews (last 30 days) |
 | `GET /reviews/leaderboard?type=&limit=` | Aggregated leaderboard — avg score + review count per item. `type`: `most-rated \| track \| album \| artist` |
 | `GET /reviews/top` | Highest scored reviews (score ≥ 7) |
-| `GET /feed/me` | Feed from followed users |
+| `GET /users/feed/me` | Feed from followed users |
 | `GET /users/suggested?limit=` | Users to follow — excludes self + already following, sorted by follower count |
-| `DELETE /users/me/spotify` | Unlink Spotify, keep the account. Returns a fresh app session token |
+| `DELETE /users/me/spotify` | Unlink Spotify, keep the account and session (no token rotation) |
 | `GET /notifications` | Paginated notifications |
 | `POST /users/:id/follow` | Follow a user |
 | `POST /feedback` | Submit feedback (bug / feature / other) |
@@ -178,7 +180,6 @@ Spotify OAuth requires HTTPS for non-localhost URIs. For testing on a physical d
 ## Known Limits
 
 - Spotify OAuth: 25-user allowlist cap in Dev Mode. On web this now only limits who can *connect* Spotify from `/me`; signing up is unlimited. Still caps mobile login
-- Connecting Spotify from `/me` replaces the 30-day app session token with a 1-hour Spotify token, and the web client has no refresh — roughly an hour later, Search / Now Playing / top artists 502 until you log out and back in. Fix requires separating the app session token from the Spotify token server-side
 - In-memory Spotify response cache clears on backend restart
 - No push notifications in Expo Go — requires a dev build with `expo-notifications`
 - Artist discography always returns Spotify's default page size (explicit `limit` rejected by Client Credentials)
