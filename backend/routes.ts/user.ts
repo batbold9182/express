@@ -310,7 +310,7 @@ router.get('/:id/lists', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /feed — reviews from followed users
+// GET /users/feed/me — reviews from followed users (+ the caller's own)
 router.get('/feed/me', requireAuth, async (req: AuthRequest, res: Response) => {
   const offset = parseInt(req.query.offset as string) || 0;
   const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);

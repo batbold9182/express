@@ -11,22 +11,29 @@ const POPULATE = [
   { path: 'comments.userId', select: '_id displayName avatarUrl' },
 ];
 
-// GET /reviews/trending — most liked public reviews in the last 7 days
+// Rolling window for the "For You" (trending) feed. Server-only, so it lives here rather than
+// in @tunelog/shared (which the backend does not consume yet).
+const TRENDING_WINDOW_DAYS = 30;
+
+// GET /reviews/trending — most liked public reviews in the last TRENDING_WINDOW_DAYS (30) days
 router.get('/trending', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const offset = parseInt(req.query.offset as string) || 0;
     const limit  = Math.min(parseInt(req.query.limit as string) || 15, 50);
-    const since  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const since  = new Date(Date.now() - TRENDING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    // Fetch one extra to know whether another page exists — independent of how many docs the
+    // null-author strip below removes.
     const docs   = await Review.aggregate([
       { $match: { shareToFeed: true, createdAt: { $gte: since } } },
       { $addFields: { likeCount: { $size: '$likes' } } },
       { $sort: { likeCount: -1, createdAt: -1 } },
       { $skip: offset },
-      { $limit: limit },
+      { $limit: limit + 1 },
     ]);
-    const populated = await Review.populate(docs, POPULATE);
+    const hasMore = docs.length > limit;
+    const populated = await Review.populate(docs.slice(0, limit), POPULATE);
     const items = stripNullAuthors(populated as any[]);
-    res.json({ items, myId: req.user!._id.toString(), hasMore: items.length === limit });
+    res.json({ items, myId: req.user!._id.toString(), hasMore });
   } catch {
     res.status(500).json({ error: 'Failed to fetch trending' });
   }
@@ -41,11 +48,12 @@ router.get('/top', requireAuth, async (req: AuthRequest, res: Response) => {
       { $match: { shareToFeed: true, score: { $gte: 7 } } },
       { $sort: { score: -1, createdAt: -1 } },
       { $skip: offset },
-      { $limit: limit },
+      { $limit: limit + 1 },
     ]);
-    const populated = await Review.populate(docs, POPULATE);
+    const hasMore = docs.length > limit;
+    const populated = await Review.populate(docs.slice(0, limit), POPULATE);
     const items = stripNullAuthors(populated as any[]);
-    res.json({ items, myId: req.user!._id.toString(), hasMore: items.length === limit });
+    res.json({ items, myId: req.user!._id.toString(), hasMore });
   } catch {
     res.status(500).json({ error: 'Failed to fetch top' });
   }
@@ -218,6 +226,8 @@ router.put('/:id/comments/:commentId', requireAuth, async (req: AuthRequest, res
     }
     comment.text = text.trim();
     await review.save();
+    // Re-populate so the client gets the same shape POST returns (bare ObjectIds otherwise).
+    await review.populate('comments.userId', 'displayName avatarUrl spotifyId');
     res.json(review.comments);
   } catch {
     res.status(500).json({ error: 'Failed to edit comment' });
@@ -235,6 +245,8 @@ router.delete('/:id/comments/:commentId', requireAuth, async (req: AuthRequest, 
     }
     review.comments = review.comments.filter(c => c._id.toString() !== req.params.commentId) as typeof review.comments;
     await review.save();
+    // Re-populate so the client gets the same shape POST returns (bare ObjectIds otherwise).
+    await review.populate('comments.userId', 'displayName avatarUrl spotifyId');
     res.json(review.comments);
   } catch {
     res.status(500).json({ error: 'Failed to delete comment' });

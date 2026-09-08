@@ -11,11 +11,13 @@ userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   artistName: { type: String, required: true },
   albumArt: { type: String },
   score: { type: Number, min: 0, max: 10 },
+  // keep in sync with shared/validators.ts MAX_REVIEW_LENGTH
   text: { type: String, maxlength: 280 },
   moods: { type: [String], validate: (v: string[]) => v.length <= 3 },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   comments: [{
     userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // keep in sync with shared/validators.ts MAX_COMMENT_LENGTH (backend doesn't import shared yet)
     text:      { type: String, required: true, maxlength: 280 },
     likes:     [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     parentId:  { type: mongoose.Schema.Types.ObjectId, default: null },
