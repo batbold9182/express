@@ -38,7 +38,7 @@ export default function SharedReview() {
   if (status === 'error') {
     return (
       <div className="min-h-screen bg-bg text-fg flex flex-col items-center justify-center gap-5 px-6 text-center">
-        <div className="text-2xl font-bold tracking-tight">express</div>
+        <img src="/wordmark.png" alt="express" className="h-6 w-auto" />
         <p className="text-fg3 text-sm">This review isn’t available.</p>
         <Link to="/" className="px-5 py-2.5 rounded-full text-sm font-semibold text-bg" style={{ background: '#FFFFFF' }}>Open express</Link>
       </div>
@@ -63,7 +63,7 @@ export default function SharedReview() {
       <div className="w-full max-w-md flex flex-col gap-5">
         {/* Wordmark */}
         <div className="flex items-center justify-between">
-          <span className="text-xl font-extrabold tracking-tight">express</span>
+          <img src="/wordmark.png" alt="express" className="h-5 w-auto" />
           <Link to="/" className="text-[12px] font-semibold text-fg3 hover:text-fg transition-colors">Open app →</Link>
         </div>
 

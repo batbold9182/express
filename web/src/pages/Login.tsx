@@ -14,9 +14,9 @@ const WORDMARK_SIZE = 'clamp(2.5rem, 6vw, 3.5rem)';     // 40px → 56px
 const TAGLINE_SIZE  = 'clamp(0.8125rem, 1.4vw, 0.9375rem)'; // 13px → 15px
 
 const FEATURES = [
-  { icon: '★', color: '#4FA3D1', label: 'Rate tracks, albums & artists 0–10' },
-  { icon: '♪', color: '#FFFFFF', label: 'Build a profile that shows your taste' },
-  { icon: '◎', color: '#E0685C', label: "Follow people, see what they're loving" },
+  { icon: '★', color: '#4FA3D1', label: 'Fuck billboard BET and other music awards' },
+  { icon: '♪', color: '#FFFFFF', label: 'People will decide who makes best music' },
+  { icon: '◎', color: '#E0685C', label: "Vote for your artists to help them grow" },
 ];
 
 // TODO: dummy for now — wire up i18n and real policy pages later.
@@ -300,14 +300,7 @@ export default function Login() {
 
 // One wordmark, two placements — inside the circle on lg+, above the card below it.
 function Wordmark() {
-  return (
-    <h1
-      className="font-bold leading-none tracking-tight bg-clip-text text-transparent"
-      style={{ backgroundImage: BRAND_GRADIENT, fontSize: WORDMARK_SIZE }}
-    >
-      express
-    </h1>
-  );
+  return <img src="/wordmark.png" alt="express" className="w-auto" style={{ height: WORDMARK_SIZE }} />;
 }
 
 /* ─────────── Form primitives ─────────── */

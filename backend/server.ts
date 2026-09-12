@@ -12,6 +12,8 @@ import artistRoutes  from './routes.ts/artists';
 import trackRoutes        from './routes.ts/tracks';
 import notificationRoutes from './routes.ts/notifications';
 import feedbackRoutes    from './routes.ts/feedback';
+import { Request,Response } from 'express';
+import mongoose from 'mongoose';
 
 dotenv.config();
 connectDB();
@@ -31,6 +33,11 @@ app.use('/artists', artistRoutes);
 app.use('/tracks',         trackRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/feedback',     feedbackRoutes);
+
+app.get('/health', (req: Request, res: Response) => {
+  const dbUp = mongoose.connection.readyState === 1;
+  res.status(dbUp ? 200 : 503).json({ ok: dbUp, db: dbUp ? 'connected' : 'disconnected' });
+});
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on http://localhost:${process.env.PORT}`);

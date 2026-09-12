@@ -21,18 +21,13 @@ export function AuthBackdrop() {
 }
 
 /**
- * Gradient wordmark above the auth card. `text` stays an explicit prop (no default) so each
- * auth page owns its own wording — currently all "express", matching the rest of the app.
+ * Wordmark above the auth card. `text` stays an explicit prop (no default) so each auth page
+ * still names its own alt text, even though the logo image itself no longer varies by page.
  */
 export function AuthWordmark({ text }: { text: string }) {
   return (
     <div className="flex flex-col items-center gap-1 mb-2">
-      <h1
-        className="text-[40px] font-bold leading-none tracking-tight bg-clip-text text-transparent"
-        style={{ backgroundImage: 'linear-gradient(90deg, #4FA3D1 0%, #FFFFFF 50%, #E0685C 100%)' }}
-      >
-        {text}
-      </h1>
+      <img src="/wordmark.png" alt={text} className="h-10 w-auto" />
     </div>
   );
 }
