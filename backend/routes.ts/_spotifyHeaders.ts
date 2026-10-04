@@ -60,9 +60,12 @@ async function refreshAppToken(): Promise<void> {
   return _appRefreshing;
 }
 
-// Delay first fetch by one tick so dotenv.config() in server.ts runs first
-setTimeout(() => void refreshAppToken(), 0);
-setInterval(() => { void refreshAppToken(); }, 50 * 60 * 1000);
+// Delay first fetch by one tick so dotenv.config() in server.ts runs first.
+// Skipped when NODE_ENV=test (Jest sets it) so merely importing the app never calls Spotify.
+if (process.env.NODE_ENV !== 'test') {
+  setTimeout(() => void refreshAppToken(), 0);
+}
+setInterval(() => { void refreshAppToken(); }, 50 * 60 * 1000).unref();
 
 // ---------------------------------------------------------------------------
 // Per-user Spotify tokens

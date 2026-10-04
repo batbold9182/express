@@ -1,5 +1,6 @@
 export function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(diff)) return '';
   const m = Math.floor(diff / 60000);
   if (m < 1)  return 'just now';
   if (m < 60) return `${m}m`;

@@ -11,7 +11,7 @@ const tokenCache = new Map<string, CacheEntry>();
 setInterval(() => {
   const now = Date.now();
   for (const [k, v] of tokenCache) if (v.expiresAt < now) tokenCache.delete(k);
-}, 10 * 60 * 1000);
+}, 10 * 60 * 1000).unref(); // unref: a cleanup timer must never be what keeps the process (or Jest) alive
 
 // Drop a token from the cache immediately — call after rotating a user's accessToken,
 // otherwise the old one keeps resolving for up to the 4-min TTL.

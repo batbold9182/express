@@ -31,7 +31,9 @@ function useNowPlaying(): NowPlayingData | null {
     async function poll() {
       try {
         const res = await api.get<NowPlayingData>('/me/player/currently-playing');
-        if (alive) setData(res && res.is_playing ? res : null);
+        // Only tracks render here. A podcast episode comes back with `item: null` or an item with no
+        // `album`, and the cards below dereference both — so treat anything non-track as "nothing playing".
+        if (alive) setData(res && res.is_playing && res.item?.album ? res : null);
       } catch {
         if (alive) setData(null);
       }

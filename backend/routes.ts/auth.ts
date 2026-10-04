@@ -10,7 +10,7 @@ const usedCodes = new Map<string, number>(); // code -> timestamp
 setInterval(() => {
   const cutoff = Date.now() - 10 * 60 * 1000;
   for (const [code, ts] of usedCodes) if (ts < cutoff) usedCodes.delete(code);
-}, 15 * 60 * 1000);
+}, 15 * 60 * 1000).unref();
 
 router.get('/login', (req: Request, res: Response) => {
   const redirectBase = req.query.redirect  as string | undefined;
