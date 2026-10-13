@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, isNotFound } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { msToMin, scoreColor } from '@tunelog/shared';
 import { Spinner, PageSpinner } from '../components/Spinner';
+import { ErrorState } from '../components/ErrorState';
 import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
 
 type SpotifyTrack = {
@@ -31,13 +32,18 @@ export default function Song() {
   const [distribution,    setDistribution]    = useState<number[]>(Array(10).fill(0));
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
   const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState<unknown>(null);   // the track itself failed to load
+  const [reviewsError,    setReviewsError]    = useState<unknown>(null);   // only the review list failed
   const [loadingMore,     setLoadingMore]     = useState(false);
   const [hasMore,         setHasMore]         = useState(false);
   const offsetRef      = useRef(0);
   const loadingMoreRef = useRef(false);
+  const loadSeq        = useRef(0);   // identifies the latest load, so a slower earlier one can be ignored
 
   async function load() {
     if (!token || !id) return;
+    const seq = ++loadSeq.current;
+    const stale = () => seq !== loadSeq.current;
     setLoading(true); offsetRef.current = 0;
     try {
       const [t, rd, mine] = await Promise.allSettled([
@@ -45,18 +51,26 @@ export default function Song() {
         api.get(`/tracks/${id}/reviews?offset=0&limit=20`),
         api.get('/reviews/mine'),
       ]);
-      if (t.status === 'fulfilled') setTrack(t.value);
+      // We have moved on (new id, or a retry) while this was in flight: its result is no longer ours to show.
+      if (stale()) return;
+      // On failure, clear rather than keep: otherwise the previous track's page lingers under a new id.
+      if (t.status === 'fulfilled') { setTrack(t.value); setError(null); }
+      else { setTrack(null); setError(t.reason); }
       if (rd.status === 'fulfilled') {
         setReviews(rd.value.reviews ?? []);
         setAvgScore(rd.value.avgScore ?? null);
         setDistribution(rd.value.distribution ?? Array(10).fill(0));
         setHasMore(rd.value.hasMore ?? false);
         offsetRef.current = (rd.value.reviews ?? []).length;
+        setReviewsError(null);
+      } else {
+        setReviews([]); setAvgScore(null); setHasMore(false);
+        setReviewsError(rd.reason);
       }
       if (mine.status === 'fulfilled') {
         setAlreadyReviewed((mine.value as any[]).some((r: any) => r.spotifyTrackId === id && (!r.type || r.type === 'track')));
       }
-    } finally { setLoading(false); }
+    } finally { if (!stale()) setLoading(false); }
   }
 
   async function loadMore() {
@@ -92,12 +106,18 @@ export default function Song() {
 
   if (loading) return <PageSpinner />;
 
-  if (!track) return (
-    <div className="flex flex-col items-center justify-center h-screen gap-4">
-      <p className="text-fg3">Track not found.</p>
-      <button onClick={() => nav(-1)} className="text-violet cursor-pointer">Go back</button>
-    </div>
-  );
+  if (!track) {
+    // A request that failed is not the same as a track that doesn't exist.
+    if (error && !isNotFound(error)) {
+      return <ErrorState size="page" back title="Couldn't load this track" error={error} onRetry={load} />;
+    }
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4">
+        <p className="text-fg3">Track not found.</p>
+        <button onClick={() => nav(-1)} className="text-violet cursor-pointer">Go back</button>
+      </div>
+    );
+  }
 
   const albumArt  = track.album.images[0]?.url;
   const artistStr = track.artists.map(a => a.name).join(', ');
@@ -170,7 +190,9 @@ export default function Song() {
 
         {/* Reviews */}
         <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Reviews</p>
-        {reviews.length === 0 ? (
+        {reviewsError ? (
+          <ErrorState size="compact" title="Couldn't load reviews" error={reviewsError} onRetry={load} />
+        ) : reviews.length === 0 ? (
           <p className="text-fg3 text-[13px] text-center py-8">No reviews yet — be the first!</p>
         ) : (
           <div className="flex flex-col gap-3">

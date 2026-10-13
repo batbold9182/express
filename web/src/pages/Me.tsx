@@ -9,6 +9,7 @@ import { tasteStats } from '../lib/taste';
 import type { ProfileReview } from '@tunelog/shared';
 import { useAuth } from '../context/auth';
 import { PageSpinner } from '../components/Spinner';
+import { ErrorState } from '../components/ErrorState';
 
 type SpotifyUser   = { display_name: string; id: string; images: { url: string }[] };
 type AppUser       = { displayName: string; avatarUrl: string; followerCount: number; followingCount: number; spotifyLinked: boolean; createdAt?: string };
@@ -36,6 +37,9 @@ export default function Me() {
   const [artistRange, setArtistRange] = useState<string | null>(null); // time_range the current topArtists belong to
   const [disconnecting, setDisconnecting] = useState(false);
   const [timeRange,  setTimeRange]  = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
+  const [appUserError,   setAppUserError]   = useState<unknown>(null); // /users/me failed — we don't know if Spotify is linked
+  const [artistsError,   setArtistsError]   = useState<unknown>(null);
+  const [attempt,        setAttempt]        = useState(0);              // bumped by "Try again"
 
   function connectSpotify() {
     const callbackUrl = window.location.origin + '/auth/callback';
@@ -63,6 +67,7 @@ export default function Me() {
 
   useEffect(() => {
     if (!token) return;
+    let cancelled = false;   // set on retry or unmount, so a slow earlier request can't land late
     setLoading(true);
     Promise.allSettled([
       // Fired unconditionally: whether Spotify is linked comes from /users/me in this same
@@ -73,20 +78,26 @@ export default function Me() {
       api.get('/users/me/reviews/counts'),
       api.get(`/users/me/reviews?type=all&offset=0&limit=${STATS_SAMPLE}`),
     ]).then(([u, au, c, mr]) => {
+      if (cancelled) return;
       if (u.status === 'fulfilled' && u.value) setUser(u.value);
-      if (au.status === 'fulfilled') setAppUser(au.value);
+      // Without /users/me we can't tell linked from unlinked, so the rail must not guess.
+      if (au.status === 'fulfilled') { setAppUser(au.value); setAppUserError(null); }
+      else { setAppUser(null); setAppUserError(au.reason); }
       if (c.status === 'fulfilled') setCounts(c.value ?? { track: 0, album: 0, artist: 0 });
       if (mr.status === 'fulfilled') setMyReviews(mr.value?.reviews ?? []);
-    }).finally(() => setLoading(false));
-  }, [token]);
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [token, attempt]);
 
   useEffect(() => {
     if (!token) return;
+    let cancelled = false;   // set when the time range changes, so a slow earlier range can't overwrite the current one
     api.get(`/me/top/artists?time_range=${timeRange}`)
-      .then((d: { items?: SpotifyArtist[] }) => setTopArtists(d?.items ?? []))
-      .catch(() => setTopArtists([]))
-      .finally(() => setArtistRange(timeRange));
-  }, [token, timeRange]);
+      .then((d: { items?: SpotifyArtist[] }) => { if (!cancelled) { setTopArtists(d?.items ?? []); setArtistsError(null); } })
+      .catch(e => { if (!cancelled) { setTopArtists([]); setArtistsError(e); } })
+      .finally(() => { if (!cancelled) setArtistRange(timeRange); });
+    return () => { cancelled = true; };
+  }, [token, timeRange, attempt]);
 
   // Derived, not a synchronous setState-in-effect: the list is "loading" whenever the fetched
   // range hasn't caught up to the selected one (initial load, or just after a toggle).
@@ -155,7 +166,9 @@ export default function Me() {
           {t.count > 0 && <RatingHistogram dist={t.dist} maxDist={t.maxDist} label="How you rate" />}
 
           {/* Spotify-personalised sections — hidden for unlinked email users */}
-          {!appUser?.spotifyLinked ? (
+          {!appUser ? (
+            <ErrorState size="compact" title="Couldn't load your profile" error={appUserError} onRetry={() => setAttempt(a => a + 1)} />
+          ) : !appUser.spotifyLinked ? (
             <div className="rounded-2xl border border-white/8 bg-white/4 p-6 flex flex-col items-center gap-3 text-center">
               <SpotifyIcon size={32} />
               <div>
@@ -242,6 +255,10 @@ export default function Me() {
                       <span className="text-fg3 text-sm shrink-0">›</span>
                     </button>
                   ))}
+                </div>
+              ) : artistsError ? (
+                <div className="mb-5">
+                  <ErrorState size="compact" title="Couldn't load top artists" error={artistsError} onRetry={() => setAttempt(a => a + 1)} />
                 </div>
               ) : (
                 <p className="text-[12px] text-fg4 text-center py-6 mb-5">No listening history yet — play something on Spotify.</p>

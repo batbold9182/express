@@ -4,10 +4,11 @@ import { Avatar } from '../components/Avatar';
 import { ProfileReviews } from '../components/ProfileReviews';
 import { Favorites, RatingHistogram, Stat } from '../components/TasteWidgets';
 import { tasteStats } from '../lib/taste';
-import { api } from '../lib/api';
+import { api, isNotFound } from '../lib/api';
 import type { ProfileReview } from '@tunelog/shared';
 import { useAuth } from '../context/auth';
 import { PageSpinner } from '../components/Spinner';
+import { ErrorState } from '../components/ErrorState';
 import { BackHeader } from '../components/subject';
 
 type AppUser = {
@@ -33,20 +34,27 @@ export default function Profile() {
   const [following, setFollowing] = useState(false);
   const [busy,      setBusy]      = useState(false);
   const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<unknown>(null);  // the profile itself failed to load
+  const [attempt,   setAttempt]   = useState(0);              // bumped by "Try again"
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;   // set when the id changes or the page unmounts, so a slow earlier request can't land late
     setLoading(true);
     Promise.allSettled([
       api.get(`/users/${id}`),
       api.get(`/users/${id}/reviews/counts`),
       api.get(`/users/${id}/reviews?type=all&offset=0&limit=${STATS_SAMPLE}`),
     ]).then(([u, c, r]) => {
-      if (u.status === 'fulfilled') { setUser(u.value); setFollowing(u.value.isFollowing); }
+      if (cancelled) return;
+      // On failure, clear rather than keep: otherwise the previous profile lingers under a new id.
+      if (u.status === 'fulfilled') { setUser(u.value); setFollowing(u.value.isFollowing); setError(null); }
+      else { setUser(null); setError(u.reason); }
       if (c.status === 'fulfilled') setCounts(c.value ?? { track: 0, album: 0, artist: 0 });
       if (r.status === 'fulfilled') setReviews(r.value?.reviews ?? []);
-    }).finally(() => setLoading(false));
-  }, [id]);
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [id, attempt]);
 
   async function toggleFollow() {
     if (busy || !id) return;
@@ -60,7 +68,13 @@ export default function Profile() {
   const isOwn = id === myId;
 
   if (loading) return <PageSpinner />;
-  if (!user) return <div className="flex items-center justify-center h-screen text-fg3">User not found.</div>;
+  if (!user) {
+    // A request that failed is not the same as a user that doesn't exist.
+    if (error && !isNotFound(error)) {
+      return <ErrorState size="page" back title="Couldn't load this profile" error={error} onRetry={() => setAttempt(a => a + 1)} />;
+    }
+    return <div className="flex items-center justify-center h-screen text-fg3">User not found.</div>;
+  }
 
   const totalReviews = counts.track + counts.album + counts.artist;
   const t = tasteStats(reviews);

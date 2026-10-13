@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, isNotFound } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { msToMin } from '@tunelog/shared';
 import { PageSpinner } from '../components/Spinner';
+import { ErrorState } from '../components/ErrorState';
 import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
 
 type SpotifyAlbum = {
@@ -31,25 +32,37 @@ export default function Album() {
   const [avgScore,        setAvgScore]        = useState<number | null>(null);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
   const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState<unknown>(null);   // the album itself failed to load
+  const [reviewsError,    setReviewsError]    = useState<unknown>(null);   // only the review list failed
+  const [attempt,         setAttempt]         = useState(0);               // bumped by "Try again"
 
   useEffect(() => {
     if (!token || !id) return;
+    let cancelled = false;   // set when the id changes or the page unmounts, so a slow earlier request can't land late
     setLoading(true);
     Promise.allSettled([
       api.get(`/albums/${id}`),
       api.get(`/albums/${id}/reviews?offset=0&limit=20`),
       api.get('/reviews/mine'),
     ]).then(([a, rd, mine]) => {
-      if (a.status === 'fulfilled') setAlbum(a.value);
+      if (cancelled) return;
+      // On failure, clear rather than keep: otherwise the previous album's page lingers under a new id.
+      if (a.status === 'fulfilled') { setAlbum(a.value); setError(null); }
+      else { setAlbum(null); setError(a.reason); }
       if (rd.status === 'fulfilled') {
         setReviews(rd.value.reviews ?? []);
         setAvgScore(rd.value.avgScore ?? null);
+        setReviewsError(null);
+      } else {
+        setReviews([]); setAvgScore(null);
+        setReviewsError(rd.reason);
       }
       if (mine.status === 'fulfilled') {
         setAlreadyReviewed((mine.value as any[]).some((r: any) => r.spotifyAlbumId === id && r.type === 'album'));
       }
-    }).finally(() => setLoading(false));
-  }, [id, token]);
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [id, token, attempt]);
 
   function rateAlbum() {
     if (!album || alreadyReviewed) return;
@@ -64,7 +77,13 @@ export default function Album() {
   }
 
   if (loading) return <PageSpinner />;
-  if (!album) return <div className="flex items-center justify-center h-screen text-fg3">Album not found.</div>;
+  if (!album) {
+    // A request that failed is not the same as an album that doesn't exist.
+    if (error && !isNotFound(error)) {
+      return <ErrorState size="page" back title="Couldn't load this album" error={error} onRetry={() => setAttempt(a => a + 1)} />;
+    }
+    return <div className="flex items-center justify-center h-screen text-fg3">Album not found.</div>;
+  }
 
   const art = album.images[0]?.url;
   const artistStr = album.artists.map(a => a.name).join(', ');
@@ -107,7 +126,9 @@ export default function Album() {
 
         {/* Reviews */}
         <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Reviews</p>
-        {reviews.length === 0
+        {reviewsError
+          ? <ErrorState size="compact" title="Couldn't load reviews" error={reviewsError} onRetry={() => setAttempt(a => a + 1)} />
+          : reviews.length === 0
           ? <p className="text-fg3 text-[13px] text-center py-8">No reviews yet — be the first!</p>
           : <div className="flex flex-col gap-3">
               {reviews.map(r => (

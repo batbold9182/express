@@ -8,7 +8,8 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import type { FeedItem } from '@tunelog/shared';
-import { Spinner } from '../components/Spinner';
+import { Spinner, ListSpinner } from '../components/Spinner';
+import { ErrorState } from '../components/ErrorState';
 
 const TABS = [
   { key: 'foryou',    label: 'For You',   endpoint: '/reviews/trending'  },
@@ -26,22 +27,28 @@ export default function Home() {
   const [items,       setItems]       = useState<FeedItem[]>([]);
   const [myId,        setMyId]        = useState('');
   const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<unknown>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore,     setHasMore]     = useState(false);
   const offsetRef      = useRef(0);
   const loadingMoreRef = useRef(false);
+  const loadSeq        = useRef(0);   // identifies the latest load, so a slower earlier one can be ignored
 
   const endpoint = TABS.find(t => t.key === tab)!.endpoint;
 
   async function load() {
     if (!token) return;
+    const seq = ++loadSeq.current;
+    const stale = () => seq !== loadSeq.current;   // we switched tab (or retried) while this was in flight
     setLoading(true);
     offsetRef.current = 0;
     try {
       const d = await api.get(`${endpoint}?offset=0&limit=${LIMIT}`);
+      if (stale()) return;
       setItems(d.items ?? []); setMyId(d.myId ?? ''); setHasMore(d.hasMore ?? false);
       offsetRef.current = (d.items ?? []).length;
-    } catch { setItems([]); } finally { setLoading(false); }
+      setError(null);
+    } catch (e) { if (!stale()) { setItems([]); setError(e); } } finally { if (!stale()) setLoading(false); }
   }
 
   async function loadMore() {
@@ -105,7 +112,9 @@ export default function Home() {
         {/* Feed column */}
         <div className="flex-1 overflow-y-auto pb-20 md:pb-4" onScroll={onScroll}>
           {loading ? (
-            <div className="flex items-center justify-center py-24"><Spinner /></div>
+            <ListSpinner />
+          ) : error ? (
+            <ErrorState title="Couldn't load the feed" error={error} onRetry={load} />
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center gap-4 py-24 text-center px-8">
               <EmptyIcon size={38} className="text-fg4" />

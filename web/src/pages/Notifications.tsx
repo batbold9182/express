@@ -5,7 +5,8 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import { timeAgo, subjectPath } from '@tunelog/shared';
-import { Spinner } from '../components/Spinner';
+import { ListSpinner } from '../components/Spinner';
+import { ErrorState } from '../components/ErrorState';
 import { HeartIcon, ChatBubbleIcon, MeIcon, ReplyIcon, BellIcon } from '../components/icons';
 
 type NotifEntity = { spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string; type?: string };
@@ -36,14 +37,25 @@ export default function Notifications() {
 
   const [items,   setItems]   = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0); // bumped by "Try again" to re-run the load
 
   useEffect(() => {
     if (!token) return;
+    let cancelled = false;   // set on retry or unmount, so a slow earlier request can't land late
     api.get('/notifications?limit=50')
-      .then((d: any) => setItems(d.notifications ?? []))
-      .catch(() => {})
-      .finally(() => { setLoading(false); markAllRead(); });
-  }, [token]);
+      .then((d: any) => {
+        if (cancelled) return;
+        setItems(d.notifications ?? []);
+        setError(null);
+        // Only once they have actually loaded. This used to run in `finally`, so a failed request
+        // still marked everything read and cleared the badge for notifications the user never saw.
+        markAllRead();
+      })
+      .catch(e => { if (!cancelled) setError(e); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [token, attempt]);
 
   function navigate(n: Notif) {
     const snap = n.entitySnapshot;
@@ -88,7 +100,13 @@ export default function Notifications() {
 
       <div className="flex-1 overflow-y-auto pb-20 md:pb-4">
         {loading ? (
-          <div className="flex justify-center pt-24"><Spinner /></div>
+          <ListSpinner />
+        ) : error ? (
+          <ErrorState
+            title="Couldn't load notifications"
+            error={error}
+            onRetry={() => { setLoading(true); setAttempt(a => a + 1); }}
+          />
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-3 pt-24 text-center px-8">
             <BellIcon size={38} className="text-fg4" />

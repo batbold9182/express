@@ -1,7 +1,8 @@
-import { NavLink, Outlet, Navigate } from 'react-router-dom';
+import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
 import { RateModal } from './RateModal';
+import { ErrorBoundary } from './ErrorBoundary';
 import { HomeIcon, SearchIcon, TrophyIcon, BellIcon, MeIcon, SettingsIcon } from './icons';
 import { NowPlaying, NowPlayingBar } from './NowPlaying';
 
@@ -16,6 +17,7 @@ const NAV = [
 export function Layout() {
   const { token } = useAuth();
   const { unreadCount } = useNotif();
+  const { pathname } = useLocation();
 
   if (!token) return <Navigate to="/login" replace />;
 
@@ -71,7 +73,10 @@ export function Layout() {
 
       {/* Main */}
       <main className="flex-1 min-w-0">
-        <Outlet />
+        {/* A crash in one page keeps the sidebar and bottom nav alive, and navigating away clears it. */}
+        <ErrorBoundary resetKey={pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       {/* Now Playing bar + bottom nav (mobile) */}

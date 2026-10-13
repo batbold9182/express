@@ -6,6 +6,7 @@ import { scoreColor, MOOD_COLOR, subjectPath } from '@tunelog/shared';
 import type { ProfileReview } from '@tunelog/shared';
 import { SearchIcon } from './icons';
 import { Spinner } from './Spinner';
+import { ErrorState } from './ErrorState';
 
 type Filter = 'all' | 'track' | 'album' | 'artist';
 type Counts = { track: number; album: number; artist: number };
@@ -28,6 +29,8 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
   const [reviews, setReviews] = useState<ProfileReview[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0); // bumped by "Try again"
 
   const loadingRef = useRef(false);
   const offsetRef  = useRef(0);
@@ -55,11 +58,12 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
         setReviews(list);
         offsetRef.current = list.length;
         setHasMore(d.hasMore ?? false);
+        setError(null);
       })
-      .catch(() => { if (!cancelled) { setReviews([]); setHasMore(false); } })
+      .catch(e => { if (!cancelled) { setReviews([]); setHasMore(false); setError(e); } })
       .finally(() => { if (!cancelled) { setLoading(false); loadingRef.current = false; } });
     return () => { cancelled = true; };
-  }, [endpointBase, filter, query]);
+  }, [endpointBase, filter, query, attempt]);
 
   async function loadMore() {
     if (loadingRef.current || !hasMore) return;
@@ -130,6 +134,8 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
       {/* List */}
       {loading ? (
         <div className="flex justify-center py-8"><Spinner size="md" /></div>
+      ) : error ? (
+        <ErrorState size="compact" title="Couldn't load reviews" error={error} onRetry={() => setAttempt(a => a + 1)} />
       ) : reviews.length === 0 ? (
         <p className="text-fg3 text-center text-[13px] py-8">{query ? 'No matches' : 'No reviews yet'}</p>
       ) : (

@@ -4,7 +4,8 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { scoreColor, TYPE_CFG, subjectPath } from '@tunelog/shared';
 import { TrophyIcon } from '../components/icons';
-import { Spinner } from '../components/Spinner';
+import { ListSpinner } from '../components/Spinner';
+import { ErrorState } from '../components/ErrorState';
 
 type TypeFilter = 'most-rated' | 'track' | 'album' | 'artist';
 
@@ -37,15 +38,19 @@ export default function Ranking() {
   const [filter,  setFilter]  = useState<TypeFilter>('most-rated');
   const [items,   setItems]   = useState<LeaderboardItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0); // bumped by "Try again" to re-run the load
 
   useEffect(() => {
     if (!token) return;
+    let cancelled = false;   // set when the filter changes or the page unmounts, so a slow earlier request can't land late
     setLoading(true);
     api.get<{ items: LeaderboardItem[] }>(`/reviews/leaderboard?type=${filter}&limit=100`)
-      .then(d => setItems(d.items ?? []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }, [filter, token]);
+      .then(d => { if (!cancelled) { setItems(d.items ?? []); setError(null); } })
+      .catch(e => { if (!cancelled) { setItems([]); setError(e); } })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [filter, token, attempt]);
 
   function navItem(item: LeaderboardItem) {
     const p = subjectPath(item);
@@ -84,7 +89,9 @@ export default function Ranking() {
       {/* List */}
       <div className="flex-1 overflow-y-auto pb-20 md:pb-4">
         {loading ? (
-          <div className="flex justify-center py-24"><Spinner /></div>
+          <ListSpinner />
+        ) : error ? (
+          <ErrorState title="Couldn't load the ranking" error={error} onRetry={() => setAttempt(a => a + 1)} />
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-24 text-center px-8">
             <TrophyIcon size={38} stroke="#5C5142" />
