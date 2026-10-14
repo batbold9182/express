@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { configureApi } from '../lib/api';
+import { queryClient } from '../queries/client';
 
 const TOKEN_KEY    = 'tunelog_token';
 const SPOTIFY_KEY  = 'tunelog_spotify_id';
@@ -33,6 +34,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     configureApi(t, () => {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(SPOTIFY_KEY);
+      // A 401 ends the session: cached data belonged to it, and must not be shown to the next sign-in.
+      queryClient.clear();
       setToken(null);
       setSpotifyId(null);
     });
@@ -48,6 +51,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function saveToken(t: string, id: string) {
     localStorage.setItem(TOKEN_KEY, t);
     localStorage.setItem(SPOTIFY_KEY, id);
+    // A new session never inherits the previous one's cache — including signing in as a different
+    // user without logging out first.
+    queryClient.clear();
     setToken(t);
     setSpotifyId(id);
     wire(t);
@@ -56,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function clearToken() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(SPOTIFY_KEY);
+    queryClient.clear();
     setToken(null);
     setSpotifyId(null);
     wire(null);

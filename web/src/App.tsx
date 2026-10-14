@@ -1,8 +1,12 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './queries/client';
 import { AuthProvider } from './context/auth';
 import { NotifProvider } from './context/notif';
 import { RateProvider } from './context/rate';
 import { Layout } from './components/Layout';
+import { Toaster } from './components/Toaster';
 
 import Login          from './pages/Login';
 import AuthCallback   from './pages/AuthCallback';
@@ -22,8 +26,14 @@ import Artist         from './pages/Artist';
 import Profile        from './pages/Profile';
 import SharedReview   from './pages/SharedReview';
 
+// Dev only. `import.meta.env.DEV` is a build-time constant, so the production build drops the import.
+const Devtools = import.meta.env.DEV
+  ? lazy(() => import('@tanstack/react-query-devtools').then(m => ({ default: m.ReactQueryDevtools })))
+  : null;
+
 export default function App() {
   return (
+    <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <NotifProvider>
         <RateProvider>
@@ -55,8 +65,11 @@ export default function App() {
               </Route>
             </Routes>
           </BrowserRouter>
+          <Toaster />
         </RateProvider>
       </NotifProvider>
     </AuthProvider>
+    {Devtools && <Suspense fallback={null}><Devtools initialIsOpen={false} buttonPosition="bottom-left" /></Suspense>}
+    </QueryClientProvider>
   );
 }

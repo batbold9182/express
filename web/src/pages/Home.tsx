@@ -1,72 +1,44 @@
-import { useEffect, useState, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ReviewCard } from '../components/ReviewCard';
 import { BellIcon, FlameIcon, UsersIcon } from '../components/icons';
 import { SuggestedUsers } from '../components/SuggestedUsers';
 import { TopScoredWidget } from '../components/TopScoredWidget';
-import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
-import type { FeedItem } from '@tunelog/shared';
+import { useFeed, removeReviewFromFeeds, type FeedTab } from '../queries/feed';
+import { flattenUnique } from '../queries/pagination';
+import { queryClient } from '../queries/client';
 import { Spinner, ListSpinner } from '../components/Spinner';
 import { ErrorState } from '../components/ErrorState';
 
 const TABS = [
-  { key: 'foryou',    label: 'For You',   endpoint: '/reviews/trending'  },
-  { key: 'following', label: 'Following', endpoint: '/users/feed/me'     },
+  { key: 'foryou',    label: 'For You'   },
+  { key: 'following', label: 'Following' },
 ] as const;
-type Tab = typeof TABS[number]['key'];
-const LIMIT = 15;
 
 export default function Home() {
   const { token } = useAuth();
   const { unreadCount } = useNotif();
   const nav = useNavigate();
 
-  const [tab,         setTab]         = useState<Tab>('foryou');
-  const [items,       setItems]       = useState<FeedItem[]>([]);
-  const [myId,        setMyId]        = useState('');
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState<unknown>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore,     setHasMore]     = useState(false);
-  const offsetRef      = useRef(0);
-  const loadingMoreRef = useRef(false);
-  const loadSeq        = useRef(0);   // identifies the latest load, so a slower earlier one can be ignored
+  const [tab, setTab] = useState<FeedTab>('foryou');
 
-  const endpoint = TABS.find(t => t.key === tab)!.endpoint;
-
-  async function load() {
-    if (!token) return;
-    const seq = ++loadSeq.current;
-    const stale = () => seq !== loadSeq.current;   // we switched tab (or retried) while this was in flight
-    setLoading(true);
-    offsetRef.current = 0;
-    try {
-      const d = await api.get(`${endpoint}?offset=0&limit=${LIMIT}`);
-      if (stale()) return;
-      setItems(d.items ?? []); setMyId(d.myId ?? ''); setHasMore(d.hasMore ?? false);
-      offsetRef.current = (d.items ?? []).length;
-      setError(null);
-    } catch (e) { if (!stale()) { setItems([]); setError(e); } } finally { if (!stale()) setLoading(false); }
-  }
-
-  async function loadMore() {
-    if (!token || !hasMore || loadingMoreRef.current) return;
-    loadingMoreRef.current = true; setLoadingMore(true);
-    try {
-      const d = await api.get(`${endpoint}?offset=${offsetRef.current}&limit=${LIMIT}`);
-      setItems(prev => [...prev, ...(d.items ?? [])]);
-      setHasMore(d.hasMore ?? false);
-      offsetRef.current += (d.items ?? []).length;
-    } catch {} finally { loadingMoreRef.current = false; setLoadingMore(false); }
-  }
-
-  useEffect(() => { setItems([]); setHasMore(false); load(); }, [tab, token]);
+  // Paging, caching per tab, cancelling a superseded request and retry are the query's job now.
+  const { data, error, isPending, isError, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError, refetch } =
+    useFeed(tab, { enabled: !!token });
+  const items = flattenUnique(data?.pages, page => page.items);
+  const myId  = data?.pages[0]?.myId ?? '';
+  const loading   = isPending;
+  const showError = isError && data === undefined;   // a failed *background* refresh keeps the feed on screen
 
   function onScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) loadMore();
+    // Not while a page is loading, and not after one failed (that shows its own retry instead of
+    // re-firing on every scroll tick).
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 400 && hasNextPage && !isFetchingNextPage && !isFetchNextPageError) {
+      void fetchNextPage();
+    }
   }
 
   const EmptyIcon = tab === 'following' ? UsersIcon : FlameIcon;
@@ -113,8 +85,8 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto pb-20 md:pb-4" onScroll={onScroll}>
           {loading ? (
             <ListSpinner />
-          ) : error ? (
-            <ErrorState title="Couldn't load the feed" error={error} onRetry={load} />
+          ) : showError ? (
+            <ErrorState title="Couldn't load the feed" error={error} onRetry={() => void refetch()} />
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center gap-4 py-24 text-center px-8">
               <EmptyIcon size={38} className="text-fg4" />
@@ -127,10 +99,17 @@ export default function Home() {
           ) : (
             <div className="flex flex-col gap-3 p-4 max-w-2xl xl:mx-0 xl:max-w-none xl:mr-0">
               {items.map(item => (
-                <ReviewCard key={item._id} item={item} myId={myId} onDelete={() => setItems(prev => prev.filter(r => r._id !== item._id))} />
+                <ReviewCard key={item._id} item={item} myId={myId} onDelete={() => removeReviewFromFeeds(queryClient, item._id)} />
               ))}
-              {loadingMore && <div className="flex justify-center py-4"><Spinner /></div>}
-              {!hasMore && items.length > 0 && <p className="text-center text-fg4 text-[12px] py-4">You're all caught up</p>}
+              {isFetchingNextPage && <div className="flex justify-center py-4"><Spinner /></div>}
+              {isFetchNextPageError && (
+                <div className="flex justify-center py-4">
+                  <button onClick={() => void fetchNextPage()} className="text-[12px] text-fg3 hover:text-fg cursor-pointer">
+                    Couldn't load more — tap to retry
+                  </button>
+                </div>
+              )}
+              {!hasNextPage && items.length > 0 && <p className="text-center text-fg4 text-[12px] py-4">You're all caught up</p>}
             </div>
           )}
         </div>

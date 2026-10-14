@@ -1,27 +1,38 @@
 import { useState, useRef } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { Avatar } from './Avatar';
 import { api } from '../lib/api';
+import { invalidate, queryClient, mutationMessage } from '../queries/client';
+import { patchReviewInFeeds } from '../queries/feed';
+import { withCommentLike } from '../queries/feedPatches';
+import { afterLikeOrComment } from '../queries/invalidation';
 import { timeAgo, MAX_COMMENT_LENGTH } from '@tunelog/shared';
 import type { Comment } from '@tunelog/shared';
 import { useAuth } from '../context/auth';
 import { HeartIcon } from './icons';
 
-type Props = { reviewId: string; initial: Comment[]; myId: string };
+type Props = { reviewId: string; comments: Comment[]; myId: string };
 
 // The three comment-mutation endpoints (POST / PUT / DELETE) all return the full, populated
-// comments array — so every write does `setComments(res)`, never a splice. Threads are one level
-// deep: a reply to a reply attaches to the thread root, matching the mobile CommentSection.
+// comments array. That array replaces the review's `comments` in the cached feed, so `comments` here
+// is always what the cache says — there is no copy in component state to go stale when the feed
+// refreshes. Threads are one level deep: a reply to a reply attaches to the thread root, matching
+// the mobile CommentSection.
 
 const authorName   = (c: Comment) => (c.userId as { displayName?: string })?.displayName ?? '?';
 const authorId     = (c: Comment) => (c.userId as { _id?: string })?._id;
 const authorAvatar = (c: Comment) => (c.userId as { avatarUrl?: string })?.avatarUrl;
 
-export function CommentSection({ reviewId, initial, myId }: Props) {
+/** Puts a review's new comments into the cached feed, and marks the feed out of date for its next mount. */
+function applyComments(reviewId: string, updated: Comment[]) {
+  patchReviewInFeeds(queryClient, reviewId, r => ({ ...r, comments: updated }));
+  void invalidate(afterLikeOrComment());
+}
+
+export function CommentSection({ reviewId, comments, myId }: Props) {
   const { token } = useAuth();
-  const [comments,    setComments]    = useState<Comment[]>(initial);
   const [text,        setText]        = useState('');
   const [open,        setOpen]        = useState(false);
-  const [sending,     setSending]     = useState(false);
   const [replyingTo,  setReplyingTo]  = useState<Comment | null>(null); // thread root — drives parentId
   const [replyTarget, setReplyTarget] = useState<Comment | null>(null); // who was tapped — display only
   const inputRef = useRef<HTMLInputElement>(null);
@@ -29,23 +40,25 @@ export function CommentSection({ reviewId, initial, myId }: Props) {
   const topLevel   = comments.filter(c => !c.parentId);
   const repliesFor = (id: string) => comments.filter(c => c.parentId === id);
 
-  async function send() {
-    if (!text.trim() || sending || !token) return;
-    setSending(true);
-    try {
-      const body: { text: string; parentId?: string } = { text: text.trim() };
-      if (replyingTo) body.parentId = replyingTo._id;
-      const updated = await api.post<Comment[]>(`/reviews/${reviewId}/comments`, body);
-      setComments(updated);
+  // Posting: the draft is kept on failure and the message shows under the box (`meta.inline`).
+  const sendMutation = useMutation({
+    mutationFn: (body: { text: string; parentId?: string }) => api.post<Comment[]>(`/reviews/${reviewId}/comments`, body),
+    meta: { inline: true },
+    onSuccess: (updated) => {
+      applyComments(reviewId, updated);
       setText('');
       setReplyingTo(null);
       setReplyTarget(null);
       setOpen(true);
-    } catch {
-      /* keep the draft so the user can retry */
-    } finally {
-      setSending(false);
-    }
+    },
+  });
+  const sending = sendMutation.isPending;
+
+  function send() {
+    if (!text.trim() || sending || !token) return;
+    const body: { text: string; parentId?: string } = { text: text.trim() };
+    if (replyingTo) body.parentId = replyingTo._id;
+    sendMutation.mutate(body);
   }
 
   function startReply(target: Comment) {
@@ -79,7 +92,7 @@ export function CommentSection({ reviewId, initial, myId }: Props) {
           replies={repliesFor(c._id)}
           reviewId={reviewId}
           myId={myId}
-          onChange={setComments}
+          onChange={updated => applyComments(reviewId, updated)}
           onReply={startReply}
         />
       ))}
@@ -102,7 +115,7 @@ export function CommentSection({ reviewId, initial, myId }: Props) {
             <input
               ref={inputRef}
               value={text}
-              onChange={e => setText(e.target.value.slice(0, MAX_COMMENT_LENGTH))}
+              onChange={e => { setText(e.target.value.slice(0, MAX_COMMENT_LENGTH)); if (sendMutation.isError) sendMutation.reset(); }}
               onKeyDown={e => { if (e.key === 'Enter') send(); }}
               placeholder={replyTarget ? `Reply to @${authorName(replyTarget)}…` : 'Add a comment…'}
               className="flex-1 bg-transparent text-[12px] text-fg placeholder:text-fg4 border-b border-white/10 focus:border-violet outline-none py-1 transition-colors"
@@ -120,6 +133,9 @@ export function CommentSection({ reviewId, initial, myId }: Props) {
               </button>
             )}
           </div>
+          {sendMutation.isError && (
+            <p role="alert" className="text-[11px]" style={{ color: '#E0685C' }}>{mutationMessage(sendMutation.error)}</p>
+          )}
         </div>
       )}
     </div>
@@ -166,56 +182,65 @@ function Row({ comment, reviewId, myId, onChange, onReply, isReply = false }: {
   onReply: (c: Comment) => void;
   isReply?: boolean;
 }) {
-  const [liked,     setLiked]     = useState((comment.likes ?? []).includes(myId));
-  const [likeCount, setLikeCount] = useState((comment.likes ?? []).length);
-  const [likeBusy,  setLikeBusy]  = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [editing,   setEditing]   = useState(false);
   const [editText,  setEditText]  = useState(comment.text);
-  const [busy,      setBusy]      = useState(false);
 
+  // Straight from the cached comment: a click edits the cache (below), and the row follows.
+  const liked     = (comment.likes ?? []).includes(myId);
+  const likeCount = (comment.likes ?? []).length;
   const isOwn = authorId(comment) === myId;
 
-  async function toggleLike() {
-    if (likeBusy) return;
-    setLikeBusy(true);
-    const was = liked;
-    setLiked(!was);
-    setLikeCount(n => (was ? n - 1 : n + 1));
-    try {
-      const res = was
-        ? await api.del<{ likes: number }>(`/reviews/${reviewId}/comments/${comment._id}/like`)
-        : await api.post<{ likes: number }>(`/reviews/${reviewId}/comments/${comment._id}/like`, {});
-      setLikeCount(res.likes);
-    } catch {
-      setLiked(was);
-      setLikeCount(n => (was ? n + 1 : n - 1));
-    } finally {
-      setLikeBusy(false);
-    }
-  }
+  const likeMutation = useMutation({
+    mutationFn: (wasLiked: boolean) =>
+      wasLiked
+        ? api.del<{ likes: number }>(`/reviews/${reviewId}/comments/${comment._id}/like`)
+        : api.post<{ likes: number }>(`/reviews/${reviewId}/comments/${comment._id}/like`, {}),
+    onMutate: (wasLiked: boolean) => ({
+      rollback: patchReviewInFeeds(queryClient, reviewId, r => ({
+        ...r, comments: withCommentLike(r.comments, comment._id, myId, wasLiked),
+      })),
+    }),
+    onError: (_error, _wasLiked, context) => context?.rollback(),   // and the global handler shows a toast
+    onSuccess: () => { void invalidate(afterLikeOrComment()); },
+  });
 
-  async function saveEdit() {
-    if (!editText.trim() || busy) return;
-    setBusy(true);
-    try {
-      const updated = await api.put<Comment[]>(`/reviews/${reviewId}/comments/${comment._id}`, { text: editText.trim() });
+  const editMutation = useMutation({
+    mutationFn: (newText: string) => api.put<Comment[]>(`/reviews/${reviewId}/comments/${comment._id}`, { text: newText }),
+    meta: { inline: true },   // the editor stays open and shows the message
+    onSuccess: (updated) => {
       onChange(updated);
       setEditing(false);
       setShowActions(false);
-    } catch {
-      /* leave the editor open on failure */
-    } finally {
-      setBusy(false);
-    }
+    },
+  });
+  const busy = editMutation.isPending;
+
+  const removeMutation = useMutation({
+    mutationFn: () => api.del<Comment[]>(`/reviews/${reviewId}/comments/${comment._id}`),
+    onSuccess: (updated) => onChange(updated),   // a failure shows as a toast
+  });
+
+  function saveEdit() {
+    if (!editText.trim() || busy) return;
+    editMutation.mutate(editText.trim());
   }
 
-  async function remove() {
-    if (!window.confirm('Delete this comment?')) return;
-    try {
-      const updated = await api.del<Comment[]>(`/reviews/${reviewId}/comments/${comment._id}`);
-      onChange(updated);
-    } catch { /* ignore */ }
+  function startEdit() {
+    editMutation.reset();
+    setEditText(comment.text);   // start from what is there now
+    setEditing(true);
+    setShowActions(false);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setEditText(comment.text);
+  }
+
+  function remove() {
+    if (removeMutation.isPending || !window.confirm('Delete this comment?')) return;
+    removeMutation.mutate();
   }
 
   return (
@@ -228,20 +253,25 @@ function Row({ comment, reviewId, myId, onChange, onReply, isReply = false }: {
         </div>
 
         {editing ? (
-          <div className="flex gap-2 items-center">
-            <input
-              value={editText}
-              onChange={e => setEditText(e.target.value.slice(0, MAX_COMMENT_LENGTH))}
-              onKeyDown={e => {
-                if (e.key === 'Enter') saveEdit();
-                if (e.key === 'Escape') { setEditing(false); setEditText(comment.text); }
-              }}
-              autoFocus
-              className="flex-1 bg-transparent text-[12px] text-fg border-b border-violet/60 outline-none py-0.5"
-            />
-            <button onClick={saveEdit} disabled={busy} className="text-[11px] font-semibold text-violet cursor-pointer disabled:opacity-50">Save</button>
-            <button onClick={() => { setEditing(false); setEditText(comment.text); }} className="text-fg3 hover:text-fg cursor-pointer text-xs">✕</button>
-          </div>
+          <>
+            <div className="flex gap-2 items-center">
+              <input
+                value={editText}
+                onChange={e => { setEditText(e.target.value.slice(0, MAX_COMMENT_LENGTH)); if (editMutation.isError) editMutation.reset(); }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') saveEdit();
+                  if (e.key === 'Escape') cancelEdit();
+                }}
+                autoFocus
+                className="flex-1 bg-transparent text-[12px] text-fg border-b border-violet/60 outline-none py-0.5"
+              />
+              <button onClick={saveEdit} disabled={busy} className="text-[11px] font-semibold text-violet cursor-pointer disabled:opacity-50">Save</button>
+              <button onClick={cancelEdit} className="text-fg3 hover:text-fg cursor-pointer text-xs">✕</button>
+            </div>
+            {editMutation.isError && (
+              <p role="alert" className="text-[11px]" style={{ color: '#E0685C' }}>{mutationMessage(editMutation.error)}</p>
+            )}
+          </>
         ) : (
           <p className="text-[12px] text-fg2 break-words leading-snug">{comment.text}</p>
         )}
@@ -249,7 +279,7 @@ function Row({ comment, reviewId, myId, onChange, onReply, isReply = false }: {
         {!editing && (
           <div className="flex items-center gap-3 mt-0.5">
             <button
-              onClick={toggleLike}
+              onClick={() => { if (!likeMutation.isPending) likeMutation.mutate(liked); }}
               className="flex items-center gap-1 text-[10px] cursor-pointer transition-colors"
               style={{ color: liked ? '#E0685C' : '#5C5142' }}
             >
@@ -267,7 +297,7 @@ function Row({ comment, reviewId, myId, onChange, onReply, isReply = false }: {
 
         {isOwn && showActions && !editing && (
           <div className="flex items-center gap-3 text-[11px] px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/8 self-start mt-1">
-            <button onClick={() => { setEditing(true); setShowActions(false); }} className="text-violet cursor-pointer font-semibold">Edit</button>
+            <button onClick={startEdit} className="text-violet cursor-pointer font-semibold">Edit</button>
             <span className="w-px h-3 bg-white/15" />
             <button onClick={remove} className="text-red cursor-pointer font-semibold">Delete</button>
             <span className="w-px h-3 bg-white/15" />

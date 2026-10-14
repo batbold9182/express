@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
+import { useLeaderboard, type LeaderboardItem } from '../queries/leaderboard';
 import { scoreColor, TYPE_CFG, subjectPath } from '@tunelog/shared';
 import { TrophyIcon } from '../components/icons';
 import { ListSpinner } from '../components/Spinner';
@@ -16,18 +16,6 @@ const FILTERS: { key: TypeFilter; label: string }[] = [
   { key: 'artist',     label: 'Artists'    },
 ];
 
-type LeaderboardItem = {
-  type: 'track' | 'album' | 'artist';
-  trackName: string;
-  artistName: string;
-  albumArt?: string;
-  spotifyTrackId?: string;
-  spotifyAlbumId?: string;
-  spotifyArtistId?: string;
-  avgScore: number;
-  reviewCount: number;
-};
-
 // Top 3 get a tinted number chip — gold / silver / bronze.
 const MEDAL_TINT: Record<number, string> = { 1: '#EDC94A', 2: '#C7CBD1', 3: '#D0894F' };
 
@@ -35,22 +23,15 @@ export default function Ranking() {
   const { token } = useAuth();
   const nav = useNavigate();
 
-  const [filter,  setFilter]  = useState<TypeFilter>('most-rated');
-  const [items,   setItems]   = useState<LeaderboardItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<unknown>(null);
-  const [attempt, setAttempt] = useState(0); // bumped by "Try again" to re-run the load
+  const [filter, setFilter] = useState<TypeFilter>('most-rated');
 
-  useEffect(() => {
-    if (!token) return;
-    let cancelled = false;   // set when the filter changes or the page unmounts, so a slow earlier request can't land late
-    setLoading(true);
-    api.get<{ items: LeaderboardItem[] }>(`/reviews/leaderboard?type=${filter}&limit=100`)
-      .then(d => { if (!cancelled) { setItems(d.items ?? []); setError(null); } })
-      .catch(e => { if (!cancelled) { setItems([]); setError(e); } })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [filter, token, attempt]);
+  // Loading, error, retry, caching and cancelling a superseded request are all the query's job now.
+  const { data, error, isPending, isError, refetch } = useLeaderboard(filter, 100, { enabled: !!token });
+  const items = data ?? [];
+  // A failed *background* refresh keeps showing the data we already have; the error screen is for
+  // when there is nothing to show.
+  const loading   = isPending;
+  const showError = isError && data === undefined;
 
   function navItem(item: LeaderboardItem) {
     const p = subjectPath(item);
@@ -90,8 +71,8 @@ export default function Ranking() {
       <div className="flex-1 overflow-y-auto pb-20 md:pb-4">
         {loading ? (
           <ListSpinner />
-        ) : error ? (
-          <ErrorState title="Couldn't load the ranking" error={error} onRetry={() => setAttempt(a => a + 1)} />
+        ) : showError ? (
+          <ErrorState title="Couldn't load the ranking" error={error} onRetry={() => void refetch()} />
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-24 text-center px-8">
             <TrophyIcon size={38} stroke="#5C5142" />

@@ -4,7 +4,11 @@ import { Avatar } from './Avatar';
 import { LikeButton } from './LikeButton';
 import { CommentSection } from './CommentSection';
 import { ShareButton } from './ShareButton';
+import { useMutation } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { invalidate, queryClient, mutationMessage } from '../queries/client';
+import { patchReviewInFeeds } from '../queries/feed';
+import { afterReviewEditOrDelete } from '../queries/invalidation';
 import { timeAgo, scoreColor, MOOD_LIST, spotifyUrlFor, MOOD_COLOR, TYPE_CFG, subjectPath } from '@tunelog/shared';
 import type { FeedItem } from '@tunelog/shared';
 import { ChatBubbleIcon, SpotifyIcon } from './icons';
@@ -20,10 +24,12 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
   const [editText,    setEditText]     = useState(item.text);
   const [editScore,   setEditScore]    = useState(item.score);
   const [editMoods,   setEditMoods]    = useState<string[]>(item.moods ?? []);
-  const [dispText,    setDispText]     = useState(item.text);
-  const [dispScore,   setDispScore]    = useState(item.score);
-  const [dispMoods,   setDispMoods]    = useState<string[]>(item.moods ?? []);
-  const [busy, setBusy] = useState(false);
+
+  // What the card shows is `item` — the cached review — so there is no second copy to go stale. A save
+  // edits the cached review in place (below), and the card follows.
+  const dispText  = item.text;
+  const dispScore = item.score;
+  const dispMoods = item.moods ?? [];
 
   const isOwn = (item.userId as any)?._id?.toString() === myId;
 
@@ -36,20 +42,41 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
     setEditMoods(prev => prev.includes(m) ? prev.filter(x => x !== m) : prev.length < 3 ? [...prev, m] : prev);
   }
 
-  async function saveEdit() {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await api.put(`/reviews/${item._id}`, { text: editText, score: editScore, moods: editMoods });
-      setDispText(editText); setDispScore(editScore); setDispMoods(editMoods);
+  // Edit: the form shows a failure itself (`meta.inline`), so no toast on top of it.
+  const editMutation = useMutation({
+    mutationFn: (changes: { text: string; score: number; moods: string[] }) => api.put(`/reviews/${item._id}`, changes),
+    meta: { inline: true },
+    onSuccess: (_result, changes) => {
+      patchReviewInFeeds(queryClient, item._id, r => ({ ...r, ...changes }));
+      void invalidate(afterReviewEditOrDelete(item));   // leaderboards, the item's page, "Reviewed" badges
       setEditing(false); setShowActions(false);
-    } catch {} finally { setBusy(false); }
+    },
+  });
+  const saving = editMutation.isPending;
+
+  function openEdit() {
+    editMutation.reset();
+    setEditText(item.text); setEditScore(item.score); setEditMoods(item.moods ?? []);   // start from what is there now
+    setEditing(true);
   }
 
-  async function doDelete() {
-    if (!window.confirm('Delete this review?')) return;
-    await api.del(`/reviews/${item._id}`);
-    onDelete();
+  function saveEdit() {
+    if (saving) return;
+    editMutation.mutate({ text: editText, score: editScore, moods: editMoods });
+  }
+
+  // Delete: a failure shows as a toast (the default), the card stays.
+  const deleteMutation = useMutation({
+    mutationFn: () => api.del(`/reviews/${item._id}`),
+    onSuccess: () => {
+      void invalidate(afterReviewEditOrDelete(item));   // the "Reviewed" badge and the leaderboards must forget it
+      onDelete();
+    },
+  });
+
+  function doDelete() {
+    if (deleteMutation.isPending || !window.confirm('Delete this review?')) return;
+    deleteMutation.mutate();
   }
 
   const spotifyUrl = spotifyUrlFor(item);
@@ -94,7 +121,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
         {/* Actions menu */}
         {isOwn && showActions && !editing && (
           <div className="flex items-center gap-3 text-[12px] px-3 py-2 rounded-xl border border-white/10 bg-white/8 self-start">
-            <button onClick={() => setEditing(true)} className="text-violet cursor-pointer font-semibold">Edit</button>
+            <button onClick={openEdit} className="text-violet cursor-pointer font-semibold">Edit</button>
             <div className="w-px h-3 bg-white/15" />
             <button onClick={doDelete} className="text-red cursor-pointer font-semibold">Delete</button>
             <div className="w-px h-3 bg-white/15" />
@@ -113,8 +140,8 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
                 autoFocus
               />
               <div className="flex gap-2 shrink-0">
-                <button onClick={saveEdit} disabled={busy} className="text-[12px] text-violet font-semibold cursor-pointer disabled:opacity-50">Save</button>
-                <button onClick={() => { setEditing(false); setEditText(dispText); setEditScore(dispScore); setEditMoods(dispMoods); }} className="text-[12px] text-fg3 cursor-pointer">✕</button>
+                <button onClick={saveEdit} disabled={saving} className="text-[12px] text-violet font-semibold cursor-pointer disabled:opacity-50">Save</button>
+                <button onClick={() => setEditing(false)} className="text-[12px] text-fg3 cursor-pointer">✕</button>
               </div>
             </div>
             <div>
@@ -140,6 +167,9 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
                 ))}
               </div>
             </div>
+            {editMutation.isError && (
+              <p role="alert" className="text-[12px]" style={{ color: '#E0685C' }}>{mutationMessage(editMutation.error)}</p>
+            )}
           </div>
         )}
 
@@ -220,7 +250,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
 
       {/* Comments — full width, no side padding */}
       <div className="border-t border-white/6 px-4 pb-4 pt-3">
-        <CommentSection reviewId={item._id} initial={(item as any).comments ?? []} myId={myId} />
+        <CommentSection reviewId={item._id} comments={item.comments ?? []} myId={myId} />
       </div>
     </div>
   );

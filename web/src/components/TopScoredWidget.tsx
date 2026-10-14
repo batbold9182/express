@@ -1,32 +1,17 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import { useLeaderboard, type LeaderboardItem } from '../queries/leaderboard';
 import { scoreColor, subjectPath } from '@tunelog/shared';
-
-type TopItem = {
-  type?: string; trackName: string; artistName: string; albumArt?: string;
-  avgScore: number; reviewCount: number;
-  spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string;
-};
 
 export function TopScoredWidget() {
   const nav = useNavigate();
-  const [items, setItems] = useState<TopItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items = [], isPending } = useLeaderboard('top-scored', 5);
 
-  useEffect(() => {
-    api.get<{ items: TopItem[] }>('/reviews/leaderboard?type=top-scored&limit=5')
-      .then(d => setItems(d.items ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  function navItem(item: TopItem) {
+  function navItem(item: LeaderboardItem) {
     const p = subjectPath(item);
     if (p) nav(p);
   }
 
-  if (loading) {
+  if (isPending) {
     return (
       <div className="rounded-2xl border border-white/8 p-4" style={{ background: 'rgba(255,255,255,0.03)' }}>
         <div className="h-4 w-20 rounded bg-white/8 animate-pulse mb-4" />
@@ -41,6 +26,7 @@ export function TopScoredWidget() {
     );
   }
 
+  // A side panel, not the page: if it failed or there is nothing to show, it simply isn't there.
   if (items.length === 0) return null;
 
   return (

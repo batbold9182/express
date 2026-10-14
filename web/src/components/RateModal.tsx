@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useRate } from '../context/rate';
 import { useAuth } from '../context/auth';
 import { api } from '../lib/api';
+import { invalidate } from '../queries/client';
+import { afterReviewChange } from '../queries/invalidation';
 import { scoreColor, MOOD_LIST, MAX_REVIEW_LENGTH, MAX_MOODS } from '@tunelog/shared';
 import { CheckIcon } from './icons';
 
@@ -52,6 +54,11 @@ export function RateModal() {
         if (item!.spotifyAlbumId)  body.spotifyAlbumId  = item!.spotifyAlbumId;
       }
       await api.post('/reviews', body);
+      // Everything cached that this review changes: the "Reviewed" badges, the leaderboards, the
+      // item's own page. (Until now they refetched on every visit; cached, they would lag.)
+      void invalidate(afterReviewChange({
+        spotifyTrackId: body.spotifyTrackId, spotifyAlbumId: body.spotifyAlbumId, spotifyArtistId: body.spotifyArtistId,
+      }));
       setDone(true);
       setTimeout(() => setItem(null), 1200);
     } catch {} finally { setBusy(false); }

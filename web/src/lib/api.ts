@@ -75,7 +75,8 @@ async function request<T = any>(method: string, path: string, body?: object, sig
 
     if (res.status === 401) {
       _onAuthFailure?.();
-      throw new Error('401');
+      // The status is carried so a retry policy can see that asking again won't help.
+      throw Object.assign(new Error('401'), { status: 401 }) as ApiError;
     }
     if (res.status === 204) return null as T;
     if (!res.ok) {

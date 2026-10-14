@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
@@ -7,78 +7,67 @@ import { Avatar } from '../components/Avatar';
 import { scoreColor, subjectPath } from '@tunelog/shared';
 import { SearchIcon, FlameIcon } from '../components/icons';
 import { Spinner } from '../components/Spinner';
-
-type Track  = { id: string; name: string; artists: { name: string }[]; album: { id: string; images: { url: string }[] } };
-type Album  = { id: string; name: string; artists: { name: string }[]; images: { url: string }[] };
-type Artist = { id: string; name: string; images: { url: string }[]; genres: string[] };
-type UserResult = { _id: string; spotifyId: string; displayName: string; avatarUrl: string; isFollowing: boolean };
-type TrendingItem = { type?: string; trackName: string; artistName: string; albumArt: string; avgScore: number; reviewCount: number; spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string };
+import { ErrorState } from '../components/ErrorState';
+import { useLeaderboard, type LeaderboardItem } from '../queries/leaderboard';
+import { useMyReviews } from '../queries/reviews';
+import { reviewedIds } from '../queries/reviewedIds';
+import { useCatalogSearch, useUserSearch, type UserResult } from '../queries/search';
+import { invalidate } from '../queries/client';
+import { afterFollowChange } from '../queries/invalidation';
+import { resolveChoice, type Choice } from '../queries/toggle';
 
 const SCOPES   = ['All', 'Songs', 'Albums', 'Artists', 'People'];
 const TYPE_MAP = ['track,album,artist', 'track', 'album', 'artist'];
+const DEBOUNCE_MS = 400;
 
 export default function Search() {
   const nav = useNavigate();
-  const { token, spotifyId } = useAuth();
+  const { spotifyId } = useAuth();
   const { setItem } = useRate();
 
-  const [q,        setQ]        = useState('');
-  const [scope,    setScope]    = useState(0);
-  const [loading,  setLoading]  = useState(false);
-  const [tracks,   setTracks]   = useState<Track[]>([]);
-  const [albums,   setAlbums]   = useState<Album[]>([]);
-  const [artists,  setArtists]  = useState<Artist[]>([]);
-  const [users,    setUsers]    = useState<UserResult[]>([]);
-  const [trending, setTrending] = useState<TrendingItem[]>([]);
-  const [reviewedTrackIds,  setReviewedTrackIds]  = useState<Set<string>>(new Set());
-  const [reviewedAlbumIds,  setReviewedAlbumIds]  = useState<Set<string>>(new Set());
-  const [reviewedArtistIds, setReviewedArtistIds] = useState<Set<string>>(new Set());
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [q,           setQ]           = useState('');
+  const [debouncedQ,  setDebouncedQ]  = useState('');
+  const [scope,       setScope]       = useState(0);
 
   const isPeople = scope === 4;
+  const typed = q.trim();
 
+  // The request follows the text after a pause, not every keystroke.
   useEffect(() => {
-    if (!token) return;
-    api.get('/reviews/mine').then((data: any[]) => {
-      const tIds = new Set<string>(), aIds = new Set<string>(), arIds = new Set<string>();
-      data.forEach(r => {
-        if (r.type === 'artist' && r.spotifyArtistId) arIds.add(r.spotifyArtistId);
-        else if (r.type === 'album' && r.spotifyAlbumId) aIds.add(r.spotifyAlbumId);
-        else if (r.spotifyTrackId) tIds.add(r.spotifyTrackId);
-      });
-      setReviewedTrackIds(tIds); setReviewedAlbumIds(aIds); setReviewedArtistIds(arIds);
-    }).catch(() => {});
-    api.get('/reviews/leaderboard?type=most-rated&limit=5')
-      .then((d: any) => setTrending(d.items ?? []))
-      .catch(() => {});
-  }, [token]);
+    const t = setTimeout(() => setDebouncedQ(typed), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [typed]);
 
-  useEffect(() => {
-    if (!q.trim() || !token) { setTracks([]); setAlbums([]); setArtists([]); setUsers([]); return; }
-    const ctrl = new AbortController();
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      setLoading(true);
-      try {
-        if (isPeople) {
-          const d = await api.get(`/users/search?q=${encodeURIComponent(q)}`, ctrl.signal);
-          setUsers(d);
-        } else {
-          const d = await api.get(`/search?q=${encodeURIComponent(q)}&type=${TYPE_MAP[scope]}`, ctrl.signal);
-          setTracks(d.tracks?.items ?? []); setAlbums(d.albums?.items ?? []); setArtists(d.artists?.items ?? []); setUsers([]);
-        }
-      } catch (e: any) { if (e.name === 'AbortError') return; }
-      finally { setLoading(false); }
-    }, 400);
-    return () => { ctrl.abort(); if (timer.current) clearTimeout(timer.current); };
-  }, [q, scope, token]);
+  // Both searches are always called (hooks can't be conditional); only the one for this scope runs.
+  const catalog = useCatalogSearch(TYPE_MAP[scope] ?? TYPE_MAP[0], debouncedQ, !isPeople);
+  const people  = useUserSearch(debouncedQ, isPeople);
+  const active  = isPeople ? people : catalog;
 
-  function navTrending(item: TrendingItem) {
+  const { data: mine } = useMyReviews();
+  const reviewed = useMemo(() => reviewedIds(mine ?? []), [mine]);
+  const { data: trending = [] } = useLeaderboard('most-rated', 5);
+
+  const tracks  = catalog.data?.tracks?.items  ?? [];
+  const albums  = catalog.data?.albums?.items  ?? [];
+  const artists = catalog.data?.artists?.items ?? [];
+  const users   = people.data ?? [];
+  const hasResults = isPeople ? users.length > 0 : tracks.length + albums.length + artists.length > 0;
+
+  // What the screen shows for non-empty text. Previous results stay up (dimmed) while the next ones
+  // load, so the list is replaced, not blanked — and "No results" can only mean the answer for the
+  // text currently in the box came back empty.
+  const waiting       = typed !== '' && typed !== debouncedQ;   // still inside the pause before the request
+  const hasData       = active.data !== undefined;
+  const showSpinner   = typed !== '' && !active.isError && !hasData;
+  const showError     = typed !== '' && active.isError && !waiting;
+  const showResults   = typed !== '' && hasData;
+  const stale         = showResults && (waiting || active.isPlaceholderData);
+  const showNoResults = showResults && !stale && !hasResults;
+
+  function navTrending(item: LeaderboardItem) {
     const p = subjectPath(item);
     if (p) nav(p);
   }
-
-  const hasResults = tracks.length > 0 || albums.length > 0 || artists.length > 0;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -114,10 +103,19 @@ export default function Search() {
       </div>
 
       <div className="flex-1 overflow-y-auto pb-20 md:pb-4 px-4 py-4 max-w-2xl mx-auto w-full">
-        {loading && <div className="flex justify-center pt-12"><Spinner /></div>}
+        {showSpinner && <div className="flex justify-center pt-12"><Spinner /></div>}
+
+        {showError && (
+          <ErrorState
+            size="compact"
+            title="Search failed"
+            error={active.error}
+            onRetry={() => void active.refetch()}
+          />
+        )}
 
         {/* Empty: trending */}
-        {!loading && !q && !isPeople && trending.length > 0 && (
+        {!typed && !isPeople && trending.length > 0 && (
           <div className="flex flex-col gap-2">
             <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-fg3 mb-1">
               <FlameIcon size={13} className="text-pink" /> Trending now
@@ -141,67 +139,73 @@ export default function Search() {
           </div>
         )}
 
-        {!loading && !q && isPeople && (
+        {!typed && isPeople && (
           <div className="flex flex-col items-center gap-3 pt-12 text-fg3"><SearchIcon size={32} strokeWidth={1.5} caps={false} /><p>Find people to follow</p></div>
         )}
 
-        {!loading && !!q && !hasResults && !isPeople && (
-          <p className="text-center text-fg3 pt-12 text-[13px]">No results for "{q}"</p>
+        {showNoResults && (
+          <p className="text-center text-fg3 pt-12 text-[13px]">
+            {isPeople ? `No people found for "${typed}"` : `No results for "${typed}"`}
+          </p>
         )}
 
-        {/* People */}
-        {!loading && isPeople && users.map(u => (
-          <UserRow key={u._id} user={u} myId={spotifyId!} nav={nav} />
-        ))}
+        {showResults && (
+          <div className={`transition-opacity ${stale ? 'opacity-60' : ''}`}>
+            {/* People */}
+            {isPeople && users.map(u => (
+              <UserRow key={u._id} user={u} myId={spotifyId!} nav={nav} />
+            ))}
 
-        {/* Songs */}
-        {!loading && !isPeople && (scope === 0 || scope === 1) && tracks.map(t => {
-          const reviewed = reviewedTrackIds.has(t.id);
-          return (
-            <MusicRow
-              key={t.id}
-              img={t.album?.images?.[2]?.url}
-              title={t.name}
-              sub={t.artists.map(a => a.name).join(', ')}
-              reviewed={reviewed}
-              onPress={() => nav(`/song/${t.id}`)}
-              onRate={() => setItem({ type: 'track', spotifyTrackId: t.id, trackName: t.name, artistName: t.artists[0]?.name ?? '', albumArt: t.album?.images?.[1]?.url ?? '' })}
-            />
-          );
-        })}
+            {/* Songs */}
+            {!isPeople && (scope === 0 || scope === 1) && tracks.map(t => {
+              const isReviewed = reviewed.tracks.has(t.id);
+              return (
+                <MusicRow
+                  key={t.id}
+                  img={t.album?.images?.[2]?.url}
+                  title={t.name}
+                  sub={t.artists.map(a => a.name).join(', ')}
+                  reviewed={isReviewed}
+                  onPress={() => nav(`/song/${t.id}`)}
+                  onRate={() => setItem({ type: 'track', spotifyTrackId: t.id, trackName: t.name, artistName: t.artists[0]?.name ?? '', albumArt: t.album?.images?.[1]?.url ?? '' })}
+                />
+              );
+            })}
 
-        {/* Albums */}
-        {!loading && !isPeople && (scope === 0 || scope === 2) && albums.map(a => {
-          const reviewed = reviewedAlbumIds.has(a.id);
-          return (
-            <MusicRow
-              key={a.id}
-              img={a.images?.[2]?.url}
-              title={a.name}
-              sub={a.artists?.map(ar => ar.name).join(', ')}
-              reviewed={reviewed}
-              onPress={() => nav(`/album/${a.id}`)}
-              onRate={() => setItem({ type: 'album', spotifyAlbumId: a.id, trackName: a.name, artistName: a.artists?.[0]?.name ?? '', albumArt: a.images?.[1]?.url ?? '' })}
-            />
-          );
-        })}
+            {/* Albums */}
+            {!isPeople && (scope === 0 || scope === 2) && albums.map(a => {
+              const isReviewed = reviewed.albums.has(a.id);
+              return (
+                <MusicRow
+                  key={a.id}
+                  img={a.images?.[2]?.url}
+                  title={a.name}
+                  sub={a.artists?.map(ar => ar.name).join(', ')}
+                  reviewed={isReviewed}
+                  onPress={() => nav(`/album/${a.id}`)}
+                  onRate={() => setItem({ type: 'album', spotifyAlbumId: a.id, trackName: a.name, artistName: a.artists?.[0]?.name ?? '', albumArt: a.images?.[1]?.url ?? '' })}
+                />
+              );
+            })}
 
-        {/* Artists */}
-        {!loading && !isPeople && (scope === 0 || scope === 3) && artists.map(a => {
-          const reviewed = reviewedArtistIds.has(a.id);
-          return (
-            <MusicRow
-              key={a.id}
-              img={a.images?.[2]?.url}
-              title={a.name}
-              sub={a.genres?.[0] ?? ''}
-              circle
-              reviewed={reviewed}
-              onPress={() => nav(`/artist/${a.id}`)}
-              onRate={() => setItem({ type: 'artist', spotifyArtistId: a.id, trackName: a.name, artistName: a.name, albumArt: a.images?.[1]?.url ?? '' })}
-            />
-          );
-        })}
+            {/* Artists */}
+            {!isPeople && (scope === 0 || scope === 3) && artists.map(a => {
+              const isReviewed = reviewed.artists.has(a.id);
+              return (
+                <MusicRow
+                  key={a.id}
+                  img={a.images?.[2]?.url}
+                  title={a.name}
+                  sub={a.genres?.[0] ?? ''}
+                  circle
+                  reviewed={isReviewed}
+                  onPress={() => nav(`/artist/${a.id}`)}
+                  onRate={() => setItem({ type: 'artist', spotifyArtistId: a.id, trackName: a.name, artistName: a.name, albumArt: a.images?.[1]?.url ?? '' })}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -231,16 +235,24 @@ function MusicRow({ img, title, sub, reviewed, onPress, onRate, circle }: {
 }
 
 function UserRow({ user, myId, nav }: { user: UserResult; myId: string; nav: (p: string) => void }) {
-  const [following, setFollowing] = useState(user.isFollowing);
+  // Not `useState(user.isFollowing)`: results come from a cache that refreshes in the background, and
+  // a value copied once would ignore that refresh and keep showing the old button. The user's click
+  // wins only until the data says something different (see `resolveChoice`).
+  const [choice, setChoice] = useState<Choice<boolean> | null>(null);
   const [busy, setBusy] = useState(false);
+  const following = resolveChoice(user.isFollowing, choice);
   const isOwn = user.spotifyId === myId;
 
   async function toggle() {
     if (busy) return;
     setBusy(true);
     try {
-      if (following) { await api.del(`/users/${user.spotifyId}/follow`); setFollowing(false); }
-      else { await api.post(`/users/${user.spotifyId}/follow`, {}); setFollowing(true); }
+      const from = user.isFollowing;
+      if (following) await api.del(`/users/${user.spotifyId}/follow`);
+      else await api.post(`/users/${user.spotifyId}/follow`, {});
+      setChoice({ from, to: !following });
+      // Cached people-search results carry `isFollowing`; searching this name again must not show the old button.
+      void invalidate(afterFollowChange(user.spotifyId));
     } catch {} finally { setBusy(false); }
   }
 
@@ -270,4 +282,3 @@ function UserRow({ user, myId, nav }: { user: UserResult; myId: string; nav: (p:
     </div>
   );
 }
-

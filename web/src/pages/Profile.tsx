@@ -5,6 +5,8 @@ import { ProfileReviews } from '../components/ProfileReviews';
 import { Favorites, RatingHistogram, Stat } from '../components/TasteWidgets';
 import { tasteStats } from '../lib/taste';
 import { api, isNotFound } from '../lib/api';
+import { invalidate } from '../queries/client';
+import { afterFollowChange } from '../queries/invalidation';
 import type { ProfileReview } from '@tunelog/shared';
 import { useAuth } from '../context/auth';
 import { PageSpinner } from '../components/Spinner';
@@ -62,6 +64,7 @@ export default function Profile() {
     try {
       if (following) { await api.del(`/users/${id}/follow`); setFollowing(false); setUser(u => u ? { ...u, followerCount: u.followerCount - 1 } : u); }
       else { await api.post(`/users/${id}/follow`, {}); setFollowing(true); setUser(u => u ? { ...u, followerCount: u.followerCount + 1 } : u); }
+      void invalidate(afterFollowChange(id));   // cached suggestions and people-search results carry this follow state
     } catch { /* ignore */ } finally { setBusy(false); }
   }
 
