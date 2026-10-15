@@ -1,41 +1,14 @@
-import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
 import { scoreColor, spotifyUrlFor, MOOD_COLOR, TYPE_CFG } from '@tunelog/shared';
-import { API_BASE } from '../lib/api';
 import { SpotifyIcon } from '../components/icons';
-
-type PublicReview = {
-  _id: string;
-  type?: 'track' | 'album' | 'artist';
-  spotifyTrackId?: string;
-  spotifyAlbumId?: string;
-  spotifyArtistId?: string;
-  trackName: string;
-  artistName: string;
-  albumArt?: string;
-  score: number;
-  text?: string;
-  moods?: string[];
-  userId?: { displayName?: string; avatarUrl?: string };
-};
+import { useSharedReview } from '../queries/sharedReview';
 
 export default function SharedReview() {
   const { id } = useParams<{ id: string }>();
-  const [review, setReview] = useState<PublicReview | null>(null);
-  const [status, setStatus] = useState<'loading' | 'error'>('loading');
+  const { data: review, isError } = useSharedReview(id);
 
-  useEffect(() => {
-    let cancelled = false;
-    setStatus('loading');
-    fetch(`${API_BASE}/reviews/${id}`)
-      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
-      .then((d: PublicReview) => { if (!cancelled) { setReview(d); } })
-      .catch(() => { if (!cancelled) setStatus('error'); });
-    return () => { cancelled = true; };
-  }, [id]);
-
-  if (status === 'error') {
+  if (isError) {
     return (
       <div className="min-h-screen bg-bg text-fg flex flex-col items-center justify-center gap-5 px-6 text-center">
         <img src="/wordmark.png" alt="express" className="h-6 w-auto" />

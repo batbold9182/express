@@ -3,6 +3,9 @@ import { shouldRetry } from "../../web/src/queries/retry";
 import { nextOffset, flattenUnique, removeItem, mapItem } from "../../web/src/queries/pagination";
 import { reviewedIds } from "../../web/src/queries/reviewedIds";
 import { asArray } from "../../web/src/queries/asArray";
+import { buildReviewBody } from "../../web/src/queries/reviewBody";
+import { toCounts, totalOf, NO_COUNTS } from "../../web/src/queries/counts";
+import { playableTrack, type NowPlayingData } from "../../web/src/queries/nowPlaying";
 import { resolveChoice } from "../../web/src/queries/toggle";
 import { toggledLikes, withCommentLike } from "../../web/src/queries/feedPatches";
 import {
@@ -18,7 +21,8 @@ import {
 // The same rule TanStack Query uses to match a filter key against a cached query key.
 const isPrefix = (prefix: readonly unknown[], key: readonly unknown[]) =>
   prefix.length <= key.length && prefix.every((p, i) => p === key[i]);
-const covers = (list: Invalidation[], key: readonly unknown[]) => list.some(i => isPrefix(i.key, key));
+const covers = (list: Invalidation[], key: readonly unknown[]) =>
+  list.some(i => (i.exact ? JSON.stringify(i.key) === JSON.stringify(key) : isPrefix(i.key, key)));
 const keysOf = (list: Invalidation[]) => list.map(i => JSON.stringify(i.key));
 
 describe("query keys are hierarchical, so a prefix addresses a whole family", () => {
@@ -211,6 +215,88 @@ describe("feed page helpers", () => {
   });
 });
 
+describe("playableTrack — what the now-playing cards may render", () => {
+  const track: NowPlayingData = {
+    is_playing: true, progress_ms: 1000,
+    item: { id: "t", name: "Song", duration_ms: 200000, artists: [{ id: "a", name: "Art" }], album: { id: "al", name: "Alb", images: [] } },
+  };
+  test("a playing track is returned as is", () => {
+    expect(playableTrack(track)).toBe(track);
+  });
+  test("nothing playing, or a response that is not there, is null", () => {
+    expect(playableTrack(null)).toBeNull();
+    expect(playableTrack(undefined)).toBeNull();
+  });
+  test("a paused track is null", () => {
+    expect(playableTrack({ ...track, is_playing: false })).toBeNull();
+  });
+  test("a podcast episode — item null, or an item with no album — is null (this used to crash the app)", () => {
+    expect(playableTrack({ ...track, item: null } as unknown as NowPlayingData)).toBeNull();
+    expect(playableTrack({ ...track, item: { id: "e", name: "Ep 12", duration_ms: 3_600_000 } } as unknown as NowPlayingData)).toBeNull();
+  });
+});
+
+describe("toCounts", () => {
+  test("reads the three counts", () => {
+    expect(toCounts({ track: 3, album: 2, artist: 1 })).toEqual({ track: 3, album: 2, artist: 1 });
+    expect(totalOf({ track: 3, album: 2, artist: 1 })).toBe(6);
+  });
+  test.each([
+    ["null", null],
+    ["undefined", undefined],
+    ["a string", "nope"],
+    ["an empty object", {}],
+  ])("%s becomes all zeros", (_n, v) => {
+    expect(toCounts(v)).toEqual(NO_COUNTS);
+  });
+  test("a malformed field counts as 0, never NaN or negative", () => {
+    expect(toCounts({ track: "5", album: NaN, artist: -2 })).toEqual({ track: 0, album: 0, artist: 0 });
+    expect(toCounts({ track: 4, album: undefined, artist: Infinity })).toEqual({ track: 4, album: 0, artist: 0 });
+  });
+});
+
+describe("buildReviewBody — the POST /reviews body", () => {
+  const fields = { text: "great", score: 8.5, moods: ["Chill"] };
+  const base = { trackName: "Song", artistName: "Artist", albumArt: "http://art" };
+
+  test("a track review carries the track id plus the album and artist ids it knows", () => {
+    const b = buildReviewBody({ ...base, type: "track", spotifyTrackId: "t1", spotifyAlbumId: "a1", spotifyArtistId: "r1" }, fields);
+    expect(b).toMatchObject({ type: "track", spotifyTrackId: "t1", spotifyAlbumId: "a1", spotifyArtistId: "r1", ...fields, shareToFeed: true, ...base });
+  });
+
+  test("a track review leaves out the album and artist ids it does not know", () => {
+    const b = buildReviewBody({ ...base, type: "track", spotifyTrackId: "t1" }, fields) as Record<string, unknown>;
+    expect(b.spotifyTrackId).toBe("t1");
+    expect("spotifyAlbumId" in b).toBe(false);
+    expect("spotifyArtistId" in b).toBe(false);
+  });
+
+  test("an album review carries only the album id", () => {
+    const b = buildReviewBody({ ...base, type: "album", spotifyAlbumId: "a1", spotifyArtistId: "r1", spotifyTrackId: "t1" }, fields) as Record<string, unknown>;
+    expect(b).toMatchObject({ type: "album", spotifyAlbumId: "a1" });
+    expect("spotifyTrackId" in b).toBe(false);
+    expect("spotifyArtistId" in b).toBe(false);
+  });
+
+  test("an artist review carries only the artist id", () => {
+    const b = buildReviewBody({ ...base, type: "artist", spotifyArtistId: "r1", spotifyAlbumId: "a1" }, fields) as Record<string, unknown>;
+    expect(b).toMatchObject({ type: "artist", spotifyArtistId: "r1" });
+    expect("spotifyAlbumId" in b).toBe(false);
+  });
+
+  test("a type with no matching id falls back to a track review, as before", () => {
+    expect(buildReviewBody({ ...base, type: "artist" }, fields)).toMatchObject({ type: "track" });
+    expect(buildReviewBody({ ...base }, fields)).toMatchObject({ type: "track" });
+  });
+
+  test("the review's text, score, moods and shareToFeed always go along", () => {
+    for (const type of ["track", "album", "artist"] as const) {
+      const b = buildReviewBody({ ...base, type, spotifyTrackId: "t", spotifyAlbumId: "a", spotifyArtistId: "r" }, fields);
+      expect(b).toMatchObject({ text: "great", score: 8.5, moods: ["Chill"], shareToFeed: true });
+    }
+  });
+});
+
 describe("reviewedIds", () => {
   test("sorts the caller's reviews into track, album and artist sets", () => {
     const r = reviewedIds([
@@ -305,7 +391,9 @@ describe("invalidation map", () => {
 
   test("a follow refreshes the profile, suggestions and your own counts; the Following feed is only marked stale", () => {
     const list = afterFollowChange("u1");
-    expect(covers(list, qk.userCounts("u1"))).toBe(true);
+    expect(covers(list, qk.user("u1"))).toBe(true);                // the profile record itself
+    expect(covers(list, qk.userCounts("u1"))).toBe(false);         // not everything under it: a follow changes neither
+    expect(covers(list, qk.userReviewsSample("u1"))).toBe(false);
     expect(covers(list, qk.suggestedUsers())).toBe(true);
     expect(covers(list, qk.meApp())).toBe(true);
     const feed = list.find(i => JSON.stringify(i.key) === JSON.stringify(qk.feed("following")));
@@ -334,8 +422,9 @@ describe("invalidation map", () => {
   test("toFilters: stale becomes refetchType 'none', everything else 'active'", () => {
     const filters = toFilters([{ key: qk.feedAll(), stale: true }, { key: qk.myReviews() }]);
     expect(filters).toEqual([
-      { queryKey: ["feed"], refetchType: "none" },
-      { queryKey: ["reviews", "mine"], refetchType: "active" },
+      { queryKey: ["feed"], exact: false, refetchType: "none" },
+      { queryKey: ["reviews", "mine"], exact: false, refetchType: "active" },
     ]);
+    expect(toFilters([{ key: ["user", "u1"], exact: true }])[0]).toMatchObject({ exact: true });
   });
 });

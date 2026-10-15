@@ -1,15 +1,13 @@
-import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api, isNotFound } from '../lib/api';
+import { isNotFound } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
-import { PageSpinner } from '../components/Spinner';
+import { PageSpinner, Spinner } from '../components/Spinner';
 import { ErrorState } from '../components/ErrorState';
 import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
-
-type SpotifyArtist = { id: string; name: string; images: { url: string }[]; genres: string[]; external_urls: { spotify: string } };
-type SpotifyAlbum  = { id: string; name: string; images: { url: string }[]; release_date: string };
-type ArtistReview  = { _id: string; userId: { _id: string; displayName: string; avatarUrl?: string; spotifyId: string }; score: number; text?: string; moods?: string[] };
+import { useArtist, useArtistAlbums, useArtistReviews } from '../queries/catalog';
+import { useMyReviews } from '../queries/reviews';
+import { reviewedIds } from '../queries/reviewedIds';
 
 export default function Artist() {
   const { id } = useParams<{ id: string }>();
@@ -17,54 +15,28 @@ export default function Artist() {
   const { setItem } = useRate();
   const nav = useNavigate();
 
-  const [artist,          setArtist]          = useState<SpotifyArtist | null>(null);
-  const [albums,          setAlbums]          = useState<SpotifyAlbum[]>([]);
-  const [reviews,         setReviews]         = useState<ArtistReview[]>([]);
-  const [avgScore,        setAvgScore]        = useState<number | null>(null);
-  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
-  const [loading,         setLoading]         = useState(true);
-  const [error,           setError]           = useState<unknown>(null);   // the artist itself failed to load
-  const [reviewsError,    setReviewsError]    = useState<unknown>(null);   // only the review list failed
-  const [attempt,         setAttempt]         = useState(0);               // bumped by "Try again"
+  // The artist gates the page; the discography, reviews and "have I reviewed them" load alongside.
+  const artistQ  = useArtist(id, !!token);
+  const albumsQ  = useArtistAlbums(id, !!token);
+  const reviewsQ = useArtistReviews(id, !!token);
+  const { data: mine } = useMyReviews();
 
-  useEffect(() => {
-    if (!token || !id) return;
-    let cancelled = false;   // set when the id changes or the page unmounts, so a slow earlier request can't land late
-    setLoading(true);
-    Promise.allSettled([
-      api.get(`/artists/${id}`),
-      api.get(`/artists/${id}/albums`),
-      api.get(`/artists/${id}/reviews?offset=0&limit=20`),
-      api.get('/reviews/mine'),
-    ]).then(([a, alb, rd, mine]) => {
-      if (cancelled) return;
-      // On failure, clear rather than keep: otherwise the previous artist's page lingers under a new id.
-      if (a.status === 'fulfilled') { setArtist(a.value); setError(null); }
-      else { setArtist(null); setError(a.reason); }
-      // The discography is the one Spotify call that 429s; a miss just hides the section, as before.
-      setAlbums(alb.status === 'fulfilled' ? alb.value?.items ?? [] : []);
-      if (rd.status === 'fulfilled') {
-        setReviews(rd.value.reviews ?? []); setAvgScore(rd.value.avgScore ?? null); setReviewsError(null);
-      } else {
-        setReviews([]); setAvgScore(null); setReviewsError(rd.reason);
-      }
-      if (mine.status === 'fulfilled') {
-        setAlreadyReviewed((mine.value as any[]).some((r: any) => r.spotifyArtistId === id && r.type === 'artist'));
-      }
-    }).finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [id, token, attempt]);
+  const artist          = artistQ.data;
+  const albums          = albumsQ.data ?? [];     // a failed discography (Spotify's 429) just hides the section
+  const reviews         = reviewsQ.data?.reviews ?? [];
+  const avgScore        = reviewsQ.data?.avgScore ?? null;
+  const alreadyReviewed = !!id && reviewedIds(mine ?? []).artists.has(id);
 
   function rateArtist() {
     if (!artist || alreadyReviewed) return;
     setItem({ type: 'artist', spotifyArtistId: artist.id, trackName: artist.name, artistName: artist.name, albumArt: artist.images[0]?.url ?? '' });
   }
 
-  if (loading) return <PageSpinner />;
+  if (artistQ.isPending) return <PageSpinner />;
   if (!artist) {
     // A request that failed is not the same as an artist that doesn't exist.
-    if (error && !isNotFound(error)) {
-      return <ErrorState size="page" back title="Couldn't load this artist" error={error} onRetry={() => setAttempt(a => a + 1)} />;
+    if (artistQ.isError && !isNotFound(artistQ.error)) {
+      return <ErrorState size="page" back title="Couldn't load this artist" error={artistQ.error} onRetry={() => void artistQ.refetch()} />;
     }
     return <div className="flex items-center justify-center h-screen text-fg3">Artist not found.</div>;
   }
@@ -112,8 +84,10 @@ export default function Artist() {
 
         {/* Reviews */}
         <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Reviews</p>
-        {reviewsError
-          ? <ErrorState size="compact" title="Couldn't load reviews" error={reviewsError} onRetry={() => setAttempt(a => a + 1)} />
+        {reviewsQ.isPending
+          ? <div className="flex justify-center py-8"><Spinner size="md" /></div>
+          : reviewsQ.isError
+          ? <ErrorState size="compact" title="Couldn't load reviews" error={reviewsQ.error} onRetry={() => void reviewsQ.refetch()} />
           : reviews.length === 0
           ? <p className="text-fg3 text-[13px] text-center py-8">No reviews yet — be the first!</p>
           : <div className="flex flex-col gap-3">

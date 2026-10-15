@@ -10,7 +10,7 @@ export function Toaster() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed left-0 right-0 z-[60] bottom-28 md:bottom-6 flex flex-col items-center gap-2 px-4 pointer-events-none"
+      className="fixed left-0 right-0 z-[60] bottom-32 md:bottom-6 flex flex-col items-center gap-2 px-4 pointer-events-none"
     >
       {toasts.map(t => (
         <button

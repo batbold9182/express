@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
 import { ShareButton } from './ShareButton';
 import { scoreColor, MOOD_COLOR, subjectPath } from '@tunelog/shared';
-import type { ProfileReview } from '@tunelog/shared';
 import { SearchIcon } from './icons';
 import { Spinner } from './Spinner';
 import { ErrorState } from './ErrorState';
+import { useProfileReviews } from '../queries/users';
+import { flattenUnique } from '../queries/pagination';
+import { totalOf, type ReviewCounts } from '../queries/counts';
 
 type Filter = 'all' | 'track' | 'album' | 'artist';
-type Counts = { track: number; album: number; artist: number };
-
-const PAGE = 20;
 
 const CHIPS: { key: Filter; label: string }[] = [
   { key: 'all',    label: 'All'     },
@@ -20,23 +18,19 @@ const CHIPS: { key: Filter; label: string }[] = [
   { key: 'artist', label: 'Artists' },
 ];
 
-export function ProfileReviews({ endpointBase, counts }: { endpointBase: string; counts: Counts }) {
+/**
+ * A user's reviews — filter chips, search, infinite scroll. `userId` undefined means the signed-in
+ * user. `counts` feeds the chip numbers; it is undefined when the counts request failed, in which
+ * case the numbers are hidden rather than shown as a misleading 0.
+ */
+export function ProfileReviews({ userId, counts }: { userId?: string; counts?: ReviewCounts }) {
   const nav = useNavigate();
 
   const [filter,  setFilter]  = useState<Filter>('all');
   const [input,   setInput]   = useState('');   // raw search text
   const [query,   setQuery]   = useState('');   // debounced search text
-  const [reviews, setReviews] = useState<ProfileReview[]>([]);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<unknown>(null);
-  const [attempt, setAttempt] = useState(0); // bumped by "Try again"
 
-  const loadingRef = useRef(false);
-  const offsetRef  = useRef(0);
-
-  const total = counts.track + counts.album + counts.artist;
-  const chipCount = (k: Filter) => (k === 'all' ? total : counts[k]);
+  const chipCount = (k: Filter): number | null => (!counts ? null : k === 'all' ? totalOf(counts) : counts[k]);
 
   // Debounce the search input → query
   useEffect(() => {
@@ -44,41 +38,11 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
     return () => clearTimeout(t);
   }, [input]);
 
-  // (Re)load from the top whenever filter or query changes
-  useEffect(() => {
-    let cancelled = false;
-    offsetRef.current = 0;
-    loadingRef.current = true;
-    setLoading(true);
-    const url = `${endpointBase}?type=${filter}&q=${encodeURIComponent(query)}&offset=0&limit=${PAGE}`;
-    api.get(url)
-      .then((d: any) => {
-        if (cancelled) return;
-        const list = d.reviews ?? [];
-        setReviews(list);
-        offsetRef.current = list.length;
-        setHasMore(d.hasMore ?? false);
-        setError(null);
-      })
-      .catch(e => { if (!cancelled) { setReviews([]); setHasMore(false); setError(e); } })
-      .finally(() => { if (!cancelled) { setLoading(false); loadingRef.current = false; } });
-    return () => { cancelled = true; };
-  }, [endpointBase, filter, query, attempt]);
-
-  async function loadMore() {
-    if (loadingRef.current || !hasMore) return;
-    loadingRef.current = true;
-    try {
-      const url = `${endpointBase}?type=${filter}&q=${encodeURIComponent(query)}&offset=${offsetRef.current}&limit=${PAGE}`;
-      const d = await api.get(url);
-      const list = d.reviews ?? [];
-      setReviews(prev => [...prev, ...list]);
-      offsetRef.current += list.length;
-      setHasMore(d.hasMore ?? false);
-    } catch {} finally {
-      loadingRef.current = false;
-    }
-  }
+  // Filter and text are part of the query key: each combination is its own cached list, and the one
+  // you were looking at stays on screen (dimmed) until the next arrives.
+  const list = useProfileReviews(userId, filter, query);
+  const reviews = flattenUnique(list.data?.pages, page => page.reviews);
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = list;
 
   // Infinite scroll: watch the nearest scrollable ancestor (the page's h-screen overflow-y-auto)
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -88,11 +52,13 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
     const scroller = el.closest('.overflow-y-auto') as HTMLElement | null;
     if (!scroller) return;
     const onScroll = () => {
-      if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 300) loadMore();
+      if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 300 && hasNextPage && !isFetchingNextPage && !isFetchNextPageError) {
+        void fetchNextPage();
+      }
     };
     scroller.addEventListener('scroll', onScroll);
     return () => scroller.removeEventListener('scroll', onScroll);
-  });
+  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
 
   return (
     <div>
@@ -114,6 +80,7 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
       <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar">
         {CHIPS.map(({ key, label }) => {
           const active = filter === key;
+          const n = chipCount(key);
           return (
             <button
               key={key}
@@ -125,21 +92,21 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
                 color:       active ? '#FFFFFF' : '#978A74',
               }}
             >
-              {label} <span className="tabular-nums opacity-70">{chipCount(key)}</span>
+              {label}{n !== null && <> <span className="tabular-nums opacity-70">{n}</span></>}
             </button>
           );
         })}
       </div>
 
       {/* List */}
-      {loading ? (
+      {list.isPending ? (
         <div className="flex justify-center py-8"><Spinner size="md" /></div>
-      ) : error ? (
-        <ErrorState size="compact" title="Couldn't load reviews" error={error} onRetry={() => setAttempt(a => a + 1)} />
+      ) : list.isError && list.data === undefined ? (
+        <ErrorState size="compact" title="Couldn't load reviews" error={list.error} onRetry={() => void list.refetch()} />
       ) : reviews.length === 0 ? (
         <p className="text-fg3 text-center text-[13px] py-8">{query ? 'No matches' : 'No reviews yet'}</p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className={`flex flex-col gap-3 transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}>
           {reviews.map(r => {
             const goto = () => {
               const p = subjectPath(r);
@@ -177,10 +144,15 @@ export function ProfileReviews({ endpointBase, counts }: { endpointBase: string;
         </div>
       )}
 
-      {/* Infinite-scroll sentinel + bottom spinner */}
+      {/* Infinite-scroll sentinel + bottom indicators */}
       <div ref={sentinelRef} />
-      {!loading && hasMore && (
-        <div className="flex justify-center py-6"><Spinner size="sm" /></div>
+      {isFetchingNextPage && <div className="flex justify-center py-6"><Spinner size="sm" /></div>}
+      {isFetchNextPageError && (
+        <div className="flex justify-center py-4">
+          <button onClick={() => void fetchNextPage()} className="text-[12px] text-fg3 hover:text-fg cursor-pointer">
+            Couldn't load more — tap to retry
+          </button>
+        </div>
       )}
     </div>
   );

@@ -7,7 +7,7 @@ import { qk } from './keys';
  * `stale: true` marks a family out of date WITHOUT refetching it now, so the next time it mounts it
  * refetches, but a mutation never makes the screen you are looking at jump.
  */
-export type Invalidation = { key: readonly unknown[]; stale?: boolean };
+export type Invalidation = { key: readonly unknown[]; stale?: boolean; /** Match this key only, not the keys under it. */ exact?: boolean };
 
 export type ReviewRef = {
   spotifyTrackId?: string;
@@ -57,7 +57,7 @@ export function afterLikeOrComment(): Invalidation[] {
  */
 export function afterFollowChange(userId: string): Invalidation[] {
   return [
-    { key: qk.user(userId) },
+    { key: qk.user(userId), exact: true },   // the profile record only — not its counts and review lists
     { key: qk.suggestedUsers() },
     { key: qk.meApp() },
     { key: qk.feed('following'), stale: true },
@@ -74,6 +74,7 @@ export function afterSpotifyDisconnect(): Invalidation[] {
 export function toFilters(list: Invalidation[]) {
   return list.map(i => ({
     queryKey: i.key,
+    exact: i.exact ?? false,
     refetchType: (i.stale ? 'none' : 'active') as 'none' | 'active',
   }));
 }

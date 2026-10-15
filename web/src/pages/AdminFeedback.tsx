@@ -1,17 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
 import { timeAgo } from '@tunelog/shared';
 import { Spinner } from '../components/Spinner';
-
-type FeedbackItem = {
-  _id: string;
-  displayName: string;
-  email: string;
-  type: 'bug' | 'feature' | 'other';
-  text: string;
-  createdAt: string;
-};
+import { useFeedbackList } from '../queries/feedback';
 
 const TYPE_STYLE: Record<string, { label: string; color: string }> = {
   bug:     { label: 'Bug',     color: '#E0685C' },
@@ -21,17 +12,10 @@ const TYPE_STYLE: Record<string, { label: string; color: string }> = {
 
 export default function AdminFeedback() {
   const nav = useNavigate();
-  const [items, setItems]     = useState<FeedbackItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
-  const [filter, setFilter]   = useState<'all' | 'bug' | 'feature' | 'other'>('all');
-
-  useEffect(() => {
-    api.get<FeedbackItem[]>('/feedback')
-      .then(d => setItems(d ?? []))
-      .catch(e => setError(e instanceof Error && e.message.startsWith('403') ? 'Only for admin' : 'Failed to load'))
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, error: loadError, isPending: loading, isError } = useFeedbackList();
+  const items = data ?? [];
+  const [filter, setFilter] = useState<'all' | 'bug' | 'feature' | 'other'>('all');
+  const error = isError ? ((loadError as { status?: number } | null)?.status === 403 ? 'Only for admin' : 'Failed to load') : '';
 
   const visible = filter === 'all' ? items : items.filter(i => i.type === filter);
   const counts  = { bug: 0, feature: 0, other: 0 } as Record<string, number>;

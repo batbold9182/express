@@ -1,50 +1,7 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRate } from '../context/rate';
-import { api } from '../lib/api';
-
-type NowPlayingData = {
-  is_playing: boolean;
-  progress_ms: number;
-  item: {
-    id: string;
-    name: string;
-    duration_ms: number;
-    artists: { id: string; name: string }[];
-    album: {
-      id: string;
-      name: string;
-      images: { url: string }[];
-    };
-  };
-};
-
-// Both the desktop sidebar card and the mobile bar render from this. It polls twice today (one
-// per mounted consumer); Phase G collapses it to a single `useQuery(['now-playing'])` with
-// `refetchInterval`, which dedupes for free. Only ever mounted inside <Layout>, so a token is
-// always present.
-function useNowPlaying(): NowPlayingData | null {
-  const [data, setData] = useState<NowPlayingData | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    async function poll() {
-      try {
-        const res = await api.get<NowPlayingData>('/me/player/currently-playing');
-        // Only tracks render here. A podcast episode comes back with `item: null` or an item with no
-        // `album`, and the cards below dereference both — so treat anything non-track as "nothing playing".
-        if (alive) setData(res && res.is_playing && res.item?.album ? res : null);
-      } catch {
-        if (alive) setData(null);
-      }
-    }
-    poll();
-    const id = setInterval(poll, 30_000);
-    return () => { alive = false; clearInterval(id); };
-  }, []);
-
-  return data;
-}
+import { useNowPlaying } from '../queries/spotify';
+import type { NowPlayingData } from '../queries/nowPlaying';
 
 function rateItem(item: NowPlayingData['item'], art: string) {
   return {
@@ -61,7 +18,7 @@ function rateItem(item: NowPlayingData['item'], art: string) {
 /** Desktop sidebar card. */
 export function NowPlaying() {
   const { setItem } = useRate();
-  const data = useNowPlaying();
+  const data = useNowPlaying().data ?? null;   // one shared poll for the card and the bar
 
   if (!data) return null;
 
@@ -102,7 +59,7 @@ export function NowPlaying() {
 export function NowPlayingBar() {
   const nav = useNavigate();
   const { setItem } = useRate();
-  const data = useNowPlaying();
+  const data = useNowPlaying().data ?? null;   // one shared poll for the card and the bar
 
   if (!data) return null;
 

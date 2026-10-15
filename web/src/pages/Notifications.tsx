@@ -1,26 +1,13 @@
-import { useEffect, useState, type ComponentType } from 'react';
+import { useEffect, useRef, type ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
-import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useNotif } from '../context/notif';
+import { useNotifications, type Notif } from '../queries/notifications';
 import { timeAgo, subjectPath } from '@tunelog/shared';
 import { ListSpinner } from '../components/Spinner';
 import { ErrorState } from '../components/ErrorState';
 import { HeartIcon, ChatBubbleIcon, MeIcon, ReplyIcon, BellIcon } from '../components/icons';
-
-type NotifEntity = { spotifyTrackId?: string; spotifyAlbumId?: string; spotifyArtistId?: string; type?: string };
-type Notif = {
-  _id: string;
-  type: 'like' | 'comment' | 'follow' | 'reply';
-  read: boolean;
-  createdAt: string;
-  updatedAt: string;
-  actorCount: number;
-  actors: { _id: string; displayName: string; avatarUrl?: string; spotifyId: string }[];
-  entityId?: NotifEntity;
-  entitySnapshot?: NotifEntity & { trackName?: string; albumArt?: string };
-};
 
 // icon + tint for the small badge overlaid on the actor's avatar
 const TYPE_BADGE: Record<Notif['type'], { Icon: ComponentType<{ size?: number }>; tint: string }> = {
@@ -35,27 +22,21 @@ export default function Notifications() {
   const { markAllRead } = useNotif();
   const nav = useNavigate();
 
-  const [items,   setItems]   = useState<Notif[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<unknown>(null);
-  const [attempt, setAttempt] = useState(0); // bumped by "Try again" to re-run the load
+  const { data, error, isPending, isError, isSuccess, isFetching, refetch } = useNotifications(!!token);
+  const items     = data ?? [];
+  const loading   = isPending;
+  const showError = isError && data === undefined;
 
+  // Mark everything read — once per visit, and only after the list has actually been loaded *fresh*
+  // (a cached copy may show first while it refreshes). Doing it earlier would clear the badge for
+  // notifications the user has not seen; doing it on a failed load did exactly that.
+  const markedThisVisit = useRef(false);
   useEffect(() => {
-    if (!token) return;
-    let cancelled = false;   // set on retry or unmount, so a slow earlier request can't land late
-    api.get('/notifications?limit=50')
-      .then((d: any) => {
-        if (cancelled) return;
-        setItems(d.notifications ?? []);
-        setError(null);
-        // Only once they have actually loaded. This used to run in `finally`, so a failed request
-        // still marked everything read and cleared the badge for notifications the user never saw.
-        markAllRead();
-      })
-      .catch(e => { if (!cancelled) setError(e); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [token, attempt]);
+    if (isSuccess && !isFetching && !markedThisVisit.current) {
+      markedThisVisit.current = true;
+      markAllRead();
+    }
+  }, [isSuccess, isFetching, markAllRead]);
 
   function navigate(n: Notif) {
     const snap = n.entitySnapshot;
@@ -101,12 +82,8 @@ export default function Notifications() {
       <div className="flex-1 overflow-y-auto pb-20 md:pb-4">
         {loading ? (
           <ListSpinner />
-        ) : error ? (
-          <ErrorState
-            title="Couldn't load notifications"
-            error={error}
-            onRetry={() => { setLoading(true); setAttempt(a => a + 1); }}
-          />
+        ) : showError ? (
+          <ErrorState title="Couldn't load notifications" error={error} onRetry={() => void refetch()} />
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-3 pt-24 text-center px-8">
             <BellIcon size={38} className="text-fg4" />

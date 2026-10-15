@@ -1,26 +1,23 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
 import { Avatar } from './Avatar';
-import { useSuggestedUsers, type SuggestedUser } from '../queries/users';
-import { invalidate } from '../queries/client';
-import { afterFollowChange } from '../queries/invalidation';
+import { useFollow, useSuggestedUsers, type SuggestedUser } from '../queries/users';
 
 export function SuggestedUsers() {
   const nav = useNavigate();
   const { data: users = [], isPending } = useSuggestedUsers(5);
   const [following, setFollowing] = useState<Set<string>>(new Set());
 
-  async function follow(user: SuggestedUser) {
+  const followMutation = useFollow();
+
+  // The person leaves the list at once; if the request fails they come back and a toast says why. On
+  // success `useFollow` refreshes the cached list, so it never offers someone you now follow.
+  function follow(user: SuggestedUser) {
     setFollowing(prev => new Set(prev).add(user._id));
-    try {
-      await api.post(`/users/${user.spotifyId}/follow`, {});
-      // The cached list must stop offering someone you now follow, or coming back to this page within
-      // the cache window would show them again (this widget's `following` set is local to one mount).
-      void invalidate(afterFollowChange(user.spotifyId));
-    } catch {
-      setFollowing(prev => { const s = new Set(prev); s.delete(user._id); return s; });
-    }
+    followMutation.mutate(
+      { userId: user.spotifyId, following: false },
+      { onError: () => setFollowing(prev => { const s = new Set(prev); s.delete(user._id); return s; }) },
+    );
   }
 
   if (isPending) {

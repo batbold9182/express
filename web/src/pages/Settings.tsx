@@ -1,24 +1,18 @@
-import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
+import { useMeApp } from '../queries/users';
 import { ChatBubbleIcon, AdminIcon, LogoutIcon } from '../components/icons';
-
-type MeInfo = { displayName?: string; email?: string };
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">{children}</p>;
 }
 
 export default function Settings() {
-  const { token, clearToken } = useAuth();
+  const { clearToken } = useAuth();
   const nav = useNavigate();
-  const [me, setMe] = useState<MeInfo | null>(null);
-
-  useEffect(() => {
-    if (!token) return;
-    api.get('/users/me').then((d: MeInfo) => setMe(d)).catch(() => {});
-  }, [token]);
+  // The same request as the Me page, shared: visiting one right after the other costs one fetch. If it
+  // fails the account row simply has no name to show.
+  const { data: me } = useMeApp();
 
   function logout() {
     if (!window.confirm('Log out?')) return;

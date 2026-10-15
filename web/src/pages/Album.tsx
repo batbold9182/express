@@ -1,25 +1,14 @@
-import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api, isNotFound } from '../lib/api';
+import { isNotFound } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { msToMin } from '@tunelog/shared';
-import { PageSpinner } from '../components/Spinner';
+import { PageSpinner, Spinner } from '../components/Spinner';
 import { ErrorState } from '../components/ErrorState';
 import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
-
-type SpotifyAlbum = {
-  id: string; name: string; images: { url: string }[];
-  artists: { id: string; name: string }[];
-  release_date: string; total_tracks: number;
-  tracks: { items: { id: string; name: string; duration_ms: number; track_number: number }[] };
-  external_urls: { spotify: string };
-};
-type AlbumReview = {
-  _id: string;
-  userId: { _id: string; displayName: string; avatarUrl?: string; spotifyId: string };
-  score: number; text?: string; moods?: string[];
-};
+import { useAlbum, useAlbumReviews } from '../queries/catalog';
+import { useMyReviews } from '../queries/reviews';
+import { reviewedIds } from '../queries/reviewedIds';
 
 export default function Album() {
   const { id } = useParams<{ id: string }>();
@@ -27,42 +16,15 @@ export default function Album() {
   const { setItem } = useRate();
   const nav = useNavigate();
 
-  const [album,           setAlbum]           = useState<SpotifyAlbum | null>(null);
-  const [reviews,         setReviews]         = useState<AlbumReview[]>([]);
-  const [avgScore,        setAvgScore]        = useState<number | null>(null);
-  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
-  const [loading,         setLoading]         = useState(true);
-  const [error,           setError]           = useState<unknown>(null);   // the album itself failed to load
-  const [reviewsError,    setReviewsError]    = useState<unknown>(null);   // only the review list failed
-  const [attempt,         setAttempt]         = useState(0);               // bumped by "Try again"
+  // The album gates the page; its reviews and "have I reviewed it" load alongside and never block it.
+  const albumQ   = useAlbum(id, !!token);
+  const reviewsQ = useAlbumReviews(id, !!token);
+  const { data: mine } = useMyReviews();
 
-  useEffect(() => {
-    if (!token || !id) return;
-    let cancelled = false;   // set when the id changes or the page unmounts, so a slow earlier request can't land late
-    setLoading(true);
-    Promise.allSettled([
-      api.get(`/albums/${id}`),
-      api.get(`/albums/${id}/reviews?offset=0&limit=20`),
-      api.get('/reviews/mine'),
-    ]).then(([a, rd, mine]) => {
-      if (cancelled) return;
-      // On failure, clear rather than keep: otherwise the previous album's page lingers under a new id.
-      if (a.status === 'fulfilled') { setAlbum(a.value); setError(null); }
-      else { setAlbum(null); setError(a.reason); }
-      if (rd.status === 'fulfilled') {
-        setReviews(rd.value.reviews ?? []);
-        setAvgScore(rd.value.avgScore ?? null);
-        setReviewsError(null);
-      } else {
-        setReviews([]); setAvgScore(null);
-        setReviewsError(rd.reason);
-      }
-      if (mine.status === 'fulfilled') {
-        setAlreadyReviewed((mine.value as any[]).some((r: any) => r.spotifyAlbumId === id && r.type === 'album'));
-      }
-    }).finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [id, token, attempt]);
+  const album           = albumQ.data;
+  const reviews         = reviewsQ.data?.reviews ?? [];
+  const avgScore        = reviewsQ.data?.avgScore ?? null;
+  const alreadyReviewed = !!id && reviewedIds(mine ?? []).albums.has(id);
 
   function rateAlbum() {
     if (!album || alreadyReviewed) return;
@@ -76,11 +38,11 @@ export default function Album() {
     });
   }
 
-  if (loading) return <PageSpinner />;
+  if (albumQ.isPending) return <PageSpinner />;
   if (!album) {
     // A request that failed is not the same as an album that doesn't exist.
-    if (error && !isNotFound(error)) {
-      return <ErrorState size="page" back title="Couldn't load this album" error={error} onRetry={() => setAttempt(a => a + 1)} />;
+    if (albumQ.isError && !isNotFound(albumQ.error)) {
+      return <ErrorState size="page" back title="Couldn't load this album" error={albumQ.error} onRetry={() => void albumQ.refetch()} />;
     }
     return <div className="flex items-center justify-center h-screen text-fg3">Album not found.</div>;
   }
@@ -126,8 +88,10 @@ export default function Album() {
 
         {/* Reviews */}
         <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Reviews</p>
-        {reviewsError
-          ? <ErrorState size="compact" title="Couldn't load reviews" error={reviewsError} onRetry={() => setAttempt(a => a + 1)} />
+        {reviewsQ.isPending
+          ? <div className="flex justify-center py-8"><Spinner size="md" /></div>
+          : reviewsQ.isError
+          ? <ErrorState size="compact" title="Couldn't load reviews" error={reviewsQ.error} onRetry={() => void reviewsQ.refetch()} />
           : reviews.length === 0
           ? <p className="text-fg3 text-[13px] text-center py-8">No reviews yet — be the first!</p>
           : <div className="flex flex-col gap-3">

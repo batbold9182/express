@@ -1,85 +1,59 @@
-import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
 import { ProfileReviews } from '../components/ProfileReviews';
 import { Favorites, RatingHistogram, Stat } from '../components/TasteWidgets';
 import { tasteStats } from '../lib/taste';
-import { api, isNotFound } from '../lib/api';
-import { invalidate } from '../queries/client';
-import { afterFollowChange } from '../queries/invalidation';
-import type { ProfileReview } from '@tunelog/shared';
+import { isNotFound } from '../lib/api';
+import { queryClient } from '../queries/client';
+import { qk } from '../queries/keys';
+import { totalOf } from '../queries/counts';
+import { useFollow, useUser, useUserCounts, useUserReviewsSample, type AppUser } from '../queries/users';
 import { useAuth } from '../context/auth';
 import { PageSpinner } from '../components/Spinner';
 import { ErrorState } from '../components/ErrorState';
 import { BackHeader } from '../components/subject';
-
-type AppUser = {
-  displayName: string;
-  avatarUrl?: string;
-  spotifyId: string;
-  followerCount: number;
-  followingCount: number;
-  isFollowing: boolean;
-  createdAt?: string;
-};
-
-const STATS_SAMPLE = 50;
 
 export default function Profile() {
   const { id } = useParams<{ id: string }>();
   const { spotifyId: myId } = useAuth();
   const nav = useNavigate();
 
-  const [user,      setUser]      = useState<AppUser | null>(null);
-  const [counts,    setCounts]    = useState({ track: 0, album: 0, artist: 0 });
-  const [reviews,   setReviews]   = useState<ProfileReview[]>([]);
-  const [following, setFollowing] = useState(false);
-  const [busy,      setBusy]      = useState(false);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<unknown>(null);  // the profile itself failed to load
-  const [attempt,   setAttempt]   = useState(0);              // bumped by "Try again"
+  // The profile gates the page. Counts and the review sample load alongside: if either fails the page
+  // still shows, with "—" for the count and no taste rail, instead of a misleading 0.
+  const userQ   = useUser(id);
+  const countsQ = useUserCounts(id);
+  const sampleQ = useUserReviewsSample(id);
+  const follow  = useFollow();
 
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;   // set when the id changes or the page unmounts, so a slow earlier request can't land late
-    setLoading(true);
-    Promise.allSettled([
-      api.get(`/users/${id}`),
-      api.get(`/users/${id}/reviews/counts`),
-      api.get(`/users/${id}/reviews?type=all&offset=0&limit=${STATS_SAMPLE}`),
-    ]).then(([u, c, r]) => {
-      if (cancelled) return;
-      // On failure, clear rather than keep: otherwise the previous profile lingers under a new id.
-      if (u.status === 'fulfilled') { setUser(u.value); setFollowing(u.value.isFollowing); setError(null); }
-      else { setUser(null); setError(u.reason); }
-      if (c.status === 'fulfilled') setCounts(c.value ?? { track: 0, album: 0, artist: 0 });
-      if (r.status === 'fulfilled') setReviews(r.value?.reviews ?? []);
-    }).finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [id, attempt]);
+  const user    = userQ.data;
+  const counts  = countsQ.data;            // undefined while loading or if it failed
+  const reviews = sampleQ.data ?? [];
 
-  async function toggleFollow() {
-    if (busy || !id) return;
-    setBusy(true);
-    try {
-      if (following) { await api.del(`/users/${id}/follow`); setFollowing(false); setUser(u => u ? { ...u, followerCount: u.followerCount - 1 } : u); }
-      else { await api.post(`/users/${id}/follow`, {}); setFollowing(true); setUser(u => u ? { ...u, followerCount: u.followerCount + 1 } : u); }
-      void invalidate(afterFollowChange(id));   // cached suggestions and people-search results carry this follow state
-    } catch { /* ignore */ } finally { setBusy(false); }
+  // Follow state IS the cached profile, so it cannot go stale: a click edits the cached record at once
+  // (the button and follower count move), and a failed request puts it back and shows a toast.
+  function toggleFollow() {
+    if (follow.isPending || !id || !user) return;
+    const wasFollowing = user.isFollowing;
+    const before = queryClient.getQueryData<AppUser>(qk.user(id));
+    queryClient.setQueryData<AppUser>(qk.user(id), u => u && { ...u, isFollowing: !wasFollowing, followerCount: u.followerCount + (wasFollowing ? -1 : 1) });
+    follow.mutate({ userId: id, following: wasFollowing }, { onError: () => queryClient.setQueryData(qk.user(id), before) });
   }
 
   const isOwn = id === myId;
 
-  if (loading) return <PageSpinner />;
+  if (userQ.isPending) return <PageSpinner />;
   if (!user) {
     // A request that failed is not the same as a user that doesn't exist.
-    if (error && !isNotFound(error)) {
-      return <ErrorState size="page" back title="Couldn't load this profile" error={error} onRetry={() => setAttempt(a => a + 1)} />;
+    if (userQ.isError && !isNotFound(userQ.error)) {
+      return <ErrorState size="page" back title="Couldn't load this profile" error={userQ.error} onRetry={() => void userQ.refetch()} />;
     }
     return <div className="flex items-center justify-center h-screen text-fg3">User not found.</div>;
   }
 
-  const totalReviews = counts.track + counts.album + counts.artist;
+  const following = user.isFollowing;
+  const busy      = follow.isPending;
+
+  const totalReviews = counts ? totalOf(counts) : '—';
   const t = tasteStats(reviews);
   const hasRail = t.count > 0;
 
@@ -144,7 +118,7 @@ export default function Profile() {
 
         {/* Reviews — main column */}
         <div className="lg:col-start-1 lg:row-start-2">
-          <ProfileReviews endpointBase={`/users/${id}/reviews`} counts={counts} />
+          <ProfileReviews userId={id} counts={counts} />
         </div>
       </div>
     </div>

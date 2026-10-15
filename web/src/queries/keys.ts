@@ -52,4 +52,5 @@ export const qk = {
   suggestedUsers:     () => ['suggested-users'] as const,
   suggestedUsersList: (limit: number) => ['suggested-users', limit] as const,
   feedback:       () => ['feedback'] as const,
+  sharedReview:   (id: string) => ['shared-review', id] as const,
 };

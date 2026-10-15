@@ -8,7 +8,7 @@ import type { ProfileReview } from '@tunelog/shared';
 const LABEL = 'text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3';
 
 /** One follower/following/reviews count — used in the identity header on /me and /profile/:id. */
-export function Stat({ value, label }: { value: number; label: string }) {
+export function Stat({ value, label }: { value: number | string; label: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       <span className="text-[18px] font-bold text-fg tabular-nums leading-none">{value}</span>

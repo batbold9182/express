@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { Avatar } from '../components/Avatar';
@@ -12,8 +11,7 @@ import { useLeaderboard, type LeaderboardItem } from '../queries/leaderboard';
 import { useMyReviews } from '../queries/reviews';
 import { reviewedIds } from '../queries/reviewedIds';
 import { useCatalogSearch, useUserSearch, type UserResult } from '../queries/search';
-import { invalidate } from '../queries/client';
-import { afterFollowChange } from '../queries/invalidation';
+import { useFollow } from '../queries/users';
 import { resolveChoice, type Choice } from '../queries/toggle';
 
 const SCOPES   = ['All', 'Songs', 'Albums', 'Artists', 'People'];
@@ -239,21 +237,17 @@ function UserRow({ user, myId, nav }: { user: UserResult; myId: string; nav: (p:
   // a value copied once would ignore that refresh and keep showing the old button. The user's click
   // wins only until the data says something different (see `resolveChoice`).
   const [choice, setChoice] = useState<Choice<boolean> | null>(null);
-  const [busy, setBusy] = useState(false);
+  const followMutation = useFollow();
+  const busy = followMutation.isPending;
   const following = resolveChoice(user.isFollowing, choice);
   const isOwn = user.spotifyId === myId;
 
-  async function toggle() {
+  // A failed request leaves the button as it was and shows a toast (the mutation's default). On success
+  // `useFollow` marks cached people-search results stale, so searching this name again can't show the old button.
+  function toggle() {
     if (busy) return;
-    setBusy(true);
-    try {
-      const from = user.isFollowing;
-      if (following) await api.del(`/users/${user.spotifyId}/follow`);
-      else await api.post(`/users/${user.spotifyId}/follow`, {});
-      setChoice({ from, to: !following });
-      // Cached people-search results carry `isFollowing`; searching this name again must not show the old button.
-      void invalidate(afterFollowChange(user.spotifyId));
-    } catch {} finally { setBusy(false); }
+    const from = user.isFollowing;
+    followMutation.mutate({ userId: user.spotifyId, following }, { onSuccess: () => setChoice({ from, to: !following }) });
   }
 
   return (

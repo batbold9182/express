@@ -1,19 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
 import { ProfileReviews } from '../components/ProfileReviews';
-import { api, API_BASE, type ApiError } from '../lib/api';
+import { API_BASE } from '../lib/api';
 import { SpotifyIcon, SettingsIcon } from '../components/icons';
 import { Favorites, RatingHistogram, Stat } from '../components/TasteWidgets';
 import { tasteStats } from '../lib/taste';
-import type { ProfileReview } from '@tunelog/shared';
 import { useAuth } from '../context/auth';
 import { PageSpinner } from '../components/Spinner';
 import { ErrorState } from '../components/ErrorState';
-
-type SpotifyUser   = { display_name: string; id: string; images: { url: string }[] };
-type AppUser       = { displayName: string; avatarUrl: string; followerCount: number; followingCount: number; spotifyLinked: boolean; createdAt?: string };
-type SpotifyArtist = { id: string; name: string; images: { url: string }[]; genres: string[] };
+import { totalOf } from '../queries/counts';
+import { useDisconnectSpotify, useMeApp, useMeCounts, useMeReviewsSample, useMeSpotify, useTopArtists } from '../queries/users';
 
 // Genre-bar accents — one per rank. The 4th used to be a near-invisible slate; amber reads.
 const GENRE_COLORS = ['#FFFFFF', '#E0685C', '#4FA3D1', '#EDA63E'];
@@ -21,25 +18,32 @@ const GENRE_COLORS = ['#FFFFFF', '#E0685C', '#4FA3D1', '#EDA63E'];
 // Stats (avg, favorites, histogram) are computed client-side from the caller's reviews. The list
 // endpoint caps at 50, so for a heavy reviewer these reflect the 50 most recent — a fair read of
 // current taste. A dedicated /users/me/stats endpoint would make them exact (backend, later).
-const STATS_SAMPLE = 50;
 
 export default function Me() {
-  const { token, spotifyId } = useAuth();
+  const { spotifyId } = useAuth();
   const nav = useNavigate();
   const apiBase = API_BASE ?? '';
 
-  const [user,       setUser]       = useState<SpotifyUser | null>(null);
-  const [appUser,    setAppUser]    = useState<AppUser | null>(null);
-  const [topArtists, setTopArtists] = useState<SpotifyArtist[]>([]);
-  const [myReviews,  setMyReviews]  = useState<ProfileReview[]>([]);
-  const [counts,     setCounts]     = useState({ track: 0, album: 0, artist: 0 });
-  const [loading,    setLoading]    = useState(true);
-  const [artistRange, setArtistRange] = useState<string | null>(null); // time_range the current topArtists belong to
-  const [disconnecting, setDisconnecting] = useState(false);
-  const [timeRange,  setTimeRange]  = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
-  const [appUserError,   setAppUserError]   = useState<unknown>(null); // /users/me failed — we don't know if Spotify is linked
-  const [artistsError,   setArtistsError]   = useState<unknown>(null);
-  const [attempt,        setAttempt]        = useState(0);              // bumped by "Try again"
+  const [timeRange, setTimeRange] = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
+
+  // The app account gates the page (it says whether Spotify is linked); everything else loads
+  // alongside and fills in. Counts and the taste sample that fail show "—" / nothing, never a 0.
+  const appQ       = useMeApp();
+  const spotifyQ   = useMeSpotify();       // 502s for an unlinked account — the normal case, not an error
+  const countsQ    = useMeCounts();
+  const sampleQ    = useMeReviewsSample();
+  const disconnect = useDisconnectSpotify();
+
+  const appUser = appQ.data ?? null;
+  const linked  = !!appUser?.spotifyLinked;
+  const user    = linked ? spotifyQ.data ?? null : null;           // the Spotify profile, only while linked
+  const topQ    = useTopArtists(timeRange, linked);                 // runs only for a linked account
+  const topArtists   = linked ? topQ.data ?? [] : [];
+  const myReviews    = sampleQ.data ?? [];
+  const appUserError = appQ.isError ? appQ.error : null;            // /users/me failed — we can't tell linked from unlinked
+  const artistsError = topQ.isError && topQ.data === undefined ? topQ.error : null;
+  // First load of this range with nothing to show. (Switching range keeps the last list up, dimmed.)
+  const artistsLoading = linked && topQ.isPending;
 
   function connectSpotify() {
     const callbackUrl = window.location.origin + '/auth/callback';
@@ -49,74 +53,29 @@ export default function Me() {
     window.location.href = `${apiBase}/auth/login?redirect=${encodeURIComponent(callbackUrl)}&linkId=${encodeURIComponent(spotifyId ?? '')}`;
   }
 
-  async function disconnectSpotify() {
+  // The session survives a disconnect (accessToken is an app token). A failure — notably the 409 "set a
+  // password first" lock-out — arrives as a toast carrying the server's own message.
+  function disconnectSpotify() {
+    if (disconnect.isPending) return;
     if (!window.confirm('Log out of Spotify?\n\nYour account and reviews stay. You lose top artists, genres and Now Playing until you reconnect.')) return;
-    setDisconnecting(true);
-    try {
-      // The session survives now — accessToken is an app token, so there is no token to re-save.
-      await api.del('/users/me/spotify');
-      setAppUser(a => a ? { ...a, spotifyLinked: false } : a);
-      setUser(null);
-      setTopArtists([]);
-    } catch (e) {
-      window.alert((e as ApiError)?.body?.error ?? 'Could not disconnect Spotify. Please try again.');
-    } finally {
-      setDisconnecting(false);
-    }
+    disconnect.mutate();
   }
-
-  useEffect(() => {
-    if (!token) return;
-    let cancelled = false;   // set on retry or unmount, so a slow earlier request can't land late
-    setLoading(true);
-    Promise.allSettled([
-      // Fired unconditionally: whether Spotify is linked comes from /users/me in this same
-      // batch, so gating on it would mean serialising the two. Unlinked accounts get a 502,
-      // which allSettled already absorbs — same as the top-artists call below.
-      api.get('/me'),
-      api.get('/users/me'),
-      api.get('/users/me/reviews/counts'),
-      api.get(`/users/me/reviews?type=all&offset=0&limit=${STATS_SAMPLE}`),
-    ]).then(([u, au, c, mr]) => {
-      if (cancelled) return;
-      if (u.status === 'fulfilled' && u.value) setUser(u.value);
-      // Without /users/me we can't tell linked from unlinked, so the rail must not guess.
-      if (au.status === 'fulfilled') { setAppUser(au.value); setAppUserError(null); }
-      else { setAppUser(null); setAppUserError(au.reason); }
-      if (c.status === 'fulfilled') setCounts(c.value ?? { track: 0, album: 0, artist: 0 });
-      if (mr.status === 'fulfilled') setMyReviews(mr.value?.reviews ?? []);
-    }).finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [token, attempt]);
-
-  useEffect(() => {
-    if (!token) return;
-    let cancelled = false;   // set when the time range changes, so a slow earlier range can't overwrite the current one
-    api.get(`/me/top/artists?time_range=${timeRange}`)
-      .then((d: { items?: SpotifyArtist[] }) => { if (!cancelled) { setTopArtists(d?.items ?? []); setArtistsError(null); } })
-      .catch(e => { if (!cancelled) { setTopArtists([]); setArtistsError(e); } })
-      .finally(() => { if (!cancelled) setArtistRange(timeRange); });
-    return () => { cancelled = true; };
-  }, [token, timeRange, attempt]);
-
-  // Derived, not a synchronous setState-in-effect: the list is "loading" whenever the fetched
-  // range hasn't caught up to the selected one (initial load, or just after a toggle).
-  const artistsLoading = !!appUser?.spotifyLinked && artistRange !== timeRange;
+  const disconnecting = disconnect.isPending;
 
   const genreMap: Record<string, number> = {};
   topArtists.forEach(a => (a.genres ?? []).slice(0, 2).forEach(g => { genreMap[g] = (genreMap[g] ?? 0) + 1; }));
   const topGenres = Object.entries(genreMap).sort((a, b) => b[1] - a[1]).slice(0, 4);
   const maxCount  = topGenres[0]?.[1] ?? 1;
 
-  const totalReviews = counts.track + counts.album + counts.artist;
+  const totalReviews = countsQ.data ? totalOf(countsQ.data) : '—';
   const t            = tasteStats(myReviews);
-  const tasteGenres  = appUser?.spotifyLinked ? topGenres.slice(0, 2).map(([n]) => n).join(', ') : '';
+  const tasteGenres  = linked ? topGenres.slice(0, 2).map(([n]) => n).join(', ') : '';
 
   const joined = appUser?.createdAt
     ? new Date(appUser.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : null;
 
-  if (loading) return <PageSpinner />;
+  if (appQ.isPending) return <PageSpinner />;
 
   const displayName = appUser?.displayName ?? user?.display_name ?? '—';
 
@@ -167,7 +126,7 @@ export default function Me() {
 
           {/* Spotify-personalised sections — hidden for unlinked email users */}
           {!appUser ? (
-            <ErrorState size="compact" title="Couldn't load your profile" error={appUserError} onRetry={() => setAttempt(a => a + 1)} />
+            <ErrorState size="compact" title="Couldn't load your profile" error={appUserError} onRetry={() => void appQ.refetch()} />
           ) : !appUser.spotifyLinked ? (
             <div className="rounded-2xl border border-white/8 bg-white/4 p-6 flex flex-col items-center gap-3 text-center">
               <SpotifyIcon size={32} />
@@ -258,7 +217,7 @@ export default function Me() {
                 </div>
               ) : artistsError ? (
                 <div className="mb-5">
-                  <ErrorState size="compact" title="Couldn't load top artists" error={artistsError} onRetry={() => setAttempt(a => a + 1)} />
+                  <ErrorState size="compact" title="Couldn't load top artists" error={artistsError} onRetry={() => void topQ.refetch()} />
                 </div>
               ) : (
                 <p className="text-[12px] text-fg4 text-center py-6 mb-5">No listening history yet — play something on Spotify.</p>
@@ -266,7 +225,7 @@ export default function Me() {
 
               {/* Unlink Spotify — the account and its reviews are kept */}
               <button
-                onClick={() => void disconnectSpotify()}
+                onClick={disconnectSpotify}
                 disabled={disconnecting}
                 className="w-full text-center py-2 text-[12px] text-fg3 hover:text-fg2 transition-colors cursor-pointer disabled:opacity-50"
               >
@@ -278,7 +237,7 @@ export default function Me() {
 
         {/* Reviews — main column, below identity */}
         <div className="lg:col-start-1 lg:row-start-2">
-          <ProfileReviews endpointBase="/users/me/reviews" counts={counts} />
+          <ProfileReviews counts={countsQ.data} />
         </div>
       </div>
     </div>

@@ -1,67 +1,62 @@
 import { useState, useEffect } from 'react';
-import { useRate } from '../context/rate';
+import { useMutation } from '@tanstack/react-query';
+import { useRate, type RateItem } from '../context/rate';
 import { useAuth } from '../context/auth';
 import { api } from '../lib/api';
-import { invalidate } from '../queries/client';
+import { invalidate, mutationMessage } from '../queries/client';
 import { afterReviewChange } from '../queries/invalidation';
+import { buildReviewBody, type ReviewBody } from '../queries/reviewBody';
 import { scoreColor, MOOD_LIST, MAX_REVIEW_LENGTH, MAX_MOODS } from '@tunelog/shared';
 import { CheckIcon } from './icons';
 
+/**
+ * The sheet itself is keyed by what is being rated, so opening it for a different item starts with
+ * a fresh form — no effect that resets the fields when `item` changes.
+ */
 export function RateModal() {
-  const { item, setItem } = useRate();
+  const { item } = useRate();
+  if (!item) return null;
+  return <RateSheet key={`${item.type ?? 'track'}:${item.spotifyTrackId ?? item.spotifyAlbumId ?? item.spotifyArtistId}`} item={item} />;
+}
+
+function RateSheet({ item }: { item: RateItem }) {
+  const { setItem } = useRate();
   const { token } = useAuth();
 
   const [text,   setText]   = useState('');
   const [score,  setScore]  = useState(7.0);
   const [moods,  setMoods]  = useState<string[]>([]);
-  const [busy,   setBusy]   = useState(false);
   const [done,   setDone]   = useState(false);
 
-  useEffect(() => {
-    if (item) { setText(''); setScore(7.0); setMoods([]); setDone(false); }
-  }, [item]);
+  // The sheet shows the failure itself (`meta.inline`) — notably the server's 409 "You already
+  // reviewed this track" — so there is no toast on top of it.
+  const mutation = useMutation({
+    mutationFn: (body: ReviewBody) => api.post('/reviews', body),
+    meta: { inline: true },
+    onSuccess: (_result, body) => {
+      // Everything cached that this review changes: the "Reviewed" badges, the leaderboards, the
+      // item's own page, the feed.
+      void invalidate(afterReviewChange(body));
+      setDone(true);
+    },
+  });
+  const busy = mutation.isPending;
 
-  if (!item) return null;
+  // Close shortly after "Review posted!". Cleared if the sheet goes away first, so it can never close
+  // a sheet that was opened for something else in the meantime.
+  useEffect(() => {
+    if (!done) return;
+    const t = setTimeout(() => setItem(null), 1200);
+    return () => clearTimeout(t);
+  }, [done, setItem]);
 
   function toggleMood(m: string) {
     setMoods(prev => prev.includes(m) ? prev.filter(x => x !== m) : prev.length < MAX_MOODS ? [...prev, m] : prev);
   }
 
-  async function submit() {
+  function submit() {
     if (busy || !token) return;
-    setBusy(true);
-    try {
-      const body: Record<string, any> = { text, score, moods, shareToFeed: true };
-      if (item!.type === 'artist' && item!.spotifyArtistId) {
-        body.spotifyArtistId = item!.spotifyArtistId;
-        body.type = 'artist';
-        body.trackName  = item!.trackName;
-        body.artistName = item!.artistName;
-        body.albumArt   = item!.albumArt;
-      } else if (item!.type === 'album' && item!.spotifyAlbumId) {
-        body.spotifyAlbumId = item!.spotifyAlbumId;
-        body.type = 'album';
-        body.trackName  = item!.trackName;
-        body.artistName = item!.artistName;
-        body.albumArt   = item!.albumArt;
-      } else {
-        body.spotifyTrackId = item!.spotifyTrackId;
-        body.type = 'track';
-        body.trackName  = item!.trackName;
-        body.artistName = item!.artistName;
-        body.albumArt   = item!.albumArt;
-        if (item!.spotifyArtistId) body.spotifyArtistId = item!.spotifyArtistId;
-        if (item!.spotifyAlbumId)  body.spotifyAlbumId  = item!.spotifyAlbumId;
-      }
-      await api.post('/reviews', body);
-      // Everything cached that this review changes: the "Reviewed" badges, the leaderboards, the
-      // item's own page. (Until now they refetched on every visit; cached, they would lag.)
-      void invalidate(afterReviewChange({
-        spotifyTrackId: body.spotifyTrackId, spotifyAlbumId: body.spotifyAlbumId, spotifyArtistId: body.spotifyArtistId,
-      }));
-      setDone(true);
-      setTimeout(() => setItem(null), 1200);
-    } catch {} finally { setBusy(false); }
+    mutation.mutate(buildReviewBody(item, { text, score, moods }));
   }
 
   return (
@@ -137,6 +132,10 @@ export function RateModal() {
                 ))}
               </div>
             </div>
+
+            {mutation.isError && (
+              <p role="alert" className="text-[12px] text-center" style={{ color: '#E0685C' }}>{mutationMessage(mutation.error)}</p>
+            )}
 
             <button
               onClick={submit}

@@ -1,24 +1,15 @@
-import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api, isNotFound } from '../lib/api';
+import { isNotFound } from '../lib/api';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { msToMin, scoreColor } from '@tunelog/shared';
 import { Spinner, PageSpinner } from '../components/Spinner';
 import { ErrorState } from '../components/ErrorState';
 import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
-
-type SpotifyTrack = {
-  id: string; name: string; duration_ms: number;
-  artists: { id: string; name: string }[];
-  album: { id: string; name: string; images: { url: string }[]; release_date: string };
-  external_urls: { spotify: string };
-};
-type TrackReview = {
-  _id: string;
-  userId: { _id: string; displayName: string; avatarUrl?: string; spotifyId: string };
-  score: number; text?: string; moods?: string[]; createdAt: string;
-};
+import { useTrack, useTrackReviews } from '../queries/catalog';
+import { useMyReviews } from '../queries/reviews';
+import { reviewedIds } from '../queries/reviewedIds';
+import { flattenUnique } from '../queries/pagination';
 
 export default function Song() {
   const { id } = useParams<{ id: string }>();
@@ -26,69 +17,23 @@ export default function Song() {
   const { setItem } = useRate();
   const nav = useNavigate();
 
-  const [track,           setTrack]           = useState<SpotifyTrack | null>(null);
-  const [reviews,         setReviews]         = useState<TrackReview[]>([]);
-  const [avgScore,        setAvgScore]        = useState<number | null>(null);
-  const [distribution,    setDistribution]    = useState<number[]>(Array(10).fill(0));
-  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
-  const [loading,         setLoading]         = useState(true);
-  const [error,           setError]           = useState<unknown>(null);   // the track itself failed to load
-  const [reviewsError,    setReviewsError]    = useState<unknown>(null);   // only the review list failed
-  const [loadingMore,     setLoadingMore]     = useState(false);
-  const [hasMore,         setHasMore]         = useState(false);
-  const offsetRef      = useRef(0);
-  const loadingMoreRef = useRef(false);
-  const loadSeq        = useRef(0);   // identifies the latest load, so a slower earlier one can be ignored
+  // The track gates the page; its reviews and "have I reviewed it" load alongside and never block it.
+  const trackQ   = useTrack(id, !!token);
+  const reviewsQ = useTrackReviews(id, !!token);
+  const { data: mine } = useMyReviews();
 
-  async function load() {
-    if (!token || !id) return;
-    const seq = ++loadSeq.current;
-    const stale = () => seq !== loadSeq.current;
-    setLoading(true); offsetRef.current = 0;
-    try {
-      const [t, rd, mine] = await Promise.allSettled([
-        api.get(`/tracks/${id}`),
-        api.get(`/tracks/${id}/reviews?offset=0&limit=20`),
-        api.get('/reviews/mine'),
-      ]);
-      // We have moved on (new id, or a retry) while this was in flight: its result is no longer ours to show.
-      if (stale()) return;
-      // On failure, clear rather than keep: otherwise the previous track's page lingers under a new id.
-      if (t.status === 'fulfilled') { setTrack(t.value); setError(null); }
-      else { setTrack(null); setError(t.reason); }
-      if (rd.status === 'fulfilled') {
-        setReviews(rd.value.reviews ?? []);
-        setAvgScore(rd.value.avgScore ?? null);
-        setDistribution(rd.value.distribution ?? Array(10).fill(0));
-        setHasMore(rd.value.hasMore ?? false);
-        offsetRef.current = (rd.value.reviews ?? []).length;
-        setReviewsError(null);
-      } else {
-        setReviews([]); setAvgScore(null); setHasMore(false);
-        setReviewsError(rd.reason);
-      }
-      if (mine.status === 'fulfilled') {
-        setAlreadyReviewed((mine.value as any[]).some((r: any) => r.spotifyTrackId === id && (!r.type || r.type === 'track')));
-      }
-    } finally { if (!stale()) setLoading(false); }
-  }
-
-  async function loadMore() {
-    if (!hasMore || loadingMoreRef.current || !id) return;
-    loadingMoreRef.current = true; setLoadingMore(true);
-    try {
-      const rd = await api.get(`/tracks/${id}/reviews?offset=${offsetRef.current}&limit=20`);
-      setReviews(prev => [...prev, ...(rd.reviews ?? [])]);
-      setHasMore(rd.hasMore ?? false);
-      offsetRef.current += (rd.reviews ?? []).length;
-    } catch {} finally { loadingMoreRef.current = false; setLoadingMore(false); }
-  }
-
-  useEffect(() => { load(); }, [id, token]);
+  const track           = trackQ.data;
+  const firstPage       = reviewsQ.data?.pages[0];
+  const reviews         = flattenUnique(reviewsQ.data?.pages, page => page.reviews);
+  const avgScore        = firstPage?.avgScore ?? null;
+  const distribution    = firstPage?.distribution ?? Array(10).fill(0);
+  const alreadyReviewed = !!id && reviewedIds(mine ?? []).tracks.has(id);
 
   function onScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) loadMore();
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 400 && reviewsQ.hasNextPage && !reviewsQ.isFetchingNextPage && !reviewsQ.isFetchNextPageError) {
+      void reviewsQ.fetchNextPage();
+    }
   }
 
   function rateTrack() {
@@ -104,12 +49,12 @@ export default function Song() {
     });
   }
 
-  if (loading) return <PageSpinner />;
+  if (trackQ.isPending) return <PageSpinner />;
 
   if (!track) {
     // A request that failed is not the same as a track that doesn't exist.
-    if (error && !isNotFound(error)) {
-      return <ErrorState size="page" back title="Couldn't load this track" error={error} onRetry={load} />;
+    if (trackQ.isError && !isNotFound(trackQ.error)) {
+      return <ErrorState size="page" back title="Couldn't load this track" error={trackQ.error} onRetry={() => void trackQ.refetch()} />;
     }
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4">
@@ -190,8 +135,10 @@ export default function Song() {
 
         {/* Reviews */}
         <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Reviews</p>
-        {reviewsError ? (
-          <ErrorState size="compact" title="Couldn't load reviews" error={reviewsError} onRetry={load} />
+        {reviewsQ.isPending ? (
+          <div className="flex justify-center py-8"><Spinner size="md" /></div>
+        ) : reviewsQ.isError && reviewsQ.data === undefined ? (
+          <ErrorState size="compact" title="Couldn't load reviews" error={reviewsQ.error} onRetry={() => void reviewsQ.refetch()} />
         ) : reviews.length === 0 ? (
           <p className="text-fg3 text-[13px] text-center py-8">No reviews yet — be the first!</p>
         ) : (
@@ -199,7 +146,14 @@ export default function Song() {
             {reviews.map(r => (
               <SubjectReviewRow key={r._id} review={r} />
             ))}
-            {loadingMore && <div className="flex justify-center py-4"><Spinner size="md" /></div>}
+            {reviewsQ.isFetchingNextPage && <div className="flex justify-center py-4"><Spinner size="md" /></div>}
+            {reviewsQ.isFetchNextPageError && (
+              <div className="flex justify-center py-4">
+                <button onClick={() => void reviewsQ.fetchNextPage()} className="text-[12px] text-fg3 hover:text-fg cursor-pointer">
+                  Couldn't load more — tap to retry
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
