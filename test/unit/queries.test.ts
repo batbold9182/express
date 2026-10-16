@@ -327,20 +327,32 @@ describe("reviewedIds", () => {
 });
 
 describe("invalidation map", () => {
-  const trackReview = { spotifyTrackId: "t1", spotifyAlbumId: "a1", spotifyArtistId: "r1" };
+  // A track review carries its album and artist ids too (for the artist link on its card).
+  const trackReview = { type: "track", spotifyTrackId: "t1", spotifyAlbumId: "a1", spotifyArtistId: "r1" };
 
-  test("posting a track review refreshes the track, album and artist pages and everything that lists reviews", () => {
+  test("posting a track review refreshes the song's page and everything that lists reviews", () => {
     const list = afterReviewChange(trackReview);
     expect(covers(list, qk.myReviews())).toBe(true);             // "Already reviewed" badges
     expect(covers(list, qk.feed("foryou"))).toBe(true);
     expect(covers(list, qk.feed("following"))).toBe(true);
     expect(covers(list, qk.leaderboard("track", 100))).toBe(true);
     expect(covers(list, qk.trackReviews("t1"))).toBe(true);
-    expect(covers(list, qk.albumReviews("a1"))).toBe(true);      // album page aggregates track reviews
-    expect(covers(list, qk.artistReviews("r1"))).toBe(true);     // so does the artist page
     expect(covers(list, qk.meCounts())).toBe(true);
     expect(covers(list, qk.meReviewsSample())).toBe(true);
     expect(covers(list, qk.meReviewsList("all", ""))).toBe(true);
+  });
+
+  test("scores are per type: a track review does not touch its album's or artist's page", () => {
+    const list = afterReviewChange(trackReview);
+    expect(covers(list, qk.album("a1"))).toBe(false);
+    expect(covers(list, qk.albumReviews("a1"))).toBe(false);
+    expect(covers(list, qk.artist("r1"))).toBe(false);
+    expect(covers(list, qk.artistReviews("r1"))).toBe(false);
+  });
+
+  test("a review with no type (an old one) is a track", () => {
+    const list = afterReviewChange({ spotifyTrackId: "t1" });
+    expect(covers(list, qk.trackReviews("t1"))).toBe(true);
   });
 
   test("it does not refresh unrelated entities", () => {
@@ -352,21 +364,32 @@ describe("invalidation map", () => {
   });
 
   test("an album review touches only the album", () => {
-    const list = afterReviewChange({ spotifyAlbumId: "a1" });
+    const list = afterReviewChange({ type: "album", spotifyAlbumId: "a1" });
     expect(covers(list, qk.album("a1"))).toBe(true);
+    expect(covers(list, qk.albumReviews("a1"))).toBe(true);
     expect(covers(list, qk.track("t1"))).toBe(false);
     expect(covers(list, qk.artist("r1"))).toBe(false);
   });
 
   test("an artist review touches only the artist", () => {
-    const list = afterReviewChange({ spotifyArtistId: "r1" });
+    const list = afterReviewChange({ type: "artist", spotifyArtistId: "r1" });
     expect(covers(list, qk.artist("r1"))).toBe(true);
+    expect(covers(list, qk.artistReviews("r1"))).toBe(true);
     expect(covers(list, qk.album("a1"))).toBe(false);
   });
 
   test("the author's profile is refreshed only when the author is known", () => {
     expect(covers(afterReviewChange(trackReview), qk.userCounts("u1"))).toBe(false);
     expect(covers(afterReviewChange({ ...trackReview, authorId: "u1" }), qk.userCounts("u1"))).toBe(true);
+  });
+
+  test("editing or deleting your own review refreshes your profile's counts and list, and only yours", () => {
+    const list = afterReviewEditOrDelete({ ...trackReview, authorId: "me" });
+    expect(covers(list, qk.userCounts("me"))).toBe(true);
+    expect(covers(list, qk.userReviewsList("me", "all", ""))).toBe(true);
+    expect(covers(list, qk.userCounts("someone-else"))).toBe(false);
+    const profile = list.find(i => JSON.stringify(i.key) === JSON.stringify(qk.user("me")));
+    expect(profile?.stale).toBeFalsy();                            // refetched if open, not just marked stale
   });
 
   test("a review change refetches what is on screen (nothing is merely marked stale)", () => {
