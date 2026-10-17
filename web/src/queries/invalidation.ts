@@ -9,7 +9,9 @@ import { qk } from './keys';
  */
 export type Invalidation = { key: readonly unknown[]; stale?: boolean; /** Match this key only, not the keys under it. */ exact?: boolean };
 
-export type ReviewRef = {
+type ReviewRef = {
+  /** Missing on old reviews, which are tracks. */
+  type?: string;
   spotifyTrackId?: string;
   spotifyAlbumId?: string;
   spotifyArtistId?: string;
@@ -18,8 +20,10 @@ export type ReviewRef = {
 };
 
 /**
- * A review was posted, edited or deleted. A *track* review carries all three ids, and the album and
- * artist pages aggregate from track reviews, so each id present refreshes its own page.
+ * A review was posted, edited or deleted. Scores are per type: a song's page lists track reviews, an
+ * album's page album reviews, an artist's page artist reviews, and nothing is rolled up between them. So
+ * a review refreshes the one page it belongs to — a *track* review also carries its album and artist ids
+ * (for the artist link on its card), but that does not change the album or artist page.
  */
 export function afterReviewChange(r: ReviewRef): Invalidation[] {
   const list: Invalidation[] = [
@@ -29,10 +33,11 @@ export function afterReviewChange(r: ReviewRef): Invalidation[] {
     { key: qk.meCounts() },
     { key: qk.meReviewsAll() },
   ];
-  if (r.spotifyTrackId)  list.push({ key: qk.track(r.spotifyTrackId) });
-  if (r.spotifyAlbumId)  list.push({ key: qk.album(r.spotifyAlbumId) });
-  if (r.spotifyArtistId) list.push({ key: qk.artist(r.spotifyArtistId) });
-  if (r.authorId)        list.push({ key: qk.user(r.authorId) });
+  const kind = r.type ?? 'track';
+  if (kind === 'track'  && r.spotifyTrackId)  list.push({ key: qk.track(r.spotifyTrackId) });
+  if (kind === 'album'  && r.spotifyAlbumId)  list.push({ key: qk.album(r.spotifyAlbumId) });
+  if (kind === 'artist' && r.spotifyArtistId) list.push({ key: qk.artist(r.spotifyArtistId) });
+  if (r.authorId)                             list.push({ key: qk.user(r.authorId) });
   return list;
 }
 

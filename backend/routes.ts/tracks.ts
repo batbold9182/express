@@ -2,18 +2,18 @@ import { Router, Request, Response } from 'express';
 import { Review } from '../models/review';
 import { stripNullAuthors } from '../lib/stripNullAuthors';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { spotifyHeaders } from './_spotifyHeaders';
+import { appSpotifyHeaders, requireSpotifyId } from './_spotifyHeaders';
 import { cacheGet, cacheSet, TTL } from './_cache';
 
 const router = Router();
 
 // GET /tracks/:id — track metadata from Spotify
-router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+router.get('/:id', requireAuth, requireSpotifyId, async (req: Request, res: Response) => {
   const key = `track:${req.params.id}`;
   const cached = cacheGet(key);
   if (cached) { res.json(cached); return; }
   try {
-    const r = await fetch(`https://api.spotify.com/v1/tracks/${req.params.id}`, { headers: await spotifyHeaders(req) });
+    const r = await fetch(`https://api.spotify.com/v1/tracks/${req.params.id}`, { headers: await appSpotifyHeaders() });
     if (!r.ok) { const t = await r.text(); res.status(r.status === 401 || r.status === 403 ? 502 : r.status).json({ error: t }); return; }
     const data = await r.json();
     cacheSet(key, data, TTL.DAY);

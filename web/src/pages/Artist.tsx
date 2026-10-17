@@ -1,13 +1,17 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { isNotFound } from '../lib/api';
+import { isSpotifyId } from '../lib/spotifyId';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
-import { PageSpinner, Spinner } from '../components/Spinner';
+import { SubjectHeroSkeleton } from '../components/Skeleton';
 import { ErrorState } from '../components/ErrorState';
-import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
-import { useArtist, useArtistAlbums, useArtistReviews } from '../queries/catalog';
+import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewList } from '../components/subject';
+import { loadMoreNearBottom } from '../lib/loadMore';
+import { Discography } from '../components/Discography';
+import { useArtist, useArtistReviews } from '../queries/catalog';
 import { useMyReviews } from '../queries/reviews';
 import { reviewedIds } from '../queries/reviewedIds';
+import { flattenUnique } from '../queries/pagination';
 
 export default function Artist() {
   const { id } = useParams<{ id: string }>();
@@ -17,14 +21,14 @@ export default function Artist() {
 
   // The artist gates the page; the discography, reviews and "have I reviewed them" load alongside.
   const artistQ  = useArtist(id, !!token);
-  const albumsQ  = useArtistAlbums(id, !!token);
   const reviewsQ = useArtistReviews(id, !!token);
   const { data: mine } = useMyReviews();
 
   const artist          = artistQ.data;
-  const albums          = albumsQ.data ?? [];     // a failed discography (Spotify's 429) just hides the section
-  const reviews         = reviewsQ.data?.reviews ?? [];
-  const avgScore        = reviewsQ.data?.avgScore ?? null;
+  const firstPage       = reviewsQ.data?.pages[0];
+  const reviews         = flattenUnique(reviewsQ.data?.pages, page => page.reviews);
+  const avgScore        = firstPage?.avgScore ?? null;
+  const ratingCount     = firstPage?.total ?? reviews.length;
   const alreadyReviewed = !!id && reviewedIds(mine ?? []).artists.has(id);
 
   function rateArtist() {
@@ -32,7 +36,13 @@ export default function Artist() {
     setItem({ type: 'artist', spotifyArtistId: artist.id, trackName: artist.name, artistName: artist.name, albumArt: artist.images[0]?.url ?? '' });
   }
 
-  if (artistQ.isPending) return <PageSpinner />;
+  // A malformed id never queries (isSpotifyId), so it falls through to "not found" below.
+  if (isSpotifyId(id) && artistQ.isPending) return (
+    <div className="h-screen overflow-y-auto">
+      <BackHeader onBack={() => nav(-1)} />
+      <SubjectHeroSkeleton round />
+    </div>
+  );
   if (!artist) {
     // A request that failed is not the same as an artist that doesn't exist.
     if (artistQ.isError && !isNotFound(artistQ.error)) {
@@ -44,7 +54,7 @@ export default function Artist() {
   const img = artist.images?.[0]?.url;
 
   return (
-    <div className="h-screen overflow-y-auto">
+    <div className="h-screen overflow-y-auto" onScroll={loadMoreNearBottom(reviewsQ)}>
       {img && <HeroBackdrop src={img} heightClass="h-72" opacity={0.3} />}
 
       <BackHeader onBack={() => nav(-1)} />
@@ -57,7 +67,7 @@ export default function Artist() {
           <span className="text-[10px] font-bold uppercase tracking-widest text-pink border border-pink/30 bg-pink/10 px-2.5 py-0.5 rounded-full">Artist</span>
           <h1 className="text-[26px] font-bold text-fg text-center">{artist.name}</h1>
           {(artist.genres?.length ?? 0) > 0 && <p className="text-[12px] text-fg3">{artist.genres.slice(0, 3).join(' · ')}</p>}
-          {avgScore !== null && <AvgScore value={avgScore} count={reviews.length} />}
+          {avgScore !== null && <AvgScore value={avgScore} count={ratingCount} />}
           <div className="flex gap-3 mt-2 flex-wrap justify-center">
             {alreadyReviewed
               ? <span className="px-5 py-2.5 rounded-xl border border-white/10 text-fg3 text-[13px] font-semibold">Already reviewed</span>
@@ -66,35 +76,11 @@ export default function Artist() {
           </div>
         </div>
 
-        {/* Albums */}
-        {albums.length > 0 && (
-          <>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Albums</p>
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              {albums.slice(0, 10).map(a => (
-                <button key={a.id} onClick={() => nav(`/album/${a.id}`)} className="flex flex-col gap-2 p-2 rounded-xl border border-white/8 bg-white/4 hover:bg-white/8 transition-colors cursor-pointer text-left">
-                  {a.images[0]?.url ? <img src={a.images[0].url} alt="" className="w-full aspect-square rounded-lg object-cover" /> : <div className="w-full aspect-square rounded-lg bg-white/8" />}
-                  <p className="text-[12px] font-semibold text-fg truncate">{a.name}</p>
-                  <p className="text-[11px] text-fg4">{a.release_date?.slice(0, 4)}</p>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+        {/* Discography: one tab per release type */}
+        <Discography artistId={artist.id} enabled={!!token} />
 
         {/* Reviews */}
-        <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Reviews</p>
-        {reviewsQ.isPending
-          ? <div className="flex justify-center py-8"><Spinner size="md" /></div>
-          : reviewsQ.isError
-          ? <ErrorState size="compact" title="Couldn't load reviews" error={reviewsQ.error} onRetry={() => void reviewsQ.refetch()} />
-          : reviews.length === 0
-          ? <p className="text-fg3 text-[13px] text-center py-8">No reviews yet — be the first!</p>
-          : <div className="flex flex-col gap-3">
-              {reviews.map(r => (
-                <SubjectReviewRow key={r._id} review={r} />
-              ))}
-            </div>}
+        <SubjectReviewList query={reviewsQ} reviews={reviews} />
       </div>
     </div>
   );

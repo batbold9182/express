@@ -9,7 +9,8 @@ import { useNotif } from '../context/notif';
 import { useFeed, removeReviewFromFeeds, type FeedTab } from '../queries/feed';
 import { flattenUnique } from '../queries/pagination';
 import { queryClient } from '../queries/client';
-import { Spinner, ListSpinner } from '../components/Spinner';
+import { Spinner } from '../components/Spinner';
+import { FeedSkeleton } from '../components/Skeleton';
 import { ErrorState } from '../components/ErrorState';
 
 const TABS = [
@@ -84,7 +85,7 @@ export default function Home() {
         {/* Feed column */}
         <div className="flex-1 overflow-y-auto pb-20 md:pb-4" onScroll={onScroll}>
           {loading ? (
-            <ListSpinner />
+            <FeedSkeleton />
           ) : showError ? (
             <ErrorState title="Couldn't load the feed" error={error} onRetry={() => void refetch()} />
           ) : items.length === 0 ? (

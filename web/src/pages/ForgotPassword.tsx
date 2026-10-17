@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE } from '../lib/api';
+import { publicApi } from '../lib/api';
+import { mutationMessage } from '../queries/client';
 import { AuthBackdrop, AuthWordmark, AuthInput, GlowButton } from '../components/authKit';
 import { MailIcon } from '../components/icons';
 
@@ -16,15 +17,10 @@ export default function ForgotPassword() {
     if (!email) { setError('Enter your email address'); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      if (!res.ok) { setError('Something went wrong — try again'); return; }
+      await publicApi.post('/auth/forgot-password', { email });
       setDone(true);
-    } catch {
-      setError('Network error — is the server running?');
+    } catch (e) {
+      setError(mutationMessage(e));
     } finally {
       setLoading(false);
     }

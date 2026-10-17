@@ -3,7 +3,7 @@
  * global mutation error handler has to be able to raise a toast from anywhere, with no component in
  * scope. `<Toaster />` subscribes to it.
  */
-export type Toast = { id: number; message: string };
+type Toast = { id: number; message: string };
 
 const VISIBLE_MS = 4000;
 

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { qk } from './keys';
 
-export type PublicReview = {
+type PublicReview = {
   _id: string;
   type?: 'track' | 'album' | 'artist';
   spotifyTrackId?: string;
@@ -21,7 +21,7 @@ export type PublicReview = {
 export function useSharedReview(id: string | undefined) {
   return useQuery({
     queryKey: qk.sharedReview(id ?? ''),
-    queryFn: ({ signal }) => api.get<PublicReview>(`/reviews/${id}`, signal),
+    queryFn: ({ signal }) => api.get<PublicReview>(`/reviews/${encodeURIComponent(id ?? '')}`, signal),
     enabled: !!id,
     staleTime: 60_000,
   });

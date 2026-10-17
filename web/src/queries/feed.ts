@@ -6,7 +6,7 @@ import { qk } from './keys';
 import { mapItem, nextOffset, removeItem } from './pagination';
 
 export type FeedTab = 'foryou' | 'following';
-export type FeedPage = { items: FeedItem[]; myId: string; hasMore: boolean };
+type FeedPage = { items: FeedItem[]; myId: string; hasMore: boolean };
 
 const ENDPOINT: Record<FeedTab, string> = {
   foryou:    '/reviews/trending',

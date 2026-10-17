@@ -451,3 +451,29 @@ describe("invalidation map", () => {
     expect(toFilters([{ key: ["user", "u1"], exact: true }])[0]).toMatchObject({ exact: true });
   });
 });
+
+// ── Two web fixes found by express-web reading the web for Spotify ids (plan.md, "Security tests"). ──
+// Written as `test.failing` while the web still had the problem; express-web fixed both on 2026-10-17 and the
+// markers are gone, so these are plain guards now.
+
+describe("a Spotify local file in the now-playing card", () => {
+  // Spotify documents a local file as `is_local` with a null id on the track, its album and its artists. The cards
+  // would offer "Rate" (which posts spotifyTrackId: null) and a tap would go to /song/null.
+  const local = {
+    is_playing: true, progress_ms: 1000,
+    item: { id: null, is_local: true, name: "My demo.mp3", duration_ms: 180000, artists: [{ id: null, name: "Me" }], album: { id: null, name: "", images: [] } },
+  } as unknown as NowPlayingData;
+
+  test("is treated as nothing playing, like a podcast", () => {
+    expect(playableTrack(local)).toBeNull();
+  });
+});
+
+describe("buildReviewBody with a track that has no id", () => {
+  const target = { type: "track" as const, trackName: "Song", artistName: "Artist", albumArt: "" };
+
+  test("sends no spotifyTrackId at all, rather than null", () => {
+    const body = buildReviewBody({ ...target, spotifyTrackId: null as unknown as string }, { text: "", score: 5, moods: [] });
+    expect(body).not.toHaveProperty("spotifyTrackId", null);
+  });
+});

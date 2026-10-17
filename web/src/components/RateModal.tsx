@@ -21,7 +21,7 @@ export function RateModal() {
 
 function RateSheet({ item }: { item: RateItem }) {
   const { setItem } = useRate();
-  const { token } = useAuth();
+  const { token, spotifyId } = useAuth();
 
   const [text,   setText]   = useState('');
   const [score,  setScore]  = useState(7.0);
@@ -35,8 +35,8 @@ function RateSheet({ item }: { item: RateItem }) {
     meta: { inline: true },
     onSuccess: (_result, body) => {
       // Everything cached that this review changes: the "Reviewed" badges, the leaderboards, the
-      // item's own page, the feed.
-      void invalidate(afterReviewChange(body));
+      // item's own page, the feed, and your own /profile/<you> page (its counts and review list).
+      void invalidate(afterReviewChange({ ...body, authorId: spotifyId ?? undefined }));
       setDone(true);
     },
   });

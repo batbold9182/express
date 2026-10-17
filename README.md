@@ -13,10 +13,11 @@ express is a social music review app where users rate tracks, albums, and artist
 | Backend | Node.js + Express 5, TypeScript |
 | Database | MongoDB Atlas (Mongoose) |
 | Mobile | React Native, Expo SDK 54, expo-router |
-| Web | React + Vite + TypeScript, React Router v6, Tailwind CSS v4 |
+| Web | React 19 + Vite + TypeScript, React Router v7, TanStack Query v5 (data fetching and cache), Tailwind CSS v4 |
 | Auth | Email/password (bcrypt); Spotify OAuth 2.0 for connecting Spotify to an account |
 | Music data | Spotify Web API + Client Credentials |
 | Email | Nodemailer + Gmail |
+| Tests | Jest 30 + ts-jest, supertest, mongodb-memory-server |
 
 ---
 
@@ -27,7 +28,8 @@ express/
 ├── backend/        Express API
 ├── frontend/       React Native (Expo) mobile app
 ├── web/            React + Vite web app
-└── shared/         @tunelog/shared — types, constants, utils (zero deps)
+├── shared/         @tunelog/shared — types, constants, utils (zero deps)
+└── test/           Jest suite — unit tests and backend integration tests (run from the repo root)
 ```
 
 The `shared/` package is an npm workspace consumed by both `frontend/` and `web/` via the `@tunelog/shared` alias.
@@ -103,6 +105,15 @@ cd frontend && npx expo start --clear
 # Press 'a' for Android emulator
 ```
 
+### Tests
+
+```bash
+# From the repo root
+npm test
+```
+
+Runs the Jest suite in `test/`: the shared helpers, the web app's data-layer logic (query keys, cache invalidation, pagination), and the backend's `/health` route through `supertest`. The tests set up their own environment and never need your `.env` or a Spotify account.
+
 ---
 
 ## Auth
@@ -140,6 +151,7 @@ All routes require `Authorization: Bearer <token>` unless noted.
 
 | Prefix | Description |
 |---|---|
+| `GET /health` | Liveness check, **no auth** — `200 { ok: true, db: "connected" }`, or `503` when the database is unreachable. Point an uptime monitor here |
 | `POST /auth/register` | Email signup |
 | `POST /auth/email-login` | Email login |
 | `GET /auth/login` | Spotify OAuth redirect (web: Connect Spotify from `/me`; mobile: login) |
@@ -151,6 +163,7 @@ All routes require `Authorization: Bearer <token>` unless noted.
 | `GET /albums/:id` | Album metadata + community score |
 | `GET /tracks/:id` | Track metadata + community score |
 | `POST /reviews` | Post a review |
+| `GET /reviews/:id` | One review — **public, no auth** (powers the shareable `/r/:id` page) |
 | `GET /reviews/trending` | Most liked reviews (last 30 days) |
 | `GET /reviews/leaderboard?type=&limit=` | Aggregated leaderboard — avg score + review count per item. `type`: `most-rated \| track \| album \| artist` |
 | `GET /reviews/top` | Highest scored reviews (score ≥ 7) |
@@ -181,6 +194,13 @@ Spotify OAuth requires HTTPS for non-localhost URIs. For testing on a physical d
 
 - Spotify OAuth: 25-user allowlist cap in Dev Mode. On web this now only limits who can *connect* Spotify from `/me`; signing up is unlimited. Still caps mobile login
 - In-memory Spotify response cache clears on backend restart
+- On Render's free tier the backend sleeps after 15 idle minutes, so the first request after that is a cold start (up to a minute). An uptime monitor pinging `GET /health` every few minutes keeps it awake
 - No push notifications in Expo Go — requires a dev build with `expo-notifications`
-- Artist discography always returns Spotify's default page size (explicit `limit` rejected by Client Credentials)
+- Artist discography and Search return Spotify's pages of **10** (the maximum for a Development Mode app since February 2026; before the pager they returned its default of 5). The web shows a "Show more" button for the rest, so a long discography costs one Spotify call per click
 - Auth middleware caches `req.user` for 4 minutes — stale data possible immediately after follow/unfollow
+
+---
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).

@@ -1,16 +1,57 @@
 import { useNavigate } from 'react-router-dom';
+import type { UseInfiniteQueryResult } from '@tanstack/react-query';
 import { Avatar } from './Avatar';
 import { Score } from './Score';
+import { Spinner } from './Spinner';
+import { SubjectReviewsSkeleton } from './Skeleton';
+import { ErrorState } from './ErrorState';
 import { MOOD_COLOR } from '@tunelog/shared';
+import type { SubjectReview } from '../queries/catalog';
 
 /**
  * The pieces Song, Album and Artist render identically.
  *
- * Deliberately NOT a page shell — the three pages differ in hero shape, mid-section
- * and, crucially, in paging: Song paginates and draws a score histogram while Album
- * and Artist fetch a single page. None of these components know anything about
- * fetching, so that asymmetry is preserved by construction.
+ * Deliberately NOT a page shell — the three pages differ in hero shape and mid-section
+ * (Song draws a score histogram, Album a track list, Artist a discography). All three
+ * page their reviews the same way, so the list lives here (its scroll trigger is
+ * `loadMoreNearBottom` in lib/loadMore.ts); the query itself stays in the page.
  */
+
+/** The parts of a reviews infinite query that the list reads. */
+type ReviewPagesQuery = Pick<
+  UseInfiniteQueryResult,
+  'isPending' | 'isError' | 'error' | 'data' | 'refetch' | 'isFetchingNextPage' | 'isFetchNextPageError' | 'fetchNextPage'
+>;
+
+/** The "Reviews" section: loading, error, empty, then the rows and the next-page spinner or retry. */
+export function SubjectReviewList({ query: q, reviews }: { query: ReviewPagesQuery; reviews: SubjectReview[] }) {
+  return (
+    <>
+      <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Reviews</p>
+      {q.isPending ? (
+        <SubjectReviewsSkeleton />
+      ) : q.isError && q.data === undefined ? (
+        <ErrorState size="compact" title="Couldn't load reviews" error={q.error} onRetry={() => void q.refetch()} />
+      ) : reviews.length === 0 ? (
+        <p className="text-fg3 text-[13px] text-center py-8">No reviews yet — be the first!</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {reviews.map(r => (
+            <SubjectReviewRow key={r._id} review={r} />
+          ))}
+          {q.isFetchingNextPage && <div className="flex justify-center py-4"><Spinner size="md" /></div>}
+          {q.isFetchNextPageError && (
+            <div className="flex justify-center py-4">
+              <button onClick={() => void q.fetchNextPage()} className="text-[12px] text-fg3 hover:text-fg cursor-pointer">
+                Couldn't load more — tap to retry
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
 
 /** Sticky translucent bar holding the back button. */
 export function BackHeader({ onBack, bg = 'rgba(0,0,0,0.7)' }: { onBack: () => void; bg?: string }) {
@@ -48,14 +89,6 @@ export function AvgScore({ value, count }: { value: number; count: number }) {
     </div>
   );
 }
-
-export type SubjectReview = {
-  _id: string;
-  userId: { _id: string; displayName: string; avatarUrl?: string; spotifyId: string };
-  score: number;
-  text?: string;
-  moods?: string[];
-};
 
 /** One review in the list on a track / album / artist page. */
 export function SubjectReviewRow({ review: r }: { review: SubjectReview }) {

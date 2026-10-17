@@ -25,6 +25,7 @@ import Album          from './pages/Album';
 import Artist         from './pages/Artist';
 import Profile        from './pages/Profile';
 import SharedReview   from './pages/SharedReview';
+import Policy         from './pages/Policy';
 
 // Dev only. `import.meta.env.DEV` is a build-time constant, so the production build drops the import.
 const Devtools = import.meta.env.DEV
@@ -45,6 +46,8 @@ export default function App() {
               <Route path="/reset-password"  element={<ResetPassword />} />
               {/* Public shareable review post — no auth gate */}
               <Route path="/r/:id"           element={<SharedReview />} />
+              <Route path="/privacy"         element={<Policy kind="privacy" />} />
+              <Route path="/cookies"         element={<Policy kind="cookies" />} />
 
               <Route element={<Layout />}>
                 <Route path="/"              element={<Home />} />

@@ -3,6 +3,7 @@ import { Review } from '../models/review';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { notify } from '../lib/notify';
 import { stripNullAuthors } from '../lib/stripNullAuthors';
+import { SPOTIFY_ID } from './_spotifyHeaders';
 
 const router = Router();
 
@@ -141,6 +142,12 @@ router.get('/mine', requireAuth, async (req: AuthRequest, res: Response) => {
 
 router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
+    // Stored and later turned into links. Absent ids are allowed; '' counts as absent because the mobile app sends ''.
+    for (const f of ['spotifyTrackId', 'spotifyAlbumId', 'spotifyArtistId'] as const) {
+      const v = req.body[f];
+      if (v === undefined || v === null || v === '') continue;
+      if (typeof v !== 'string' || !SPOTIFY_ID.test(v)) { res.status(400).json({ error: `Invalid ${f}` }); return; }
+    }
     const { type, spotifyTrackId, spotifyAlbumId, spotifyArtistId } = req.body;
     let existing = null;
     let errorMsg = '';

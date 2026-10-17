@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/auth';
-import { API_BASE } from '../lib/api';
+import { publicApi } from '../lib/api';
+import { mutationMessage } from '../queries/client';
 
 const BRAND_GRADIENT = 'linear-gradient(90deg, #4FA3D1 0%, #FFFFFF 50%, #E0685C 100%)';
 
@@ -19,9 +20,15 @@ const FEATURES = [
   { icon: '◎', color: '#E0685C', label: "Vote for your artists to help them grow" },
 ];
 
-// TODO: dummy for now — wire up i18n and real policy pages later.
+// TODO: dummy for now — wire up i18n, and Terms / Report pages, later. Privacy and Cookies are
+// real routes (placeholder pages until their wording is written).
 const LANGUAGES = ['English (US)', 'Polski', 'Deutsch', 'Español'];
-const POLICY_LINKS = ['Privacy Policy', 'Cookies', 'Terms' , 'Report'];
+const POLICY_LINKS: { label: string; to?: string }[] = [
+  { label: 'Privacy Policy', to: '/privacy' },
+  { label: 'Cookies',        to: '/cookies' },
+  { label: 'Terms' },
+  { label: 'Report' },
+];
 
 type EmailMode = 'signin' | 'signup';
 
@@ -54,22 +61,15 @@ export default function Login() {
         ? { email, displayName: name, password }
         : { email, password };
 
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json() as { access_token?: string; spotify_id?: string; error?: string };
-
-      if (!res.ok || !data.access_token || !data.spotify_id) {
-        setError(data.error ?? 'Something went wrong'); return;
+      const data = await publicApi.post<{ access_token?: string; spotify_id?: string } | null>(endpoint, body);
+      if (!data?.access_token || !data.spotify_id) {
+        setError('Something went wrong.'); return;
       }
 
       saveToken(data.access_token, data.spotify_id);
       nav('/', { replace: true });
-    } catch {
-      setError('Network error — is the server running?');
+    } catch (e) {
+      setError(mutationMessage(e));
     } finally {
       setLoading(false);
     }
@@ -285,9 +285,10 @@ export default function Login() {
           </div>
 
           <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
-            {POLICY_LINKS.map(label => (
-              <PlaceholderLink key={label}>{label}</PlaceholderLink>
-            ))}
+            {POLICY_LINKS.map(({ label, to }) => to
+              ? <Link key={label} to={to} className="transition-colors duration-150 hover:text-white" style={{ color: '#5C5142' }}>{label}</Link>
+              : <PlaceholderLink key={label}>{label}</PlaceholderLink>,
+            )}
             <span style={{ color: '#5C5142' }}>© {new Date().getFullYear()} express</span>
           </div>
         </div>

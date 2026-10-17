@@ -2,7 +2,7 @@ import request from "supertest";
 import app from "../../backend/app";
 import { useMemoryMongo } from "../helpers/mongo";
 import { useSpotifyMock } from "../helpers/spotifyMock";
-import { makeUser, uniqueId } from "../helpers/fixtures";
+import { makeUser, spotifyId } from "../helpers/fixtures";
 
 // Characterization tests: they pin what these routes do TODAY, so the Phase E refactor can be checked against them.
 // If one fails after a change, either the change broke a route or the behaviour was meant to change — decide which.
@@ -21,14 +21,14 @@ const routes = [
 describe.each(routes)("$name", ({ path, upstream, failure }) => {
     describe("authentication", () => {
         it("needs a session token", async () => {
-            const res = await request(app).get(path(uniqueId("x")));
+            const res = await request(app).get(path(spotifyId()));
             expect(res.status).toBe(401);
             expect(res.body).toEqual({ error: "Missing token" });
             expect(spotify.calls()).toBe(0);
         });
 
         it("turns away a token that belongs to nobody", async () => {
-            const res = await request(app).get(path(uniqueId("x"))).set("Authorization", "Bearer not-a-real-token");
+            const res = await request(app).get(path(spotifyId())).set("Authorization", "Bearer not-a-real-token");
             expect(res.status).toBe(401);
             expect(res.body).toEqual({ error: "Invalid token" });
             expect(spotify.calls()).toBe(0);
@@ -38,7 +38,7 @@ describe.each(routes)("$name", ({ path, upstream, failure }) => {
     describe("the upstream call", () => {
         it("returns Spotify's JSON unchanged", async () => {
             const { auth } = await makeUser();
-            const id = uniqueId("x");
+            const id = spotifyId();
             spotify.on(upstream(id), { id, name: "Thing", nested: { a: [1, 2, 3] } });
 
             const res = await request(app).get(path(id)).set(auth);
@@ -49,7 +49,7 @@ describe.each(routes)("$name", ({ path, upstream, failure }) => {
 
         it("authenticates to Spotify with the app token, never the caller's own session token", async () => {
             const { auth, token } = await makeUser();
-            const id = uniqueId("x");
+            const id = spotifyId();
             spotify.on(upstream(id), { id });
 
             await request(app).get(path(id)).set(auth);
@@ -59,21 +59,16 @@ describe.each(routes)("$name", ({ path, upstream, failure }) => {
             expect(sent).not.toContain(token);
         });
 
-        it("uses the caller's own Spotify token when they have linked an account", async () => {
-            const { auth } = await makeUser({ spotifyAccessToken: "linked-user-token", spotifyTokenExpiresAt: new Date(Date.now() + 3_600_000) });
-            const id = uniqueId("x");
-            spotify.on(upstream(id), { id });
-
-            await request(app).get(path(id)).set(auth);
-
-            expect(spotify.lastHeaders(upstream(id))?.get("authorization")).toBe("Bearer linked-user-token");
-        });
+        // (This block used to pin "uses the caller's own Spotify token when they have linked an account". That was the
+        // path by which one user's private /me data reached another through the shared cache — security finding H5 — so the
+        // opposite is now stated in test/security/spotify.test.ts ("never uses a linked user's own Spotify token for data
+        // that goes into the shared cache"), and the pin is gone.)
     });
 
     describe("caching", () => {
         it("serves a repeat request from the cache without asking Spotify again", async () => {
             const { auth } = await makeUser();
-            const id = uniqueId("x");
+            const id = spotifyId();
             spotify.on(upstream(id), { id, name: "Cached" });
 
             const first = await request(app).get(path(id)).set(auth);
@@ -87,7 +82,7 @@ describe.each(routes)("$name", ({ path, upstream, failure }) => {
         it("shares the cache between users — it is Spotify metadata, not personal data", async () => {
             const a = await makeUser();
             const b = await makeUser();
-            const id = uniqueId("x");
+            const id = spotifyId();
             spotify.on(upstream(id), { id });
 
             await request(app).get(path(id)).set(a.auth);
@@ -98,7 +93,7 @@ describe.each(routes)("$name", ({ path, upstream, failure }) => {
 
         it("keeps one cache entry per id", async () => {
             const { auth } = await makeUser();
-            const [one, two] = [uniqueId("x"), uniqueId("x")];
+            const [one, two] = [spotifyId(), spotifyId()];
             spotify.on(upstream(one), { id: one });
             spotify.on(upstream(two), { id: two });
 
@@ -111,7 +106,7 @@ describe.each(routes)("$name", ({ path, upstream, failure }) => {
 
         it("does not cache a failure, so the next request tries Spotify again", async () => {
             const { auth } = await makeUser();
-            const id = uniqueId("x");
+            const id = spotifyId();
 
             spotify.on(upstream(id), "Not found", 404);
             const failed = await request(app).get(path(id)).set(auth);
@@ -137,7 +132,7 @@ describe.each(routes)("$name", ({ path, upstream, failure }) => {
             [503, 503],
         ])("answers Spotify's %i with %i and passes Spotify's text along", async (upstreamStatus, ourStatus) => {
             const { auth } = await makeUser();
-            const id = uniqueId("x");
+            const id = spotifyId();
             spotify.on(upstream(id), "text from spotify", upstreamStatus);
 
             const res = await request(app).get(path(id)).set(auth);
@@ -148,7 +143,7 @@ describe.each(routes)("$name", ({ path, upstream, failure }) => {
 
         it("answers 500 with this route's own message when the request to Spotify throws", async () => {
             const { auth } = await makeUser();
-            const id = uniqueId("x");
+            const id = spotifyId();
             spotify.fail(upstream(id));
 
             const res = await request(app).get(path(id)).set(auth);
@@ -159,7 +154,7 @@ describe.each(routes)("$name", ({ path, upstream, failure }) => {
 
         it("answers 500 the same way when Spotify's reply is not JSON", async () => {
             const { auth } = await makeUser();
-            const id = uniqueId("x");
+            const id = spotifyId();
             spotify.on(upstream(id), "<html>gateway hiccup</html>");
 
             const res = await request(app).get(path(id)).set(auth);

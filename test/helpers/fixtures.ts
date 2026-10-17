@@ -13,6 +13,13 @@ let counter = 0;
  */
 export const uniqueId = (prefix: string) => `${prefix}-${++counter}`;
 
+/**
+ * A well-formed Spotify id (22 letters and digits) that no other call in this test file has used. Use it for the id in a
+ * route that goes to Spotify (`/tracks/:id`, `/albums/:id`, `/artists/:id`): those routes are to refuse anything that
+ * is not 22 base-62 characters, so a test id such as `x-5` would stop working the day that check lands.
+ */
+export const spotifyId = () => (String(++counter) + "AbCdEfGhIjKlMnOpQrStUv").slice(0, 22);
+
 /** A user in the test database, plus the `Authorization` header that `requireAuth` accepts for them. */
 export async function makeUser(overrides: Record<string, unknown> = {}) {
     const n = ++counter;

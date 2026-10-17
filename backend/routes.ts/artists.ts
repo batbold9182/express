@@ -2,20 +2,22 @@ import { Router, Request, Response } from 'express';
 import { Review } from '../models/review';
 import { stripNullAuthors } from '../lib/stripNullAuthors';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { spotifyHeaders } from './_spotifyHeaders';
+import { appSpotifyHeaders, requireSpotifyId, spotifyPage } from './_spotifyHeaders';
 import { cacheGet, cacheSet, TTL } from './_cache';
 
 const router = Router();
 
 const inFlight = new Map<string, Promise<unknown>>();
 
+const ALBUM_GROUPS = new Set(['album', 'single', 'compilation', 'appears_on']);
+
 // GET /artists/:id — artist metadata from Spotify
-router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+router.get('/:id', requireAuth, requireSpotifyId, async (req: Request, res: Response) => {
   const key = `artist:${req.params.id}`;
   const cached = cacheGet(key);
   if (cached) { res.json(cached); return; }
   try {
-    const r = await fetch(`https://api.spotify.com/v1/artists/${req.params.id}`, { headers: await spotifyHeaders(req) });
+    const r = await fetch(`https://api.spotify.com/v1/artists/${req.params.id}`, { headers: await appSpotifyHeaders() });
     if (!r.ok) { const t = await r.text(); console.error('Spotify artist error:', r.status, t); res.status(r.status === 401 || r.status === 403 ? 502 : r.status).json({ error: t }); return; }
     const data = await r.json();
     cacheSet(key, data, TTL.DAY);
@@ -26,11 +28,12 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// GET /artists/:id/albums?group=album|single|compilation|appears_on
-router.get('/:id/albums', requireAuth, async (req: Request, res: Response) => {
-  const group  = (req.query.group  as string) || 'album';
-  const limit  = Number(req.query.limit)  || 20;
-  const offset = Number(req.query.offset) || 0;
+// GET /artists/:id/albums?group=album|single|compilation|appears_on&limit=1-10&offset=0-1000
+router.get('/:id/albums', requireAuth, requireSpotifyId, async (req: Request, res: Response) => {
+  const group  = req.query.group === undefined ? 'album' : req.query.group;
+  if (typeof group !== 'string' || !ALBUM_GROUPS.has(group)) { res.status(400).json({ error: 'Invalid group' }); return; }
+  // Clamped, so junk input cannot make extra cache keys; each page is its own entry.
+  const { limit, offset } = spotifyPage(req);
   const key = `artist-albums:${req.params.id}:${group}:${limit}:${offset}`;
 
   const cached = cacheGet(key);
@@ -49,8 +52,8 @@ router.get('/:id/albums', requireAuth, async (req: Request, res: Response) => {
     return;
   }
 
-  const headers = await spotifyHeaders(req);
-  const url = `https://api.spotify.com/v1/artists/${req.params.id}/albums?include_groups=${encodeURIComponent(group)}&market=US`;
+  const headers = await appSpotifyHeaders();
+  const url = `https://api.spotify.com/v1/artists/${req.params.id}/albums?include_groups=${encodeURIComponent(group)}&market=US&limit=${limit}&offset=${offset}`;
   const promise = fetch(url, { headers })
   .then(async r => {
     if (!r.ok) {

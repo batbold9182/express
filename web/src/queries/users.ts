@@ -40,12 +40,12 @@ export type AppUser = {
 };
 
 /** How many of someone's most recent reviews the taste widgets are computed from. */
-export const TASTE_SAMPLE = 50;
+const TASTE_SAMPLE = 50;
 
 export function useUser(id: string | undefined) {
   return useQuery({
     queryKey: qk.user(id ?? ''),
-    queryFn: ({ signal }) => api.get<AppUser>(`/users/${id}`, signal),
+    queryFn: ({ signal }) => api.get<AppUser>(`/users/${encodeURIComponent(id ?? '')}`, signal),
     enabled: !!id,
   });
 }
@@ -53,7 +53,7 @@ export function useUser(id: string | undefined) {
 export function useUserCounts(id: string | undefined) {
   return useQuery({
     queryKey: qk.userCounts(id ?? ''),
-    queryFn: async ({ signal }) => toCounts(await api.get(`/users/${id}/reviews/counts`, signal)),
+    queryFn: async ({ signal }) => toCounts(await api.get(`/users/${encodeURIComponent(id ?? '')}/reviews/counts`, signal)),
     enabled: !!id,
   });
 }
@@ -62,19 +62,19 @@ export function useUserReviewsSample(id: string | undefined) {
   return useQuery({
     queryKey: qk.userReviewsSample(id ?? ''),
     queryFn: async ({ signal }) =>
-      asArray<ProfileReview>((await api.get<{ reviews?: unknown }>(`/users/${id}/reviews?type=all&offset=0&limit=${TASTE_SAMPLE}`, signal))?.reviews),
+      asArray<ProfileReview>((await api.get<{ reviews?: unknown }>(`/users/${encodeURIComponent(id ?? '')}/reviews?type=all&offset=0&limit=${TASTE_SAMPLE}`, signal))?.reviews),
     enabled: !!id,
   });
 }
 
 // ── the signed-in user ─────────────────────────────────────────────────────
-export type MeApp = {
+type MeApp = {
   displayName: string; avatarUrl: string;
   followerCount: number; followingCount: number;
   spotifyLinked: boolean; createdAt?: string; email?: string;
 };
-export type SpotifyUser = { display_name: string; id: string; images: { url: string }[] };
-export type TopArtist = { id: string; name: string; images: { url: string }[]; genres: string[] };
+type SpotifyUser = { display_name: string; id: string; images: { url: string }[] };
+type TopArtist = { id: string; name: string; images: { url: string }[]; genres: string[] };
 
 /** `GET /users/me` — the app account. Me and Settings share this one request. */
 export function useMeApp() {
@@ -129,7 +129,7 @@ export function useTopArtists(range: string, enabled: boolean) {
 }
 
 // ── a user's reviews, paginated (Me and Profile share the list) ────────────
-export type ProfileReviewsPage = { reviews: ProfileReview[]; hasMore: boolean };
+type ProfileReviewsPage = { reviews: ProfileReview[]; hasMore: boolean };
 const PROFILE_REVIEWS_PAGE = 20;
 
 /**
@@ -138,7 +138,7 @@ const PROFILE_REVIEWS_PAGE = 20;
  * the new one arrives.
  */
 export function useProfileReviews(userId: string | undefined, type: string, q: string) {
-  const base = userId ? `/users/${userId}/reviews` : '/users/me/reviews';
+  const base = userId ? `/users/${encodeURIComponent(userId)}/reviews` : '/users/me/reviews';
   return useInfiniteQuery({
     queryKey: userId ? qk.userReviewsList(userId, type, q) : qk.meReviewsList(type, q),
     queryFn: async ({ pageParam, signal }): Promise<ProfileReviewsPage> => {
@@ -162,7 +162,7 @@ export function useProfileReviews(userId: string | undefined, type: string, q: s
 export function useFollow() {
   return useMutation({
     mutationFn: ({ userId, following }: { userId: string; following: boolean }) =>
-      following ? api.del(`/users/${userId}/follow`) : api.post(`/users/${userId}/follow`, {}),
+      following ? api.del(`/users/${encodeURIComponent(userId)}/follow`) : api.post(`/users/${encodeURIComponent(userId)}/follow`, {}),
     onSuccess: (_result, { userId }) => { void invalidate(afterFollowChange(userId)); },
   });
 }

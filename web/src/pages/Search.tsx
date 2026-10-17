@@ -10,7 +10,9 @@ import { ErrorState } from '../components/ErrorState';
 import { useLeaderboard, type LeaderboardItem } from '../queries/leaderboard';
 import { useMyReviews } from '../queries/reviews';
 import { reviewedIds } from '../queries/reviewedIds';
-import { useCatalogSearch, useUserSearch, type UserResult } from '../queries/search';
+import { useCatalogSearch, useSearchMore, useUserSearch, type SearchType, type UserResult } from '../queries/search';
+import { nextSpotifyOffset, type SpotifyPage } from '../queries/spotifyPaging';
+import { ShowMore } from '../components/ShowMore';
 import { useFollow } from '../queries/users';
 import { resolveChoice, type Choice } from '../queries/toggle';
 
@@ -45,9 +47,15 @@ export default function Search() {
   const reviewed = useMemo(() => reviewedIds(mine ?? []), [mine]);
   const { data: trending = [] } = useLeaderboard('most-rated', 5);
 
-  const tracks  = catalog.data?.tracks?.items  ?? [];
-  const albums  = catalog.data?.albums?.items  ?? [];
-  const artists = catalog.data?.artists?.items ?? [];
+  // Which types the user asked "Show more" on, and for which search text: new text closes them all.
+  const [moreFor, setMoreFor] = useState<Partial<Record<SearchType, string>>>({});
+  const openMore = (type: SearchType) => setMoreFor(m => ({ ...m, [type]: debouncedQ }));
+  const trackList  = useTypeList('track',  debouncedQ, catalog.data?.tracks,  moreFor.track  === debouncedQ, () => openMore('track'));
+  const albumList  = useTypeList('album',  debouncedQ, catalog.data?.albums,  moreFor.album  === debouncedQ, () => openMore('album'));
+  const artistList = useTypeList('artist', debouncedQ, catalog.data?.artists, moreFor.artist === debouncedQ, () => openMore('artist'));
+  const tracks  = trackList.items;
+  const albums  = albumList.items;
+  const artists = artistList.items;
   const users   = people.data ?? [];
   const hasResults = isPeople ? users.length > 0 : tracks.length + albums.length + artists.length > 0;
 
@@ -155,6 +163,7 @@ export default function Search() {
             ))}
 
             {/* Songs */}
+            {!isPeople && scope === 0 && tracks.length > 0 && <SectionLabel>Songs</SectionLabel>}
             {!isPeople && (scope === 0 || scope === 1) && tracks.map(t => {
               const isReviewed = reviewed.tracks.has(t.id);
               return (
@@ -165,12 +174,15 @@ export default function Search() {
                   sub={t.artists.map(a => a.name).join(', ')}
                   reviewed={isReviewed}
                   onPress={() => nav(`/song/${t.id}`)}
-                  onRate={() => setItem({ type: 'track', spotifyTrackId: t.id, trackName: t.name, artistName: t.artists[0]?.name ?? '', albumArt: t.album?.images?.[1]?.url ?? '' })}
+                  onRate={() => setItem({ type: 'track', spotifyTrackId: t.id, spotifyAlbumId: t.album?.id, spotifyArtistId: t.artists[0]?.id, trackName: t.name, artistName: t.artists[0]?.name ?? '', albumArt: t.album?.images?.[1]?.url ?? '' })}
                 />
               );
             })}
 
+            {!isPeople && (scope === 0 || scope === 1) && !stale && <ShowMore {...trackList.more} label="Show more songs" />}
+
             {/* Albums */}
+            {!isPeople && scope === 0 && albums.length > 0 && <SectionLabel>Albums</SectionLabel>}
             {!isPeople && (scope === 0 || scope === 2) && albums.map(a => {
               const isReviewed = reviewed.albums.has(a.id);
               return (
@@ -186,7 +198,10 @@ export default function Search() {
               );
             })}
 
+            {!isPeople && (scope === 0 || scope === 2) && !stale && <ShowMore {...albumList.more} label="Show more albums" />}
+
             {/* Artists */}
+            {!isPeople && scope === 0 && artists.length > 0 && <SectionLabel>Artists</SectionLabel>}
             {!isPeople && (scope === 0 || scope === 3) && artists.map(a => {
               const isReviewed = reviewed.artists.has(a.id);
               return (
@@ -202,11 +217,41 @@ export default function Search() {
                 />
               );
             })}
+            {!isPeople && (scope === 0 || scope === 3) && !stale && <ShowMore {...artistList.more} label="Show more artists" />}
           </div>
         )}
       </div>
     </div>
   );
+}
+
+/**
+ * One type's results: the first page from the combined search, plus every page "Show more" fetched
+ * (`useSearchMore`). Returns the items to render and the props for its `ShowMore` button.
+ */
+function useTypeList<T extends { id: string }>(type: SearchType, q: string, first: SpotifyPage<T> | undefined, open: boolean, onOpen: () => void) {
+  const more = useSearchMore<T>(type, q, first, open);
+  const items = (open && more.data) || first?.items || [];
+  const failed = open && more.isError;
+  return {
+    items,
+    more: {
+      hasMore: open ? (more.hasNextPage || more.isFetching || failed) : !!first && nextSpotifyOffset(first) !== undefined,
+      loading: open && more.isFetching,
+      error: failed ? more.error : null,
+      // The first click opens the query (it fetches the page after `first`); later ones fetch the next
+      // page; after a failure, the same click retries whichever request failed.
+      onMore: () => {
+        if (!open) onOpen();
+        else if (more.data === undefined) void more.refetch();
+        else void more.fetchNextPage();
+      },
+    },
+  };
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mt-4 mb-2 first:mt-0">{children}</p>;
 }
 
 function MusicRow({ img, title, sub, reviewed, onPress, onRate, circle }: {

@@ -1,5 +1,5 @@
 /** What the rating sheet knows about the thing being rated. */
-export type RateTarget = {
+type RateTarget = {
   type?: 'track' | 'album' | 'artist';
   spotifyTrackId?: string;
   spotifyAlbumId?: string;
@@ -9,12 +9,12 @@ export type RateTarget = {
   albumArt: string;
 };
 
-export type ReviewFields = { text: string; score: number; moods: string[] };
+type ReviewFields = { text: string; score: number; moods: string[] };
 
 /**
  * The body of `POST /reviews`. An artist or an album review carries only its own id; a *track* review
- * carries the track id plus the album and artist ids when known — that is what lets the album and
- * artist pages aggregate scores from track reviews, and makes the artist name on a card navigable.
+ * carries the track id plus the album and artist ids when known, which makes the artist name on its card
+ * navigable. (Scores stay per type: the album and artist pages do not count track reviews.)
  */
 export function buildReviewBody(item: RateTarget, fields: ReviewFields) {
   const base = {
@@ -33,7 +33,7 @@ export function buildReviewBody(item: RateTarget, fields: ReviewFields) {
   return {
     ...base,
     type: 'track' as const,
-    spotifyTrackId: item.spotifyTrackId,
+    ...(item.spotifyTrackId ? { spotifyTrackId: item.spotifyTrackId } : {}),
     ...(item.spotifyArtistId ? { spotifyArtistId: item.spotifyArtistId } : {}),
     ...(item.spotifyAlbumId ? { spotifyAlbumId: item.spotifyAlbumId } : {}),
   };

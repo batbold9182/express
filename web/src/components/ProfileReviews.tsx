@@ -4,6 +4,7 @@ import { ShareButton } from './ShareButton';
 import { scoreColor, MOOD_COLOR, subjectPath } from '@tunelog/shared';
 import { SearchIcon } from './icons';
 import { Spinner } from './Spinner';
+import { ProfileReviewsSkeleton } from './Skeleton';
 import { ErrorState } from './ErrorState';
 import { useProfileReviews } from '../queries/users';
 import { flattenUnique } from '../queries/pagination';
@@ -100,7 +101,7 @@ export function ProfileReviews({ userId, counts }: { userId?: string; counts?: R
 
       {/* List */}
       {list.isPending ? (
-        <div className="flex justify-center py-8"><Spinner size="md" /></div>
+        <ProfileReviewsSkeleton />
       ) : list.isError && list.data === undefined ? (
         <ErrorState size="compact" title="Couldn't load reviews" error={list.error} onRetry={() => void list.refetch()} />
       ) : reviews.length === 0 ? (

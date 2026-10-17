@@ -1,4 +1,4 @@
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User';
 
 // ---------------------------------------------------------------------------
@@ -189,6 +189,32 @@ export async function spotifyHeaders(req: Request): Promise<{ Authorization: str
     // Fall through to Client Credentials rather than sending a token we know is dead.
   }
 
+  return appSpotifyHeaders();
+}
+
+/** App (Client Credentials) token only, for anything that goes into the shared cache. */
+export async function appSpotifyHeaders(): Promise<{ Authorization: string }> {
   if (!_appToken || _appExpiry < Date.now()) await refreshAppToken();
   return { Authorization: `Bearer ${_appToken ?? ''}` };
+}
+
+/** A Spotify id is 22 base-62 characters. Anything else never reaches a Spotify URL. */
+export const SPOTIFY_ID = /^[A-Za-z0-9]{22}$/;
+
+/**
+ * The page a caller asked for, clamped to what Spotify accepts: limit 1-10 (default 10), offset 0-1000 (default 0).
+ * Junk (missing, '', 'abc', an array) means the default, so only these values ever reach a URL or a cache key.
+ */
+export function spotifyPage(req: Request): { limit: number; offset: number } {
+  const int = (v: unknown, def: number, min: number, max: number) => {
+    const n = typeof v === 'string' && v !== '' ? Number(v) : NaN;
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.trunc(n))) : def;
+  };
+  return { limit: int(req.query.limit, 10, 1, 10), offset: int(req.query.offset, 0, 0, 1000) };
+}
+
+/** 400 unless :id is a Spotify id. Express has already decoded it, so `..%2Fme` is checked as `../me`. */
+export function requireSpotifyId(req: Request, res: Response, next: NextFunction): void {
+  if (!SPOTIFY_ID.test(String(req.params.id))) { res.status(400).json({ error: 'Invalid Spotify id' }); return; }
+  next();
 }

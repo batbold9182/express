@@ -11,10 +11,10 @@ export function Spinner({ size = 'lg' }: { size?: keyof typeof BOX }) {
 }
 
 /**
- * Renders nothing for the first few seconds, then explains the wait. Mount it beside a spinner:
- * it lives exactly as long as the loading state does, so the timer resets on every new load.
+ * Renders nothing for the first few seconds, then explains the wait. Mount it beside a spinner or
+ * skeleton: it lives exactly as long as the loading state does, so the timer resets on every new load.
  */
-function SlowHint() {
+export function SlowHint() {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setSlow(true), SLOW_HINT_MS);

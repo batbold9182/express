@@ -1,14 +1,17 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { isNotFound } from '../lib/api';
+import { isSpotifyId } from '../lib/spotifyId';
 import { useAuth } from '../context/auth';
 import { useRate } from '../context/rate';
 import { msToMin } from '@tunelog/shared';
-import { PageSpinner, Spinner } from '../components/Spinner';
+import { SubjectHeroSkeleton } from '../components/Skeleton';
 import { ErrorState } from '../components/ErrorState';
-import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewRow } from '../components/subject';
+import { BackHeader, HeroBackdrop, AvgScore, SubjectReviewList } from '../components/subject';
+import { loadMoreNearBottom } from '../lib/loadMore';
 import { useAlbum, useAlbumReviews } from '../queries/catalog';
 import { useMyReviews } from '../queries/reviews';
 import { reviewedIds } from '../queries/reviewedIds';
+import { flattenUnique } from '../queries/pagination';
 
 export default function Album() {
   const { id } = useParams<{ id: string }>();
@@ -22,8 +25,10 @@ export default function Album() {
   const { data: mine } = useMyReviews();
 
   const album           = albumQ.data;
-  const reviews         = reviewsQ.data?.reviews ?? [];
-  const avgScore        = reviewsQ.data?.avgScore ?? null;
+  const firstPage       = reviewsQ.data?.pages[0];
+  const reviews         = flattenUnique(reviewsQ.data?.pages, page => page.reviews);
+  const avgScore        = firstPage?.avgScore ?? null;
+  const ratingCount     = firstPage?.total ?? reviews.length;
   const alreadyReviewed = !!id && reviewedIds(mine ?? []).albums.has(id);
 
   function rateAlbum() {
@@ -38,7 +43,13 @@ export default function Album() {
     });
   }
 
-  if (albumQ.isPending) return <PageSpinner />;
+  // A malformed id never queries (isSpotifyId), so it falls through to "not found" below.
+  if (isSpotifyId(id) && albumQ.isPending) return (
+    <div className="h-screen overflow-y-auto">
+      <BackHeader onBack={() => nav(-1)} />
+      <SubjectHeroSkeleton />
+    </div>
+  );
   if (!album) {
     // A request that failed is not the same as an album that doesn't exist.
     if (albumQ.isError && !isNotFound(albumQ.error)) {
@@ -51,7 +62,7 @@ export default function Album() {
   const artistStr = album.artists.map(a => a.name).join(', ');
 
   return (
-    <div className="h-screen overflow-y-auto">
+    <div className="h-screen overflow-y-auto" onScroll={loadMoreNearBottom(reviewsQ)}>
       {art && <HeroBackdrop src={art} heightClass="h-72" opacity={0.3} />}
 
       <BackHeader onBack={() => nav(-1)} />
@@ -65,7 +76,7 @@ export default function Album() {
           <h1 className="text-[24px] font-bold text-fg text-center leading-tight">{album.name}</h1>
           <button onClick={() => nav(`/artist/${album.artists[0]?.id}`)} className="text-[15px] text-violet cursor-pointer hover:opacity-80">{artistStr} ›</button>
           <p className="text-[11px] text-fg3 uppercase tracking-widest">{album.release_date?.slice(0, 4)} · {album.total_tracks} tracks</p>
-          {avgScore !== null && <AvgScore value={avgScore} count={reviews.length} />}
+          {avgScore !== null && <AvgScore value={avgScore} count={ratingCount} />}
           <div className="flex gap-3 mt-2 flex-wrap justify-center">
             {alreadyReviewed
               ? <span className="px-5 py-2.5 rounded-xl border border-white/10 text-fg3 text-[13px] font-semibold">Already reviewed</span>
@@ -87,18 +98,7 @@ export default function Album() {
         </div>
 
         {/* Reviews */}
-        <p className="text-[11px] font-bold uppercase tracking-widest text-fg3 mb-3">Reviews</p>
-        {reviewsQ.isPending
-          ? <div className="flex justify-center py-8"><Spinner size="md" /></div>
-          : reviewsQ.isError
-          ? <ErrorState size="compact" title="Couldn't load reviews" error={reviewsQ.error} onRetry={() => void reviewsQ.refetch()} />
-          : reviews.length === 0
-          ? <p className="text-fg3 text-[13px] text-center py-8">No reviews yet — be the first!</p>
-          : <div className="flex flex-col gap-3">
-              {reviews.map(r => (
-                <SubjectReviewRow key={r._id} review={r} />
-              ))}
-            </div>}
+        <SubjectReviewList query={reviewsQ} reviews={reviews} />
       </div>
     </div>
   );

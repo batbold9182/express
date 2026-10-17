@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { asArray } from './asArray';
 import { qk } from './keys';
 
-export type FeedbackItem = {
+type FeedbackItem = {
   _id: string;
   displayName: string;
   email: string;

@@ -31,7 +31,9 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
   const dispScore = item.score;
   const dispMoods = item.moods ?? [];
 
-  const isOwn = (item.userId as any)?._id?.toString() === myId;
+  const isOwn = item.userId?._id?.toString() === myId;
+  // The author's handle — a review change also refreshes their /profile/<handle> page.
+  const authorId = item.userId?.spotifyId;
 
   function navSubject() {
     const p = subjectPath(item);
@@ -48,7 +50,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
     meta: { inline: true },
     onSuccess: (_result, changes) => {
       patchReviewInFeeds(queryClient, item._id, r => ({ ...r, ...changes }));
-      void invalidate(afterReviewEditOrDelete(item));   // leaderboards, the item's page, "Reviewed" badges
+      void invalidate(afterReviewEditOrDelete({ ...item, authorId }));   // leaderboards, the item's page, "Reviewed" badges, the author's profile
       setEditing(false); setShowActions(false);
     },
   });
@@ -69,7 +71,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
   const deleteMutation = useMutation({
     mutationFn: () => api.del(`/reviews/${item._id}`),
     onSuccess: () => {
-      void invalidate(afterReviewEditOrDelete(item));   // the "Reviewed" badge and the leaderboards must forget it
+      void invalidate(afterReviewEditOrDelete({ ...item, authorId }));   // the "Reviewed" badge, the leaderboards and the author's profile must forget it
       onDelete();
     },
   });
@@ -82,7 +84,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
   const spotifyUrl = spotifyUrlFor(item);
 
   const scoreCol  = scoreColor(dispScore);
-  const commentCount = ((item as any).comments ?? []).length;
+  const commentCount = (item.comments ?? []).length;
 
   return (
     <div
@@ -97,15 +99,15 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
       <div className="flex flex-col gap-3 p-4">
         {/* Header: avatar + name + timestamp + menu */}
         <div className="flex items-center gap-2.5">
-          <button onClick={() => nav(`/profile/${(item.userId as any)?.spotifyId}`)} className="cursor-pointer">
+          <button onClick={() => nav(`/profile/${item.userId?.spotifyId}`)} className="cursor-pointer">
             <Avatar
-              name={(item.userId as any)?.displayName || '?'}
-              src={(item.userId as any)?.avatarUrl}
+              name={item.userId?.displayName || '?'}
+              src={item.userId?.avatarUrl}
               size={34}
             />
           </button>
-          <button onClick={() => nav(`/profile/${(item.userId as any)?.spotifyId}`)} className="flex-1 text-left cursor-pointer">
-            <div className="text-[13px] font-bold text-fg">{(item.userId as any)?.displayName}</div>
+          <button onClick={() => nav(`/profile/${item.userId?.spotifyId}`)} className="flex-1 text-left cursor-pointer">
+            <div className="text-[13px] font-bold text-fg">{item.userId?.displayName}</div>
             <div className="text-[11px] text-fg4">{timeAgo(item.createdAt)}</div>
           </button>
           {isOwn && (
@@ -221,7 +223,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
 
         {/* Action row */}
         <div className="flex items-center gap-4 pt-0.5">
-          <LikeButton reviewId={item._id} likes={(item as any).likes ?? []} myId={myId} />
+          <LikeButton reviewId={item._id} likes={item.likes ?? []} myId={myId} />
 
           {commentCount > 0 && (
             <span className="flex items-center gap-1.5 text-[12px] text-fg3">

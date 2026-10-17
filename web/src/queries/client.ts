@@ -1,5 +1,5 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query';
-import { describeError, type ApiError } from '../lib/api';
+import { mutationMessage, type ApiError } from '../lib/errors';
 import { toast } from '../lib/toast';
 import { shouldRetry } from './retry';
 import { toFilters, type Invalidation } from './invalidation';
@@ -15,12 +15,7 @@ declare module '@tanstack/react-query' {
   }
 }
 
-/** What a failed mutation says. A 4xx usually carries the server's own explanation ("You already reviewed this track"). */
-export function mutationMessage(error: unknown): string {
-  const { status, body } = (error ?? {}) as ApiError;
-  if (status && status >= 400 && status < 500 && body?.error) return body.error;
-  return describeError(error);
-}
+export { mutationMessage };
 
 /**
  * The one QueryClient. A module singleton (not created in a component) so `AuthProvider` can wipe it

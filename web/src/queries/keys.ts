@@ -22,10 +22,12 @@ export const qk = {
   albumReviews: (id: string) => ['album', id, 'reviews'] as const,
   artist:        (id: string) => ['artist', id] as const,
   artistAlbums:  (id: string) => ['artist', id, 'albums'] as const,
+  artistAlbumsGroup: (id: string, group: string) => ['artist', id, 'albums', group] as const,
   artistReviews: (id: string) => ['artist', id, 'reviews'] as const,
 
   // ── search ──────────────────────────────────────────────────────────────
   search:        (scope: string, q: string) => ['search', scope, q] as const,
+  searchMore:    (type: string, q: string) => ['search', 'more', type, q] as const,
   userSearchAll: () => ['user-search'] as const,
   userSearch:    (q: string) => ['user-search', q] as const,
 

@@ -25,12 +25,14 @@ export function useSpotifyMock() {
     const holds = new Map<string, Promise<void>>();
     let tokenOverride: { status: number; body: unknown } | null = null;
     let tokenCalls = 0;
+    let fallbackReply: { status: number; body: unknown } | null = null;
 
     beforeEach(() => {
         replies.clear();
         holds.clear();
         tokenOverride = null;
         tokenCalls = 0;
+        fallbackReply = null;
         log.length = 0;
         unmocked.length = 0;
 
@@ -48,7 +50,7 @@ export function useSpotifyMock() {
             }
 
             const path = url.pathname + url.search;
-            const reply = url.hostname === "api.spotify.com" ? replies.get(path) : undefined;
+            const reply = url.hostname === "api.spotify.com" ? (replies.get(path) ?? fallbackReply ?? undefined) : undefined;
             if (!reply) {
                 unmocked.push(url.href);
                 throw new Error(`Unmocked fetch in a test: ${url.href}`);
@@ -74,6 +76,14 @@ export function useSpotifyMock() {
             replies.set(path, error);
         },
         /**
+         * Answers EVERY api.spotify.com path that has no exact `on()` route, instead of treating it as an unmocked
+         * call. For security tests that state "this must not go upstream": the call still happens and is counted today
+         * (so the test can fail on `calls()`), rather than failing for the wrong reason as an unmocked fetch.
+         */
+        fallback(body: unknown, status = 200) {
+            fallbackReply = { status, body };
+        },
+        /**
          * Makes Spotify's token endpoint (accounts.spotify.com) answer with this status and body for the rest of the
          * test — for the OAuth callback's "token exchange failed" path. It is a success by default.
          */
@@ -93,6 +103,14 @@ export function useSpotifyMock() {
         /** Upstream calls to `path`, or to anything when omitted. */
         calls(path?: string) {
             return path === undefined ? log.length : log.filter((c) => c.path === path).length;
+        },
+        /**
+         * Every upstream call so far, as `pathname + search` in the order they arrived (the token endpoint is not
+         * included). For tests that check WHICH query parameters were sent without caring about their order:
+         * `new URL(p, "https://x").searchParams`.
+         */
+        paths() {
+            return log.map((c) => c.path);
         },
         /** The headers of the most recent upstream call to `path`. */
         lastHeaders(path: string) {

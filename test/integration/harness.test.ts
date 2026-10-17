@@ -5,7 +5,7 @@ import { User } from "../../backend/models/User";
 import { Review } from "../../backend/models/review";
 import { useMemoryMongo } from "../helpers/mongo";
 import { useSpotifyMock } from "../helpers/spotifyMock";
-import { makeUser, makeReview, makeLegacyReview, uniqueId } from "../helpers/fixtures";
+import { makeUser, makeReview, makeLegacyReview, uniqueId, spotifyId } from "../helpers/fixtures";
 
 // These test the test tools: that a route test can rely on them. The route tests themselves live beside this file.
 useMemoryMongo();
@@ -55,7 +55,7 @@ describe("fixtures", () => {
 describe("authenticated requests through the real app", () => {
     it("lets a fixture user through and serves the mocked Spotify response", async () => {
         const { auth } = await makeUser();
-        const id = uniqueId("track");
+        const id = spotifyId();
         spotify.on(`/v1/tracks/${id}`, { id, name: "Song" });
 
         const res = await request(app).get(`/tracks/${id}`).set(auth);
@@ -67,7 +67,7 @@ describe("authenticated requests through the real app", () => {
     });
 
     it("turns away a request with no token", async () => {
-        const res = await request(app).get(`/tracks/${uniqueId("track")}`);
+        const res = await request(app).get(`/tracks/${spotifyId()}`);
         expect(res.status).toBe(401);
         expect(spotify.calls()).toBe(0);
     });

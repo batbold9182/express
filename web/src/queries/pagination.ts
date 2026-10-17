@@ -21,12 +21,18 @@ type WithId = { _id: string };
  * first occurrence of each `_id` wins.
  */
 export function flattenUnique<P, T extends WithId>(pages: P[] | undefined, itemsOf: (page: P) => T[]): T[] {
+  return flattenUniqueBy(pages, itemsOf, item => item._id);
+}
+
+/** `flattenUnique` for items keyed by something other than `_id` (Spotify items carry `id`). */
+export function flattenUniqueBy<P, T>(pages: P[] | undefined, itemsOf: (page: P) => T[], keyOf: (item: T) => string): T[] {
   const seen = new Set<string>();
   const out: T[] = [];
   for (const page of pages ?? []) {
     for (const item of itemsOf(page)) {
-      if (seen.has(item._id)) continue;
-      seen.add(item._id);
+      const key = keyOf(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
       out.push(item);
     }
   }
@@ -34,7 +40,7 @@ export function flattenUnique<P, T extends WithId>(pages: P[] | undefined, items
 }
 
 /** The shape TanStack Query stores for an infinite query. */
-export type PagedData<P> = { pages: P[]; pageParams: unknown[] };
+type PagedData<P> = { pages: P[]; pageParams: unknown[] };
 
 /**
  * `data` with one item replaced by `patch(item)`, wherever it appears. Same reference back if the item
