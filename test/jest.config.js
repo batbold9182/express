@@ -10,8 +10,9 @@ module.exports = {
   // Runs before every test file: removes MONGO_URI and makes mongoose refuse any non-local database.
   setupFiles: ['<rootDir>/setup/dbGuard.ts'],
 
-  // Runs before every test file once the framework is up: no test may send real email (setup/noRealMail.ts).
-  setupFilesAfterEnv: ['<rootDir>/setup/noRealMail.ts'],
+  // Runs before every test file once the framework is up: no test may send real email (setup/noRealMail.ts), and the
+  // rate limiter, once the backend has one, starts every test with empty counters (setup/resetRateLimits.ts).
+  setupFilesAfterEnv: ['<rootDir>/setup/noRealMail.ts', '<rootDir>/setup/resetRateLimits.ts'],
 
   // One in-memory MongoDB for the whole run (each test file uses its own database in it — see helpers/mongo.ts).
   globalSetup: '<rootDir>/setup/globalMongo.ts',

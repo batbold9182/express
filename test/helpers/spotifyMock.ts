@@ -22,6 +22,7 @@ export function useSpotifyMock() {
     const replies = new Map<string, Reply>();
     const log: { path: string; headers: Headers }[] = [];
     const unmocked: string[] = [];
+    const tokenLog: Record<string, string>[] = [];
     const holds = new Map<string, Promise<void>>();
     let tokenOverride: { status: number; body: unknown } | null = null;
     let tokenCalls = 0;
@@ -35,6 +36,7 @@ export function useSpotifyMock() {
         fallbackReply = null;
         log.length = 0;
         unmocked.length = 0;
+        tokenLog.length = 0;
 
         // The routes log every upstream failure on purpose, and these tests cause plenty. Silence it so a real
         // problem is not buried; the assertions on status and body are what check the behaviour.
@@ -45,6 +47,7 @@ export function useSpotifyMock() {
 
             if (url.hostname === "accounts.spotify.com") {
                 tokenCalls++;
+                tokenLog.push(Object.fromEntries(new URLSearchParams(String(init?.body ?? ""))));
                 if (tokenOverride) return json(tokenOverride.status, tokenOverride.body);
                 return json(200, { access_token: "test-app-token", expires_in: 3600 });
             }
@@ -93,6 +96,13 @@ export function useSpotifyMock() {
         /** How many times the token endpoint was called in this test (the app token and the OAuth exchange both use it). */
         tokenCalls() {
             return tokenCalls;
+        },
+        /**
+         * The form fields of every call to the token endpoint, in order (`grant_type`, `code`, `redirect_uri`, …). Use it to
+         * check what the app sent when it exchanged a code, e.g. `tokenRequests().filter((b) => b.grant_type === "authorization_code")`.
+         */
+        tokenRequests() {
+            return tokenLog.map((b) => ({ ...b }));
         },
         /** Holds back the reply for `path` until the returned function is called — for requests that overlap in time. */
         hold(path: string) {

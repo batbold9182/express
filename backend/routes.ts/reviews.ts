@@ -263,7 +263,11 @@ router.delete('/:id/comments/:commentId', requireAuth, async (req: AuthRequest, 
 router.post('/:id/comments', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { text, parentId } = req.body;
-    if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
+    if (typeof text !== 'string' || !text.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
+    // parentId goes into a Mongo filter: absent (undefined, null, '') or a 24-hex ObjectId, never an operator (H4).
+    if (parentId != null && parentId !== '' && (typeof parentId !== 'string' || !/^[0-9a-f]{24}$/i.test(parentId))) {
+      res.status(400).json({ error: 'Invalid parentId' }); return;
+    }
 
     if (parentId) {
       const exists = await Review.findOne({ _id: req.params.id, 'comments._id': parentId });

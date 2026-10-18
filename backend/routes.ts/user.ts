@@ -21,7 +21,8 @@ function buildReviewFilter(userId: any, type?: string, q?: string): any {
         ? { $or: [{ type: 'track' }, { type: { $exists: false } }] }
         : null;
 
-  const search = q?.trim();
+  // A repeated ?q= arrives as an array despite the cast; treat anything but a string as no search.
+  const search = typeof q === 'string' ? q.trim() : '';
   const searchCond = search
     ? (() => {
         const rx = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
@@ -60,10 +61,11 @@ function publicProfile(user: any, followerCount: number, isFollowing: boolean) {
 // GET /users/search?q= — search users by display name
 router.get('/search', optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const q = (req.query.q as string)?.trim();
+    // Plain text, not a pattern: `.` would match everyone and `(` is an invalid regex (M1). A repeated q is ignored.
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
     if (!q) { res.json([]); return; }
     const users = await User.find({
-      displayName: { $regex: q, $options: 'i' },
+      displayName: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' },
       ...(req.user ? { _id: { $ne: req.user._id } } : {}),
     }).select('spotifyId displayName avatarUrl _id').limit(20);
     const myFollowing = req.user?.following ?? [];
