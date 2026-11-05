@@ -112,7 +112,7 @@ cd frontend && npx expo start --clear
 npm test
 ```
 
-Runs the Jest suite in `test/`: the shared helpers, the web app's data-layer logic (query keys, cache invalidation, pagination), and the backend's `/health` route through `supertest`. The tests set up their own environment and never need your `.env` or a Spotify account.
+Runs the Jest suite in `test/`: unit tests (the shared helpers, the web app's data-layer logic, the wording of error messages, the Spotify paging and id rules), backend route tests through `supertest` (`/health`, every Spotify route against a mocked Spotify, the review lists), and security tests in `test/security/` that state how the routes must behave when attacked. The tests set up their own environment — an in-memory MongoDB (the first run downloads its binary), a mocked Spotify, a mocked mailer — and never need your `.env`, a real database or a Spotify account. A test refuses to connect to any database that is not on this machine, and none can send real email. Some security tests are written with `it.failing`: they pass while a known hole is open and go red the day it is fixed, which is the signal to remove the marker (see [`CLAUDE.md`](CLAUDE.md)).
 
 ---
 
