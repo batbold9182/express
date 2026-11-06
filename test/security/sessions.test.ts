@@ -364,6 +364,17 @@ describe("[H1] GET /feedback (the admin-only route)", () => {
         expect((await feedback(token)).status).toBe(403);
     });
 
+    // `undefined !== undefined` used to let a user with no email address in when ADMIN_EMAIL was missing (found by express-backend
+    // while applying D16; an unset ADMIN_EMAIL now admits nobody).
+    it("a user with no email address is not the admin when none is configured", async () => {
+        env.set("ADMIN_EMAIL", undefined);
+        env.set("ADMIN_USER_ID", undefined);
+        const { user, token } = await makeUser();
+        await User.collection.updateOne({ _id: user._id }, { $unset: { email: "" } }); // before the first request, so it is not cached
+
+        expect((await feedback(token)).status).toBe(403);
+    });
+
     it("nothing is open to anyone when no admin is configured", async () => {
         env.set("ADMIN_EMAIL", undefined);
         env.set("ADMIN_USER_ID", undefined);

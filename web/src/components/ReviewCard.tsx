@@ -12,6 +12,7 @@ import { afterReviewEditOrDelete } from '../queries/invalidation';
 import { timeAgo, scoreColor, MOOD_LIST, spotifyUrlFor, MOOD_COLOR, TYPE_CFG, subjectPath } from '@tunelog/shared';
 import type { FeedItem } from '@tunelog/shared';
 import { ChatBubbleIcon, SpotifyIcon } from './icons';
+import { formatScore, hasScore, NO_SCORE_COLOR } from '../lib/score';
 
 type Props = { item: FeedItem; myId: string; onDelete: () => void };
 
@@ -22,7 +23,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
   const [showActions, setShowActions] = useState(false);
   const [editing,     setEditing]     = useState(false);
   const [editText,    setEditText]     = useState(item.text);
-  const [editScore,   setEditScore]    = useState(item.score);
+  const [editScore,   setEditScore]    = useState(hasScore(item.score) ? item.score : 5);   // the slider needs a number
   const [editMoods,   setEditMoods]    = useState<string[]>(item.moods ?? []);
 
   // What the card shows is `item` — the cached review — so there is no second copy to go stale. A save
@@ -58,7 +59,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
 
   function openEdit() {
     editMutation.reset();
-    setEditText(item.text); setEditScore(item.score); setEditMoods(item.moods ?? []);   // start from what is there now
+    setEditText(item.text); setEditScore(hasScore(item.score) ? item.score : 5); setEditMoods(item.moods ?? []);   // start from what is there now
     setEditing(true);
   }
 
@@ -83,7 +84,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
 
   const spotifyUrl = spotifyUrlFor(item);
 
-  const scoreCol  = scoreColor(dispScore);
+  const scoreCol  = hasScore(dispScore) ? scoreColor(dispScore) : NO_SCORE_COLOR;
   const commentCount = (item.comments ?? []).length;
 
   return (
@@ -203,7 +204,7 @@ export function ReviewCard({ item, myId, onDelete }: Props) {
             className="cursor-pointer shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-2 border"
             style={{ background: `${scoreCol}12`, borderColor: `${scoreCol}35` }}
           >
-            <span className="text-[20px] font-bold tabular-nums leading-none" style={{ color: scoreCol }}>{dispScore.toFixed(1)}</span>
+            <span className="text-[20px] font-bold tabular-nums leading-none" style={{ color: scoreCol }}>{formatScore(dispScore)}</span>
           </button>
         </div>
 

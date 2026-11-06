@@ -12,7 +12,7 @@ express is a social music review app where users rate tracks, albums, and artist
 |---|---|
 | Backend | Node.js + Express 5, TypeScript |
 | Database | MongoDB Atlas (Mongoose) |
-| Mobile | React Native, Expo SDK 54, expo-router |
+| Mobile | Frozen: React Native, Expo SDK 54, expo-router. Planned: native iOS and Android apps in `native/` |
 | Web | React 19 + Vite + TypeScript, React Router v7, TanStack Query v5 (data fetching and cache), Tailwind CSS v4 |
 | Auth | Email/password (bcrypt); Spotify OAuth 2.0 for connecting Spotify to an account |
 | Music data | Spotify Web API + Client Credentials |
@@ -26,7 +26,8 @@ express is a social music review app where users rate tracks, albums, and artist
 ```
 express/
 ├── backend/        Express API
-├── frontend/       React Native (Expo) mobile app
+├── frontend/       React Native (Expo) mobile app — frozen, the reference for `native/`
+├── native/         planned native mobile apps: `ios/` and `android/` (see `native/README.md`)
 ├── web/            React + Vite web app
 ├── shared/         @tunelog/shared — types, constants, utils (zero deps)
 └── test/           Jest suite — unit tests and backend integration tests (run from the repo root)
@@ -124,7 +125,7 @@ Runs the Jest suite in `test/`: unit tests (the shared helpers, the web app's da
 
 Password reset is handled via email (Nodemailer + Gmail). Reset links expire in 15 minutes. Accounts originally created through Spotify OAuth have no password — use **Forgot password** once to set one.
 
-> The mobile app still logs in with Spotify directly; converting it to email/password is separate future work.
+> The Expo mobile app still logs in with Spotify directly and is frozen. The planned native apps (`native/`) start with email and password instead; see `native/README.md`.
 
 ---
 

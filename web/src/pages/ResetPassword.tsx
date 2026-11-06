@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { publicApi } from '../lib/api';
 import { mutationMessage } from '../queries/client';
+import { normalizeEmail } from '../lib/email';
 import { AuthBackdrop, AuthWordmark, AuthInput, GlowButton } from '../components/authKit';
 import { CheckIcon } from '../components/icons';
 
@@ -9,7 +10,7 @@ export default function ResetPassword() {
   const [params] = useSearchParams();
   const nav = useNavigate();
   const token = params.get('token') ?? '';
-  const email = params.get('email') ?? '';
+  const email = normalizeEmail(params.get('email') ?? '');
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');

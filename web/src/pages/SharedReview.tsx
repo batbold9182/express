@@ -3,6 +3,7 @@ import { Avatar } from '../components/Avatar';
 import { scoreColor, spotifyUrlFor, MOOD_COLOR, TYPE_CFG } from '@tunelog/shared';
 import { SpotifyIcon } from '../components/icons';
 import { useSharedReview } from '../queries/sharedReview';
+import { formatScore, hasScore, NO_SCORE_COLOR } from '../lib/score';
 
 export default function SharedReview() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +28,7 @@ export default function SharedReview() {
   }
 
   const cfg = TYPE_CFG[review.type ?? 'track'];
-  const sc = scoreColor(review.score);
+  const sc = hasScore(review.score) ? scoreColor(review.score) : NO_SCORE_COLOR;
   const spotifyUrl = spotifyUrlFor(review);
   const author = review.userId?.displayName ?? 'Someone';
 
@@ -54,8 +55,8 @@ export default function SharedReview() {
                 <span className="inline-block text-[10px] font-bold mt-1.5 px-2 py-0.5 rounded-full" style={{ color: cfg.color, background: `${cfg.color}25` }}>{cfg.label}</span>
               </div>
               <div className="shrink-0 flex flex-col items-center rounded-2xl px-3.5 py-2 border" style={{ background: `${sc}12`, borderColor: `${sc}35` }}>
-                <span className="text-[28px] font-extrabold tabular-nums leading-none" style={{ color: sc }}>{review.score.toFixed(1)}</span>
-                <span className="text-[10px] text-fg4 font-semibold mt-0.5">/10</span>
+                <span className="text-[28px] font-extrabold tabular-nums leading-none" style={{ color: sc }}>{formatScore(review.score)}</span>
+                {hasScore(review.score) && <span className="text-[10px] text-fg4 font-semibold mt-0.5">/10</span>}
               </div>
             </div>
 

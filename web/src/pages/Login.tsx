@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/auth';
 import { publicApi } from '../lib/api';
 import { mutationMessage } from '../queries/client';
+import { EMAIL_INPUT, normalizeEmail } from '../lib/email';
 
 const BRAND_GRADIENT = 'linear-gradient(90deg, #4FA3D1 0%, #FFFFFF 50%, #E0685C 100%)';
 
@@ -58,8 +59,8 @@ export default function Login() {
     try {
       const endpoint = mode === 'signup' ? '/auth/register' : '/auth/email-login';
       const body = mode === 'signup'
-        ? { email, displayName: name, password }
-        : { email, password };
+        ? { email: normalizeEmail(email), displayName: name, password }
+        : { email: normalizeEmail(email), password };
 
       const data = await publicApi.post<{ access_token?: string; spotify_id?: string } | null>(endpoint, body);
       if (!data?.access_token || !data.spotify_id) {
@@ -202,7 +203,7 @@ export default function Login() {
               )}
               <Field
                 icon={<MailIcon />}
-                type="email"
+                {...EMAIL_INPUT}
                 placeholder="Email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}

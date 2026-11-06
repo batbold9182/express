@@ -24,7 +24,9 @@ router.post('/', requireAuth, async (req: AuthRequest, res) => {
 });
 
 router.get('/', requireAuth, async (req: AuthRequest, res) => {
-  if (req.user!.email !== process.env.ADMIN_EMAIL) {
+  // Emails are stored lowercase (D16), so compare lowercased; an unset ADMIN_EMAIL admits nobody. Until H1 checks by id.
+  const admin = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  if (!admin || req.user!.email?.toLowerCase() !== admin) {
     res.status(403).json({ error: 'Forbidden' }); return;
   }
   const items = await Feedback.find().sort({ createdAt: -1 }).limit(200).lean();

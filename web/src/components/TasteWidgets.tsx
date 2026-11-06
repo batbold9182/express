@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { scoreColor, subjectPath } from '@tunelog/shared';
+import { formatScore, hasScore, NO_SCORE_COLOR } from '../lib/score';
 import type { ProfileReview } from '@tunelog/shared';
 
 /** Favourites grid + rating histogram — the taste snapshot on /me and /profile/:id. Fed by
@@ -27,20 +28,20 @@ export function Favorites({ items }: { items: ProfileReview[] }) {
         <div className="grid grid-cols-4 gap-2">
           {items.map(r => {
             const p = subjectPath(r);
-            const dark = r.score >= 5 && r.score < 8.5;
+            const dark = hasScore(r.score) && r.score >= 5 && r.score < 8.5;
             return (
               <button
                 key={r._id}
                 onClick={() => { if (p) nav(p); }}
-                title={`${r.trackName} · ${r.score.toFixed(1)}`}
+                title={`${r.trackName} · ${formatScore(r.score)}`}
                 className="relative aspect-square rounded-lg overflow-hidden bg-white/6 cursor-pointer"
               >
                 {r.albumArt && <img src={r.albumArt} alt="" className="w-full h-full object-cover" />}
                 <span
                   className="absolute bottom-1 right-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md tabular-nums"
-                  style={{ background: scoreColor(r.score), color: dark ? '#0A0A0A' : '#FFFFFF' }}
+                  style={{ background: hasScore(r.score) ? scoreColor(r.score) : NO_SCORE_COLOR, color: dark ? '#0A0A0A' : '#FFFFFF' }}
                 >
-                  {r.score.toFixed(1)}
+                  {formatScore(r.score)}
                 </span>
               </button>
             );

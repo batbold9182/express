@@ -5,12 +5,18 @@
 // Reached via a vercel.json rewrite: /r/:id -> /api/r?id=:id  (flat file + query param,
 // so it doesn't depend on `[id]` dynamic-segment function routing).
 
+import { hasScore, isReviewId } from './_share';
+
 const API_BASE = process.env.VITE_API_BASE || '';
+
+// The parts of Vercel's Node request and response this function uses.
+type Req = { query?: Record<string, unknown>; headers: Record<string, string | string[] | undefined> };
+type Res = { setHeader(name: string, value: string): void; status(code: number): { send(body: string): void } };
 
 type Review = {
   trackName: string;
   artistName: string;
-  score: number;
+  score?: number | null;
   text?: string;
   userId?: { displayName?: string };
 };
@@ -21,25 +27,32 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-export default async function handler(req: any, res: any): Promise<void> {
-  const id = String(req.query?.id || '');
+export default async function handler(req: Req, res: Res): Promise<void> {
+  // Anything that is not a review id is treated like a review that does not exist: the generic page.
+  const raw = req.query?.id;
+  const id = isReviewId(raw) ? raw : null;
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   const origin = `https://${host}`;
 
   let review: Review | null = null;
-  try {
-    const r = await fetch(`${API_BASE}/reviews/${id}`);
-    if (r.ok) review = (await r.json()) as Review;
-  } catch { /* fall through to generic meta */ }
+  if (id) {
+    try {
+      const r = await fetch(`${API_BASE}/reviews/${id}`);
+      if (r.ok) review = (await r.json()) as Review;
+    } catch { /* fall through to generic meta */ }
+  }
 
-  const pageUrl = `${origin}/r/${id}`;
-  const imageUrl = `${origin}/api/og/${id}`;
+  const pageUrl = id ? `${origin}/r/${id}` : origin;
+  const imageUrl = id ? `${origin}/api/og/${id}` : `${origin}/api/og`;   // no id: the plain "express" card
 
+  // A review without a score is described without one ("Song" by Artist on express).
+  const score = review && hasScore(review.score) ? `${review.score.toFixed(1)}/10` : null;
+  const who = review?.userId?.displayName ?? 'Someone';
   const title = review
-    ? `"${review.trackName}" by ${review.artistName} — ${review.score.toFixed(1)}/10 on express`
+    ? `"${review.trackName}" by ${review.artistName}${score ? ` — ${score}` : ''} on express`
     : 'express — rate music, build your taste';
   const desc = review
-    ? (review.text?.trim() || `${review.userId?.displayName ?? 'Someone'} rated this ${review.score.toFixed(1)}/10 on express`)
+    ? (review.text?.trim() || (score ? `${who} rated this ${score} on express` : `${who} reviewed this on express`))
     : 'Rate tracks, albums and artists. Share your taste.';
 
   const meta = `
@@ -59,7 +72,7 @@ export default async function handler(req: any, res: any): Promise<void> {
     <meta name="twitter:image" content="${esc(imageUrl)}" />
   `;
 
-  let html = '';
+  let html: string;
   try {
     // /index.html resolves to the static asset (filesystem is checked before rewrites),
     // so this does not recurse back into this function.

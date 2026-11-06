@@ -209,9 +209,13 @@ const hashResetToken = (t: string) => crypto.createHash('sha256').update(t).dige
 // belongs, and these fields go straight into Mongo filters (security H4 / H4b). Wrong types get the same 400 as missing.
 const isText = (v: unknown): v is string => typeof v === 'string' && v !== '';
 
+// One person, one spelling (D16): `Alice@X` and ` alice@x ` are the same account. Dots and +tags are NOT folded: at other
+// providers those are different people. Returns '' for anything that is not a usable email, so callers answer 400.
+export const normalizeEmail = (v: unknown): string => (isText(v) ? v.trim().toLowerCase() : '');
+
 router.post('/forgot-password', async (req: Request, res: Response) => {
-  const { email } = req.body as { email?: unknown };
-  if (!isText(email)) { res.status(400).json({ error: 'Missing email' }); return; }
+  const email = normalizeEmail(req.body?.email);
+  if (!email) { res.status(400).json({ error: 'Missing email' }); return; }
 
   const user = await User.findOne({ email });
   // Always return 200 — don't reveal whether the email exists
@@ -231,8 +235,9 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 });
 
 router.post('/reset-password', async (req: Request, res: Response) => {
-  const { email, resetToken, newPassword } = req.body as { email?: unknown; resetToken?: unknown; newPassword?: unknown };
-  if (!isText(email) || !isText(resetToken) || !isText(newPassword)) {
+  const { resetToken, newPassword } = req.body as { resetToken?: unknown; newPassword?: unknown };
+  const email = normalizeEmail(req.body?.email);
+  if (!email || !isText(resetToken) || !isText(newPassword)) {
     res.status(400).json({ error: 'email, resetToken, and newPassword are required' }); return;
   }
   if (newPassword.length < 6) {
@@ -254,8 +259,9 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 });
 
 router.post('/register', async (req: Request, res: Response) => {
-  const { email, displayName, password } = req.body as { email?: unknown; displayName?: unknown; password?: unknown };
-  if (!isText(email) || !isText(displayName) || !isText(password)) {
+  const { displayName, password } = req.body as { displayName?: unknown; password?: unknown };
+  const email = normalizeEmail(req.body?.email);
+  if (!email || !isText(displayName) || !isText(password)) {
     res.status(400).json({ error: 'email, displayName, and password are required' }); return;
   }
   if (password.length < 6) {
@@ -280,8 +286,9 @@ router.post('/register', async (req: Request, res: Response) => {
 });
 
 router.post('/email-login', async (req: Request, res: Response) => {
-  const { email, password } = req.body as { email?: unknown; password?: unknown };
-  if (!isText(email) || !isText(password)) {
+  const { password } = req.body as { password?: unknown };
+  const email = normalizeEmail(req.body?.email);
+  if (!email || !isText(password)) {
     res.status(400).json({ error: 'email and password are required' }); return;
   }
 

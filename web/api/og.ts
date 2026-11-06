@@ -1,4 +1,5 @@
 import { ImageResponse } from '@vercel/og';
+import { hasScore, isReviewId, safeCover } from './_share';
 
 export const config = { runtime: 'edge' };
 
@@ -10,7 +11,7 @@ type Review = {
   trackName: string;
   artistName: string;
   albumArt?: string;
-  score: number;
+  score?: number | null;
   text?: string;
   moods?: string[];
   userId?: { displayName?: string; spotifyId?: string };
@@ -63,28 +64,32 @@ function fallback(width: number, height: number): ImageResponse {
 
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  const id = url.searchParams.get('id') || '';
+  const raw = url.searchParams.get('id');
+  const id = isReviewId(raw) ? raw : null;   // anything else gets the plain card and never reaches the API
   const story = url.searchParams.get('format') === 'story';
   const width  = story ? 1080 : 1200;
   const height = story ? 1920 : 630;
 
   let review: Review | null = null;
-  try {
-    const res = await fetch(`${API_BASE}/reviews/${id}`);
-    if (res.ok) review = (await res.json()) as Review;
-  } catch { /* ignore — render fallback */ }
+  if (id) {
+    try {
+      const res = await fetch(`${API_BASE}/reviews/${id}`);
+      if (res.ok) review = (await res.json()) as Review;
+    } catch { /* ignore — render fallback */ }
+  }
 
   if (!review) return fallback(width, height);
 
   const accent = TYPE_COLOR[review.type ?? 'track'] ?? '#978A74';
-  const sc = scoreColor(review.score);
+  const score = hasScore(review.score) ? review.score : null;   // the API accepts a review with no score
   const handle = review.userId?.displayName ? `@${review.userId.displayName}` : 'on express';
-  const cover = review.albumArt || '';
+  const cover = safeCover(review.albumArt);   // Vercel's server fetches it: Spotify's image host only
   // Satori renders gradients via backgroundImage (not the `background` shorthand).
   const bgImage = `linear-gradient(160deg, #07060b 28%, ${hexToRgba(accent, 0.38)} 100%)`;
 
-  const scoreBlock = h('div', { display: 'flex', alignItems: 'flex-end', gap: story ? 24 : 14 },
-    h('div', { display: 'flex', fontSize: story ? 104 : 74, fontWeight: 800, color: sc, lineHeight: 1 }, review.score.toFixed(1)),
+  // No score, no score block (rather than "undefined/10").
+  const scoreBlock = score === null ? h('div', { display: 'flex' }) : h('div', { display: 'flex', alignItems: 'flex-end', gap: story ? 24 : 14 },
+    h('div', { display: 'flex', fontSize: story ? 104 : 74, fontWeight: 800, color: scoreColor(score), lineHeight: 1 }, score.toFixed(1)),
     h('div', { display: 'flex', fontSize: story ? 40 : 28, fontWeight: 700, color: '#5C5142', paddingBottom: story ? 14 : 8 }, '/10'),
   );
 

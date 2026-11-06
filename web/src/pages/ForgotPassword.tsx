@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { publicApi } from '../lib/api';
 import { mutationMessage } from '../queries/client';
+import { EMAIL_INPUT, normalizeEmail } from '../lib/email';
 import { AuthBackdrop, AuthWordmark, AuthInput, GlowButton } from '../components/authKit';
 import { MailIcon } from '../components/icons';
 
@@ -14,10 +15,11 @@ export default function ForgotPassword() {
 
   async function submit() {
     setError('');
-    if (!email) { setError('Enter your email address'); return; }
+    const address = normalizeEmail(email);
+    if (!address) { setError('Enter your email address'); return; }
     setLoading(true);
     try {
-      await publicApi.post('/auth/forgot-password', { email });
+      await publicApi.post('/auth/forgot-password', { email: address });
       setDone(true);
     } catch (e) {
       setError(mutationMessage(e));
@@ -56,7 +58,7 @@ export default function ForgotPassword() {
             </div>
 
             <AuthInput
-              type="email"
+              {...EMAIL_INPUT}
               placeholder="Email"
               value={email}
               onChange={e => setEmail(e.target.value)}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShareButton } from './ShareButton';
 import { scoreColor, MOOD_COLOR, subjectPath } from '@tunelog/shared';
+import { formatScore, hasScore, NO_SCORE_COLOR } from '../lib/score';
 import { SearchIcon } from './icons';
 import { Spinner } from './Spinner';
 import { ProfileReviewsSkeleton } from './Skeleton';
@@ -126,7 +127,7 @@ export function ProfileReviews({ userId, counts }: { userId?: string; counts?: R
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-semibold text-fg flex-1 truncate">{r.trackName}</span>
-                  <span className="text-[15px] font-bold tabular-nums shrink-0" style={{ color: scoreColor(r.score) }}>{r.score.toFixed(1)}</span>
+                  <span className="text-[15px] font-bold tabular-nums shrink-0" style={{ color: hasScore(r.score) ? scoreColor(r.score) : NO_SCORE_COLOR }}>{formatScore(r.score)}</span>
                 </div>
                 <p className="text-[11px] text-fg3 truncate">{r.artistName}</p>
                 {r.text && <p className="text-[12px] text-fg2 mt-1 line-clamp-2">{r.text}</p>}

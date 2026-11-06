@@ -128,7 +128,7 @@ describe("fakeReq / fakeRes drive the real share-page handler (web/api/r.ts)", (
         });
         const res = fakeRes();
 
-        await handler(fakeReq({ query: { id: "r1" } }), res);
+        await handler(fakeReq({ query: { id: "507f1f77bcf86cd799439011" } }), res);
 
         expect(res.statusCode).toBe(200);
         expect(res.headers["content-type"]).toContain("text/html");
