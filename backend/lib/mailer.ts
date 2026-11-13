@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { webOrigins } from './webOrigins';
 
 export async function sendPasswordReset(toEmail: string, resetToken: string) {
   const transporter = nodemailer.createTransport({
@@ -8,7 +9,8 @@ export async function sendPasswordReset(toEmail: string, resetToken: string) {
       pass: process.env.GMAIL_PASS,
     },
   });
-  const frontendBase = process.env.FRONTEND_WEB_BASE ?? 'http://localhost:5173';
+  // FRONTEND_WEB_BASE is a list of origins now (the Spotify link allowlist); the reset link uses the first.
+  const frontendBase = webOrigins()[0] ?? 'http://localhost:5173';
   const resetUrl = `${frontendBase}/reset-password?token=${resetToken}&email=${encodeURIComponent(toEmail)}`;
 
   await transporter.sendMail({

@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
 import { ProfileReviews } from '../components/ProfileReviews';
-import { API_BASE } from '../lib/api';
+import { LINK_STATE_KEY, linkStateFrom } from '../lib/spotifyLink';
+import { toast } from '../lib/toast';
 import { SpotifyIcon, SettingsIcon } from '../components/icons';
 import { Favorites, RatingHistogram, Stat } from '../components/TasteWidgets';
 import { tasteStats } from '../lib/taste';
-import { useAuth } from '../context/auth';
 import { PageSpinner } from '../components/Spinner';
 import { ErrorState } from '../components/ErrorState';
 import { totalOf } from '../queries/counts';
-import { useDisconnectSpotify, useMeApp, useMeCounts, useMeReviewsSample, useMeSpotify, useTopArtists } from '../queries/users';
+import { useDisconnectSpotify, useStartSpotifyLink, useMeApp, useMeCounts, useMeReviewsSample, useMeSpotify, useTopArtists } from '../queries/users';
 
 // Genre-bar accents — one per rank. The 4th used to be a near-invisible slate; amber reads.
 const GENRE_COLORS = ['#FFFFFF', '#E0685C', '#4FA3D1', '#EDA63E'];
@@ -20,9 +20,7 @@ const GENRE_COLORS = ['#FFFFFF', '#E0685C', '#4FA3D1', '#EDA63E'];
 // current taste. A dedicated /users/me/stats endpoint would make them exact (backend, later).
 
 export default function Me() {
-  const { spotifyId } = useAuth();
   const nav = useNavigate();
-  const apiBase = API_BASE ?? '';
 
   const [timeRange, setTimeRange] = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
 
@@ -33,6 +31,7 @@ export default function Me() {
   const countsQ    = useMeCounts();
   const sampleQ    = useMeReviewsSample();
   const disconnect = useDisconnectSpotify();
+  const startLink  = useStartSpotifyLink();
 
   const appUser = appQ.data ?? null;
   const linked  = !!appUser?.spotifyLinked;
@@ -45,12 +44,19 @@ export default function Me() {
   // First load of this range with nothing to show. (Switching range keeps the last list up, dimmed.)
   const artistsLoading = linked && topQ.isPending;
 
+  // The backend starts the link and returns Spotify's authorize address; its `state` is a single-use
+  // nonce that /auth/callback must see again before it completes the link (lib/spotifyLink.ts). A failed
+  // start (403: this site is not on the backend's allowlist) arrives as a toast with the server's message.
   function connectSpotify() {
-    const callbackUrl = window.location.origin + '/auth/callback';
-    // The backend appends its own `?access_token=…` to the redirect URL, so the
-    // return path can't ride along as a query param — stash it for AuthCallback.
-    sessionStorage.setItem('post_auth_redirect', '/me');
-    window.location.href = `${apiBase}/auth/login?redirect=${encodeURIComponent(callbackUrl)}&linkId=${encodeURIComponent(spotifyId ?? '')}`;
+    if (startLink.isPending) return;
+    startLink.mutate(undefined, {
+      onSuccess: ({ url }) => {
+        const state = linkStateFrom(url);
+        if (!state) { toast("Couldn't start the Spotify connection. Try again."); return; }
+        sessionStorage.setItem(LINK_STATE_KEY, state);
+        window.location.href = url as string;
+      },
+    });
   }
 
   // The session survives a disconnect (accessToken is an app token). A failure — notably the 409 "set a
@@ -136,10 +142,11 @@ export default function Me() {
               </div>
               <button
                 onClick={connectSpotify}
-                className="mt-1 px-5 py-2 rounded-full text-[13px] font-bold text-white cursor-pointer transition-opacity hover:opacity-80"
+                disabled={startLink.isPending}
+                className="mt-1 px-5 py-2 rounded-full text-[13px] font-bold text-white cursor-pointer transition-opacity hover:opacity-80 disabled:opacity-60 disabled:cursor-default"
                 style={{ background: 'linear-gradient(135deg, #FFFFFF, #E0685C)' }}
               >
-                Connect Spotify
+                {startLink.isPending ? '…' : 'Connect Spotify'}
               </button>
             </div>
           ) : (

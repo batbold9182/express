@@ -10,8 +10,9 @@ import { makeUser, spotifyId, uniqueId } from "../helpers/fixtures";
 // today and goes red the day the fix lands, at which point `express-backend` removes the marker and it becomes the permanent
 // guard. Plain `it` is a guard that holds either way.
 //
-//   [M4]  Raw errors reach the client. Review and list 400s carry `detail` (a Mongoose error with its schema keys), and the
-//         OAuth token-exchange error carries `detail: tokens` (Spotify's own error body).
+//   [M4]  Raw errors reach the client. Review and list 400s carry `detail` (a Mongoose error with its schema keys). The OAuth
+//         token-exchange error used to carry `detail: tokens` (Spotify's own error body); the Spotify link fix (2026-11-13)
+//         moved the exchange to POST /auth/spotify/link/complete, which answers a generic 502, so those two tests are guards.
 //   [L4]  CORS is open (`Access-Control-Allow-Origin: *`), and there is no global error handler, so a thrown error is an HTML
 //         page naming the error class and the file paths of the stack (Express hides the stack only when NODE_ENV=production;
 //         these tests run with NODE_ENV=test, so the answer must be safe whatever NODE_ENV is).
@@ -62,14 +63,49 @@ describe("[M4] a failed request tells the client what went wrong, not how the se
     });
 
     // Spotify's own error body (which can name the client or the grant) must not be handed on to whoever made the request.
-    it.failing("[M4] a failed Spotify token exchange does not return Spotify's error", async () => {
-        spotify.tokenReply(400, { error: "invalid_grant", error_description: "Authorization code expired for client 123" });
+    // The code is exchanged in POST /auth/spotify/link/complete (the callback is only a relay and exchanges nothing).
+    describe("a Spotify link that Spotify refuses", () => {
+        const WEB = "https://tunelog.test";
 
-        const res = await request(app).get(`/auth/callback?code=${uniqueId("code")}`);
+        beforeEach(() => {
+            env.set("CLIENT_ID", "test-client-id");
+            env.set("CLIENT_SECRET", "test-client-secret");
+            env.set("REDIRECT_URI", "https://api.tunelog.test/auth/callback");
+            env.set("FRONTEND_WEB_BASE", WEB);
+        });
 
-        expect(res.body?.detail).toBeUndefined();
-        expect(JSON.stringify(res.body ?? {})).not.toMatch(/invalid_grant|expired for client/);
-        expect(res.text ?? "").not.toMatch(/invalid_grant|expired for client/);
+        /** A signed-in user with a link started, ready to be completed. */
+        async function startedLink() {
+            const { auth } = await makeUser();
+            const start = await request(app).post("/auth/spotify/link").set(auth).set("Origin", WEB);
+            expect(start.status).toBe(200);
+            return { auth, state: new URL(start.body.url).searchParams.get("state") ?? "" };
+        }
+        const complete = (auth: Record<string, string>, state: string) =>
+            request(app).post("/auth/spotify/link/complete").set(auth).send({ code: uniqueId("code"), state });
+
+        it("[M4] a failed token exchange does not return Spotify's error", async () => {
+            const { auth, state } = await startedLink();
+            spotify.tokenReply(400, { error: "invalid_grant", error_description: "Authorization code expired for client 123" });
+
+            const res = await complete(auth, state);
+
+            expect(res.status).toBe(502);
+            plain(res.body);
+            expect(res.text).not.toMatch(/invalid_grant|expired for client/);
+        });
+
+        it("[M4] a failed profile request does not return Spotify's error", async () => {
+            const { auth, state } = await startedLink();
+            spotify.tokenReply(200, { access_token: "spotify-access-token", refresh_token: "spotify-refresh-token", expires_in: 3600 });
+            spotify.on("/v1/me", "The access token expired for client 123", 401);
+
+            const res = await complete(auth, state);
+
+            expect(res.status).toBe(502);
+            plain(res.body);
+            expect(res.text).not.toMatch(/expired for client/);
+        });
     });
 
     it("an ordinary review still works", async () => {

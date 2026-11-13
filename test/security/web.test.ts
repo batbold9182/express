@@ -6,8 +6,8 @@ import { fakeReq, fakeRes } from "../helpers/fakeHttp";
 
 // Security tests, Step 8: the web side. See plan.md -> "Security tests" and "Web: what is left". Each test states the SECURE
 // behaviour. They were written as `it.failing` while the holes were open; `express-web` fixed the share pages (L3) on
-// 2026-11-06 and the leftover file (L5) was deleted, so those are now plain, permanent guards. The one that is still
-// `it.failing` is M6 (the login callback), which the Spotify link fix replaces.
+// 2026-11-06 and the leftover file (L5) was deleted, so those are plain, permanent guards. M6 (the login callback) was
+// fixed by the web half of the Spotify link fix on 2026-11-13: nothing in this file is expected to fail any more.
 //
 //   [L3]  The share pages (`web/api/r.ts`, the page a shared link opens, and `web/api/og.ts`, its preview image) crash for a
 //         review with no `score` (`review.score.toFixed` is unguarded, and the API accepts such a review), pass the id from the
@@ -244,13 +244,23 @@ describe("[L6] nothing injects HTML into the web app", () => {
 });
 
 describe("[M6] the login callback page", () => {
-    // `AuthCallback.tsx` takes `access_token` and `spotify_id` from the address and signs the browser in. A link someone else
-    // built would sign a victim into the attacker's account. The pure-function test the plan wants needs a refactor first;
-    // until then this looks at the page itself. The Spotify link fix replaces the page: it must not read a token from the address.
-    it.failing("[M6] does not sign anyone in from a token in the address", () => {
-        const source = fs.readFileSync(path.join(repo, "web", "src", "pages", "AuthCallback.tsx"), "utf8");
+    // Until 2026-11-13 `AuthCallback.tsx` took `access_token` and `spotify_id` from the address and signed the browser in, so a
+    // link someone else built could sign a victim into the attacker's account ("login CSRF"). The Spotify link fix replaced
+    // the page: it completes a link this tab started and nothing else. What it decides is tested as a pure function in
+    // test/unit/spotifyLink.test.ts; this looks at the page itself, so the old behaviour cannot come back unnoticed.
+    const source = () => fs.readFileSync(path.join(repo, "web", "src", "pages", "AuthCallback.tsx"), "utf8");
 
-        expect(source).not.toMatch(/['"]access_token['"]/);
+    it("[M6] does not read a session token from the address", () => {
+        expect(source()).not.toMatch(/['"]access_token['"]/);
+        expect(source()).not.toMatch(/['"]spotify_id['"]/);
+    });
+
+    it("[M6] does not sign anyone in", () => {
+        expect(source()).not.toMatch(/saveToken|useAuth/);
+    });
+
+    it("decides through readLinkCallback, the tested function", () => {
+        expect(source()).toMatch(/readLinkCallback\(/);
     });
 });
 

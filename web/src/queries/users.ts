@@ -168,6 +168,25 @@ export function useFollow() {
 }
 
 /** Unlink Spotify, keeping the account and its reviews. The 409 lock-out message arrives as the toast. */
+/** Start linking Spotify: the backend returns Spotify's authorize address (its `state` is a single-use nonce). */
+export function useStartSpotifyLink() {
+  return useMutation({
+    mutationFn: () => api.post<{ url?: unknown }>('/auth/spotify/link', {}),
+  });
+}
+
+/**
+ * Finish linking with the code Spotify sent back. Linking changes the same things a disconnect does
+ * (the linked flag, top artists, now playing), so it refreshes the same set. 400 (bad, used or expired
+ * link) and 502 (Spotify refused the code) arrive as a toast with the server's message.
+ */
+export function useCompleteSpotifyLink() {
+  return useMutation({
+    mutationFn: (body: { code: string; state: string }) => api.post('/auth/spotify/link/complete', body),
+    onSuccess: () => { void invalidate(afterSpotifyDisconnect()); },
+  });
+}
+
 export function useDisconnectSpotify() {
   return useMutation({
     mutationFn: () => api.del('/users/me/spotify'),

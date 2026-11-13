@@ -60,9 +60,8 @@ MONGO_URI=           # MongoDB Atlas connection string
 GMAIL_USER=          # Gmail address (e.g. yourapp@gmail.com)
 GMAIL_PASS=          # Gmail App Password (not your account password)
 ADMIN_EMAIL=         # Email address that can access GET /feedback
-FRONTEND_WEB_BASE=http://localhost:5173   # web base for password-reset links (lib/mailer.ts)
-FRONTEND_BASE=       # optional — mobile OAuth success-redirect fallback (auth/callback)
-IP_ADDRESS=          # optional — used as http://<IP_ADDRESS>:8081 when FRONTEND_BASE is unset
+FRONTEND_WEB_BASE=http://localhost:5173   # the web app's exact origins, comma-separated. Connect Spotify only works from a listed
+                                          # origin, and the FIRST one is used in password-reset emails: in production list the live site first
 ```
 
 ### `frontend/.env`
@@ -121,11 +120,11 @@ Runs the Jest suite in `test/`: unit tests (the shared helpers, the web app's da
 
 **Email / Password** is the only way to sign in on web. Music metadata is fetched using a shared app-level Client Credentials token, so search, artist pages, and ratings all work without a Spotify account.
 
-**Connecting Spotify** is optional and happens *after* signing in, from the `/me` page. It unlocks the personalised extras — top artists, top genres, and the Now Playing widget. The OAuth callback merges the Spotify credentials into the account you're already signed into. A **Log out of Spotify** button on the same page unlinks it again, keeping the account and all its reviews.
+**Connecting Spotify** is optional and happens *after* signing in, from the `/me` page. It unlocks the personalised extras — top artists, top genres, and the Now Playing widget. It starts from your signed-in session, Spotify sends the browser back through the backend to the web app, and the web app finishes the link with your session, so a link can only ever attach to the account that started it. Spotify is not a way to sign in. A **Log out of Spotify** button on the same page unlinks it again, keeping the account and all its reviews.
 
 Password reset is handled via email (Nodemailer + Gmail). Reset links expire in 15 minutes. Accounts originally created through Spotify OAuth have no password — use **Forgot password** once to set one.
 
-> The Expo mobile app still logs in with Spotify directly and is frozen. The planned native apps (`native/`) start with email and password instead; see `native/README.md`.
+> The Expo mobile app (frozen) could only sign in with Spotify, and that sign-in was removed from the backend on 2026-11-13, so it can no longer sign in. The planned native apps (`native/`) start with email and password instead; see `native/README.md`.
 
 ---
 
@@ -155,8 +154,9 @@ All routes require `Authorization: Bearer <token>` unless noted.
 | `GET /health` | Liveness check, **no auth** — `200 { ok: true, db: "connected" }`, or `503` when the database is unreachable. Point an uptime monitor here |
 | `POST /auth/register` | Email signup |
 | `POST /auth/email-login` | Email login |
-| `GET /auth/login` | Spotify OAuth redirect (web: Connect Spotify from `/me`; mobile: login) |
-| `GET /auth/callback` | Spotify OAuth callback + account linking |
+| `POST /auth/spotify/link` | Start "Connect Spotify" for the signed-in user; returns Spotify's authorize URL |
+| `GET /auth/callback` | Where Spotify sends the browser: a relay back to the web app (it links nothing) |
+| `POST /auth/spotify/link/complete` | Finish the link with the session and the code |
 | `POST /auth/forgot-password` | Send password reset email |
 | `POST /auth/reset-password` | Verify token and set new password |
 | `GET /search?q=&type=` | Search Spotify (tracks, albums, artists, people) |

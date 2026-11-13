@@ -7,10 +7,10 @@ import { useEnv } from "../helpers/env";
 import { useClock } from "../helpers/clock";
 import { makeUser, uniqueId } from "../helpers/fixtures";
 
-// The Spotify link flow, as plan.md ("Security: the Spotify link flow trusts a public id") says it must work. Step 3 of
-// the order of work: these tests describe the TARGET design. Each is `it.failing`: it passes while the new endpoints do
-// not exist (and while the old holes are open) and goes red the day the fix lands, which is the signal for
-// `express-backend` to delete the `.failing` markers. A test that is still red after that has found a mismatch.
+// The Spotify link flow, as plan.md ("Security: the Spotify link flow trusts a public id") says it must work. These tests
+// were written on 2026-10-18 against the design, each expected to fail while the endpoints did not exist and the old holes
+// were open. The backend fix landed on 2026-11-13 and `express-backend` removed the markers: every test here is now a
+// plain, permanent guard. (A new hole is recorded the same way: a test marked as failing, and the marker comes off when it is fixed.)
 //
 // The rule being tested: the link is completed by a request that carries the session of the account being linked, never
 // by the bare callback.
@@ -24,9 +24,10 @@ import { makeUser, uniqueId } from "../helpers/fixtures";
 //   GET  /auth/login                   gone (404), together with the fresh-login branch of the callback
 //
 // Contract choices these tests make (change them here, and in plan.md, if the backend design changes): the start
-// response is `{ url }`; a refused `Origin` is a 400 or a 403; every refusal by `complete` is a 400 (one status for
-// "unknown", "expired", "used" and "not yours", so it cannot be used to probe which nonces exist). The allowlist is the
-// comma-separated `FRONTEND_WEB_BASE`, exact origins only.
+// response is `{ url }`; a refused `Origin` is a 400 or a 403 (the backend answers 403, and 503 when no origin is
+// configured at all); every refusal by `complete` is a 400 (one status for "unknown", "expired", "used" and "not yours",
+// so it cannot be used to probe which nonces exist); a code Spotify refuses is a 502. The allowlist is the comma-separated
+// `FRONTEND_WEB_BASE`, exact origins only (backend/lib/webOrigins.ts; see test/unit/webOrigins.test.ts).
 //
 // Everything runs against the real app with Spotify mocked. Attackers send no Authorization header unless the test says so.
 
@@ -82,13 +83,13 @@ const oldStyleCallback = (query: string, profile: object) => {
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 describe("POST /auth/spotify/link (starting a link)", () => {
-    it.failing("needs a session", async () => {
+    it("needs a session", async () => {
         const res = await request(app).post("/auth/spotify/link").set("Origin", WEB);
 
         expect(res.status).toBe(401);
     });
 
-    it.failing("returns Spotify's authorize URL: this app's client, the backend callback, a chosen account, no email scope", async () => {
+    it("returns Spotify's authorize URL: this app's client, the backend callback, a chosen account, no email scope", async () => {
         const { auth } = await makeUser();
 
         const { url } = await startLink(auth);
@@ -104,7 +105,7 @@ describe("POST /auth/spotify/link (starting a link)", () => {
         expect(scopes).toContain("user-read-currently-playing");
     });
 
-    it.failing("uses a random, URL-safe nonce as `state`, never anything that names the account", async () => {
+    it("uses a random, URL-safe nonce as `state`, never anything that names the account", async () => {
         const { user, auth } = await makeUser();
 
         const { state } = await startLink(auth);
@@ -115,7 +116,7 @@ describe("POST /auth/spotify/link (starting a link)", () => {
         expect(Buffer.from(state, "base64").toString("utf8")).not.toContain("{"); // not the old base64 JSON
     });
 
-    it.failing("gives a new nonce every time, to everyone", async () => {
+    it("gives a new nonce every time, to everyone", async () => {
         const a = await makeUser();
         const b = await makeUser();
 
@@ -139,7 +140,7 @@ describe("POST /auth/spotify/link (starting a link)", () => {
             ["the string null (a sandboxed page)", "null"],
         ];
 
-        it.failing.each(refused)("refuses %s, and returns no URL", async (_label, origin) => {
+        it.each(refused)("refuses %s, and returns no URL", async (_label, origin) => {
             const { auth } = await makeUser();
             const req = request(app).post("/auth/spotify/link").set(auth);
             const res = await (origin === null ? req : req.set("Origin", origin));
@@ -148,7 +149,7 @@ describe("POST /auth/spotify/link (starting a link)", () => {
             expect(res.body.url).toBeUndefined();
         });
 
-        it.failing.each(ALLOWED)("accepts the listed origin %s", async (origin) => {
+        it.each(ALLOWED)("accepts the listed origin %s", async (origin) => {
             const { auth } = await makeUser();
 
             const { res } = await startLink(auth, origin);
@@ -156,7 +157,7 @@ describe("POST /auth/spotify/link (starting a link)", () => {
             expect(res.status).toBe(200);
         });
 
-        it.failing("refuses everything when no origin is configured, rather than trusting the request", async () => {
+        it("refuses everything when no origin is configured, rather than trusting the request", async () => {
             env.set("FRONTEND_WEB_BASE", undefined);
             const { auth } = await makeUser();
 
@@ -173,7 +174,7 @@ describe("POST /auth/spotify/link (starting a link)", () => {
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 describe("GET /auth/callback (a relay that touches no account)", () => {
-    it.failing("sends the browser on to the origin stored with the nonce, carrying code and state", async () => {
+    it("sends the browser on to the origin stored with the nonce, carrying code and state", async () => {
         const { auth } = await makeUser();
         const { state } = await startLink(auth, WEB_2);
 
@@ -187,7 +188,7 @@ describe("GET /auth/callback (a relay that touches no account)", () => {
         expect(target.searchParams.get("state")).toBe(state);
     });
 
-    it.failing("passes Spotify's error on, so a refusal reaches the page", async () => {
+    it("passes Spotify's error on, so a refusal reaches the page", async () => {
         const { auth } = await makeUser();
         const { state } = await startLink(auth);
 
@@ -200,7 +201,7 @@ describe("GET /auth/callback (a relay that touches no account)", () => {
         expect(target.searchParams.get("state")).toBe(state);
     });
 
-    it.failing("changes no account and exchanges nothing, even for a valid nonce", async () => {
+    it("changes no account and exchanges nothing, even for a valid nonce", async () => {
         const { user, auth } = await makeUser();
         const { state } = await startLink(auth);
         spotify.tokenReply(200, TOKENS);
@@ -214,7 +215,7 @@ describe("GET /auth/callback (a relay that touches no account)", () => {
         expect(after?.realSpotifyId).toBeUndefined();
     });
 
-    it.failing("sets Referrer-Policy: no-referrer, so the code does not travel on in a Referer header", async () => {
+    it("sets Referrer-Policy: no-referrer, so the code does not travel on in a Referer header", async () => {
         const { auth } = await makeUser();
         const { state } = await startLink(auth);
 
@@ -224,7 +225,7 @@ describe("GET /auth/callback (a relay that touches no account)", () => {
     });
 
     // The target is what was stored when the nonce was made — nothing in the callback request can change it.
-    it.failing("takes the target from the stored origin only, whatever else the request says", async () => {
+    it("takes the target from the stored origin only, whatever else the request says", async () => {
         const { auth } = await makeUser();
         const { state } = await startLink(auth);
 
@@ -249,7 +250,7 @@ describe("GET /auth/callback (a relay that touches no account)", () => {
             ["no state at all", ""],
         ];
 
-        it.failing.each(hostile)("%s: goes nowhere the request names, and carries no session token", async (_label, state) => {
+        it.each(hostile)("%s: goes nowhere the request names, and carries no session token", async (_label, state) => {
             spotify.on("/v1/me", ATTACKER);
             const res = await request(app).get(`/auth/callback?code=${uniqueId("code")}${state ? `&state=${state}` : ""}`);
 
@@ -267,7 +268,7 @@ describe("GET /auth/callback (a relay that touches no account)", () => {
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 describe("the unauthenticated entry points are gone", () => {
-    it.failing.each(["/auth/login", "/auth/login?redirect=https://evil.example/auth/success", "/auth/login?linkId=someones-handle"])(
+    it.each(["/auth/login", "/auth/login?redirect=https://evil.example/auth/success", "/auth/login?linkId=someones-handle"])(
         "GET %s no longer exists",
         async (path) => {
             const res = await request(app).get(path);
@@ -277,7 +278,7 @@ describe("the unauthenticated entry points are gone", () => {
     );
 
     // 1. The report's first attack. The victim's spotifyId is public: it is in profile URLs and in every review's author block.
-    it.failing("a callback naming a victim's handle does not attach the visitor's Spotify identity to that account", async () => {
+    it("a callback naming a victim's handle does not attach the visitor's Spotify identity to that account", async () => {
         const victim = await makeUser();
 
         await oldStyleCallback(`&state=${stateOf({ linkId: victim.user.spotifyId })}`, ATTACKER);
@@ -287,7 +288,7 @@ describe("the unauthenticated entry points are gone", () => {
     });
 
     // The legacy mobile path: the victim's session token in `state`.
-    it.failing("a callback carrying a victim's session token in `state` does not link either", async () => {
+    it("a callback carrying a victim's session token in `state` does not link either", async () => {
         const victim = await makeUser();
 
         await oldStyleCallback(`&state=${stateOf({ linkToken: victim.token })}`, ATTACKER);
@@ -298,7 +299,7 @@ describe("the unauthenticated entry points are gone", () => {
 
     // 5. The same hole pointed the other way: the attacker starts a link for THEIR account and hands the Spotify address to
     // the victim. Their Spotify identity must not end up on the attacker's account just because the victim approved it.
-    it.failing("a callback cannot attach a victim's Spotify identity to the attacker's account", async () => {
+    it("a callback cannot attach a victim's Spotify identity to the attacker's account", async () => {
         const attacker = await makeUser();
         const victimsSpotify = { id: "victim-spotify-id", display_name: "Victim", email: "victim@spotify.test", images: [] };
 
@@ -309,7 +310,7 @@ describe("the unauthenticated entry points are gone", () => {
     });
 
     // 2 and 4. Signing in with Spotify is not a way in any more: a callback never makes an account or mints a session.
-    it.failing("a callback with no state is not a login: no account is made and no session token is issued", async () => {
+    it("a callback with no state is not a login: no account is made and no session token is issued", async () => {
         const before = await User.countDocuments();
 
         const res = await oldStyleCallback("", ATTACKER);
@@ -318,7 +319,7 @@ describe("the unauthenticated entry points are gone", () => {
         expect(await User.countDocuments()).toBe(before);
     });
 
-    it.failing("cannot be chained into a login as the victim", async () => {
+    it("cannot be chained into a login as the victim", async () => {
         const victim = await makeUser();
         await oldStyleCallback(`&state=${stateOf({ linkId: victim.user.spotifyId })}`, ATTACKER);
 
@@ -331,7 +332,7 @@ describe("the unauthenticated entry points are gone", () => {
     });
 
     // 3. The open redirect: a victim who approves a crafted link has their fresh session token sent to the attacker.
-    it.failing("a redirect in `state` is not followed", async () => {
+    it("a redirect in `state` is not followed", async () => {
         const victim = await makeUser();
         const victimsSpotifyProfile = { id: "victim-spotify-id", display_name: "Victim", email: victim.user.email, images: [] };
 
@@ -348,7 +349,7 @@ describe("the unauthenticated entry points are gone", () => {
 describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
     const farFuture = () => new Date(Date.now() + 3_600_000);
 
-    it.failing("needs a session", async () => {
+    it("needs a session", async () => {
         const res = await request(app).post("/auth/spotify/link/complete").send({ code: "c", state: "s" });
 
         expect(res.status).toBe(401);
@@ -356,7 +357,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
     });
 
     describe("links the account of the caller", () => {
-        it.failing("stores the Spotify identity and tokens on the caller, and nothing else about the account", async () => {
+        it("stores the Spotify identity and tokens on the caller, and nothing else about the account", async () => {
             const { user, auth } = await makeUser();
             const { state } = await startLink(auth);
             spotify.tokenReply(200, TOKENS);
@@ -374,7 +375,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
             expect(JSON.stringify(res.body)).not.toContain("spotify-access-token"); // no Spotify token comes back to the page
         });
 
-        it.failing("exchanges the code with the same redirect_uri the authorize request used (the backend callback)", async () => {
+        it("exchanges the code with the same redirect_uri the authorize request used (the backend callback)", async () => {
             const { auth } = await makeUser();
             const { url, state } = await startLink(auth);
             spotify.tokenReply(200, TOKENS);
@@ -387,7 +388,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
             expect(exchanges()[0].redirect_uri).toBe(API_CALLBACK);
         });
 
-        it.failing("works from the very beginning: start, relay, then complete with what the relay passed on", async () => {
+        it("works from the very beginning: start, relay, then complete with what the relay passed on", async () => {
             const { user, auth } = await makeUser();
             const { state } = await startLink(auth);
             spotify.tokenReply(200, TOKENS);
@@ -403,7 +404,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
 
         // The person who linked before loses the link, and their cached copy must stop saying "connected" at once
         // (the auth middleware hands out the same object for 4 minutes).
-        it.failing("releases the previous owner of that Spotify identity, and their cached session sees it immediately", async () => {
+        it("releases the previous owner of that Spotify identity, and their cached session sees it immediately", async () => {
             const previous = await makeUser({ realSpotifyId: "shared-spotify-id", spotifyAccessToken: "old-token", spotifyTokenExpiresAt: farFuture(), refreshToken: "old-refresh" });
             const warm = await request(app).get("/users/me").set(previous.auth); // puts the previous owner in the cache
             expect(warm.body.spotifyLinked).toBe(true);
@@ -428,7 +429,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
             expect(spotify.calls("/v1/me")).toBe(0);
         };
 
-        it.failing("a nonce that was never issued", async () => {
+        it("a nonce that was never issued", async () => {
             const { user, auth } = await makeUser();
             spotify.tokenReply(200, TOKENS);
             spotify.on("/v1/me", profileOf("linked-spotify-id"));
@@ -442,7 +443,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
 
         // The link someone else hands you: the attacker starts a link for their own account and gives the Spotify address to
         // the victim. The victim is signed in, but the nonce belongs to the attacker, so completing it must fail.
-        it.failing("a nonce that belongs to another user (the link handed to a victim)", async () => {
+        it("a nonce that belongs to another user (the link handed to a victim)", async () => {
             const attacker = await makeUser();
             const victim = await makeUser();
             const { state } = await startLink(attacker.auth);
@@ -457,7 +458,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
             expect((await User.findById(victim.user._id))?.realSpotifyId).toBeUndefined();
         });
 
-        it.failing("a nonce that has expired (ten minutes)", async () => {
+        it("a nonce that has expired (ten minutes)", async () => {
             const { user, auth } = await makeUser();
             const { state } = await startLink(auth);
             spotify.tokenReply(200, TOKENS);
@@ -472,7 +473,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
             expect((await User.findById(user._id))?.realSpotifyId).toBeUndefined();
         });
 
-        it.failing("a nonce that was already used", async () => {
+        it("a nonce that was already used", async () => {
             const { auth } = await makeUser();
             const { state } = await startLink(auth);
             spotify.tokenReply(200, TOKENS);
@@ -488,7 +489,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
 
         // The nonce is consumed atomically (a delete that matches it), not "read, then delete", so two requests racing
         // for it cannot both succeed.
-        it.failing("the second of two simultaneous requests with the same nonce", async () => {
+        it("the second of two simultaneous requests with the same nonce", async () => {
             const { auth } = await makeUser();
             const { state } = await startLink(auth);
             spotify.tokenReply(200, TOKENS);
@@ -511,7 +512,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
             ["empty strings", { code: "", state: "" }],
         ];
 
-        it.failing.each(badBodies)("%s, before any lookup", async (_label, body) => {
+        it.each(badBodies)("%s, before any lookup", async (_label, body) => {
             const { auth } = await makeUser();
             spotify.tokenReply(200, TOKENS);
             spotify.on("/v1/me", profileOf("linked-spotify-id"));
@@ -522,7 +523,7 @@ describe("POST /auth/spotify/link/complete (the authenticated half)", () => {
             noSpotifyCall();
         });
 
-        it.failing("a code Spotify refuses: nothing is linked", async () => {
+        it("a code Spotify refuses: nothing is linked", async () => {
             const { user, auth } = await makeUser();
             const { state } = await startLink(auth);
             spotify.tokenReply(400, { error: "invalid_grant" });

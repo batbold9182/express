@@ -2,212 +2,187 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User';
+import { LinkNonce, LINK_NONCE_TTL_MS } from '../models/LinkNonce';
 import { sendPasswordReset } from '../lib/mailer';
-import { invalidateToken } from '../middleware/auth';
+import { webOrigins } from '../lib/webOrigins';
+import { requireAuth, AuthRequest, invalidateToken } from '../middleware/auth';
 
 const router = Router();
-const usedCodes = new Map<string, number>(); // code -> timestamp
-setInterval(() => {
-  const cutoff = Date.now() - 10 * 60 * 1000;
-  for (const [code, ts] of usedCodes) if (ts < cutoff) usedCodes.delete(code);
-}, 15 * 60 * 1000).unref();
 
-router.get('/login', (req: Request, res: Response) => {
-  const redirectBase = req.query.redirect  as string | undefined;
-  const linkId       = req.query.linkId    as string | undefined; // email:<uuid> spotifyId — stable, never rotates
-  const linkToken    = req.query.linkToken as string | undefined; // legacy fallback (mobile)
-  const statePayload = redirectBase || linkId || linkToken
-    ? Buffer.from(JSON.stringify({ redirect: redirectBase, linkId, linkToken })).toString('base64')
-    : undefined;
-  const params = new URLSearchParams({
-    client_id: process.env.CLIENT_ID!,
-    response_type: 'code',
-    redirect_uri: process.env.REDIRECT_URI!,
-    scope: 'user-read-private user-read-email user-top-read user-read-currently-playing user-read-playback-state',
-    ...(statePayload ? { state: statePayload } : {}),
-  });
-  res.redirect(`https://accounts.spotify.com/authorize?${params}`);
+// A non-empty string, nothing else. A JSON body can carry `{"$ne": null}` or `{"$regex": "^a"}` where a string
+// belongs, and these fields go straight into Mongo filters (security H4 / H4b). Wrong types get the same 400 as missing.
+const isText = (v: unknown): v is string => typeof v === 'string' && v !== '';
+
+// ---------------------------------------------------------------------------
+// Connect Spotify. Spotify is a feature of an account, not a way to sign in.
+//
+// The rule: a link is completed by a request that carries the session of the account being linked, never by the
+// bare callback. So: a signed-in start makes a single-use nonce; Spotify's redirect lands on a relay that touches
+// no account; the web page then finishes the link with its session token.
+// ---------------------------------------------------------------------------
+
+const SPOTIFY_SCOPES = 'user-read-private user-top-read user-read-currently-playing user-read-playback-state';
+
+const hashNonce = (nonce: string) => crypto.createHash('sha256').update(nonce).digest('hex');
+const nonceCutoff = () => new Date(Date.now() - LINK_NONCE_TTL_MS);
+
+// POST /auth/spotify/link — start a link for the signed-in user. Returns Spotify's authorize URL.
+router.post('/spotify/link', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    // Where the browser returns afterwards is this request's Origin, so it must be one of ours, exactly.
+    const allowed = webOrigins();
+    if (allowed.length === 0) { res.status(503).json({ error: 'Spotify linking is not configured' }); return; }
+    const origin = req.headers.origin;
+    if (typeof origin !== 'string' || !allowed.includes(origin)) {
+      res.status(403).json({ error: 'Origin not allowed' }); return;
+    }
+
+    const nonce = crypto.randomBytes(32).toString('base64url');
+    await LinkNonce.deleteMany({ userId: req.user!._id }); // one link outstanding per user
+    await LinkNonce.create({ nonceHash: hashNonce(nonce), userId: req.user!._id, origin });
+
+    const params = new URLSearchParams({
+      client_id:     process.env.CLIENT_ID!,
+      response_type: 'code',
+      redirect_uri:  process.env.REDIRECT_URI!,
+      scope:         SPOTIFY_SCOPES,
+      state:         nonce,
+      show_dialog:   'true', // the person picks the Spotify account on purpose
+    });
+    res.json({ url: `https://accounts.spotify.com/authorize?${params}` });
+  } catch {
+    res.status(500).json({ error: 'Failed to start Spotify link' });
+  }
 });
 
+// GET /auth/callback — where Spotify sends the browser. A relay: it reads the nonce's stored origin and passes
+// code, state and error on to that page. It changes no account, exchanges nothing and logs no query string.
 router.get('/callback', async (req: Request, res: Response) => {
-  const code = req.query.code as string;
-  const state = req.query.state as string | undefined;
-  const fallbackBase = process.env.FRONTEND_BASE ?? `http://${process.env.IP_ADDRESS}:8081`;
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  const { code, state, error } = req.query;
 
-  let successURL = `${fallbackBase}/auth/success`;
-  let linkId: string | undefined;
-  let linkToken: string | undefined;
-  if (state) {
-    const raw = Buffer.from(state, 'base64').toString('utf8');
-    try {
-      const parsed = JSON.parse(raw) as { redirect?: string; linkId?: string; linkToken?: string };
-      if (parsed.redirect) successURL = parsed.redirect;
-      linkId    = parsed.linkId    || undefined; // empty string → undefined (falsy guard)
-      linkToken = parsed.linkToken || undefined;
-    } catch {
-      // Legacy format: plain URL string (mobile deep-link)
-      successURL = raw;
+  try {
+    const known = isText(state)
+      ? await LinkNonce.findOne({ nonceHash: hashNonce(state), createdAt: { $gt: nonceCutoff() } }).select('origin')
+      : null;
+
+    // Unknown, expired or malformed state (an old link still in flight, or attacker input): a fixed target,
+    // never anything the request names.
+    if (!known || !webOrigins().includes(known.origin)) {
+      const fallback = webOrigins()[0];
+      if (!fallback) { res.status(400).json({ error: 'Link expired' }); return; }
+      res.redirect(`${fallback}/auth/callback?error=link_expired`);
+      return;
     }
+
+    const params = new URLSearchParams({ state: state as string });
+    if (isText(code))  params.set('code', code);
+    if (isText(error)) params.set('error', error);
+    res.redirect(`${known.origin}/auth/callback?${params}`);
+  } catch {
+    res.status(500).json({ error: 'Link failed' });
   }
+});
 
-  const loginURL = successURL.replace('auth/success', 'auth/login');
+// POST /auth/spotify/link/complete { code, state } — the authenticated half. The nonce must be unexpired, unused
+// and the caller's own; only then is the code exchanged. Every refusal is the same 400, so it is no oracle.
+router.post('/spotify/link/complete', requireAuth, async (req: AuthRequest, res: Response) => {
+  const { code, state } = (req.body ?? {}) as { code?: unknown; state?: unknown };
+  if (!isText(code) || !isText(state)) { res.status(400).json({ error: 'Invalid or expired link' }); return; }
 
-  if (!code) { res.status(400).json({ error: 'Missing code' }); return; }
-  if (usedCodes.has(code)) { res.status(400).json({ error: 'Code already used' }); return; }
-  usedCodes.set(code, Date.now());
-
-  // Exchange code for tokens
-  const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: process.env.REDIRECT_URI!,
-      client_id: process.env.CLIENT_ID!,
-      client_secret: process.env.CLIENT_SECRET!,
-    }),
-  });
-
-  const tokens = await tokenRes.json() as {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-  };
-
-  if (!tokens.access_token) {
-    console.error('Token exchange failed:', tokens);
-    res.status(500).json({ error: 'Token exchange failed', detail: tokens });
-    return;
-  }
-
-  // Fetch Spotify user profile — retry up to 3x, respecting Retry-After header
-  let profileRes: globalThis.Response | null = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    profileRes = await fetch('https://api.spotify.com/v1/me', {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
+  try {
+    // Atomic: a delete that matches, so two requests racing for one nonce cannot both win. With userId in the
+    // filter another user can neither use nor burn it.
+    const nonce = await LinkNonce.findOneAndDelete({
+      nonceHash: hashNonce(state),
+      userId:    req.user!._id,
+      createdAt: { $gt: nonceCutoff() },
     });
-    if (profileRes.status !== 429) break;
-    const retryAfter = parseInt(profileRes.headers.get('Retry-After') ?? '5') * 1000;
-    console.log(`Spotify rate limited. Waiting ${retryAfter}ms before retry ${attempt + 1}...`);
-    await new Promise(r => setTimeout(r, retryAfter));
-  }
+    if (!nonce) { res.status(400).json({ error: 'Invalid or expired link' }); return; }
 
-  // Set by the fresh-login branch only. The link branch leaves them null: that user already
-  // holds a valid app session, so there is nothing to issue.
-  let sessionToken: string | null = null;
-  let sessionExpiresAt = 0;
-  let publicSpotifyId = '';
+    // The same redirect_uri the authorize request used (the backend callback, not the web page).
+    const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type:    'authorization_code',
+        code,
+        redirect_uri:  process.env.REDIRECT_URI!,
+        client_id:     process.env.CLIENT_ID!,
+        client_secret: process.env.CLIENT_SECRET!,
+      }),
+    });
+    const tokens = await tokenRes.json().catch(() => ({})) as {
+      access_token?: string; refresh_token?: string; expires_in?: number; error?: string;
+    };
+    if (!tokenRes.ok || !tokens.access_token) {
+      // Spotify's body can name the client or the grant: log the code of the error, hand nothing on.
+      console.error('[spotify] link: token exchange failed:', tokenRes.status, tokens.error);
+      res.status(502).json({ error: 'Spotify did not accept the link, try again' }); return;
+    }
 
-  if (!profileRes || !profileRes.ok) {
-    console.error('❌ Spotify /me failed:', profileRes?.status, await profileRes?.text());
-    res.redirect(loginURL);
-    return;
-  } else {
-    try {
-      const profile = await profileRes.json() as { id: string; display_name: string; email: string; images: { url: string }[] };
+    // Spotify rate-limits /me often: up to 3 tries, waiting what it asks but never more than 2s a time.
+    let profileRes: globalThis.Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      profileRes = await fetch('https://api.spotify.com/v1/me', {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      if (profileRes.status !== 429) break;
+      const retryAfter = Math.min(Number(profileRes.headers.get('Retry-After')) || 1, 2) * 1000;
+      await new Promise(r => setTimeout(r, retryAfter));
+    }
+    if (!profileRes || !profileRes.ok) {
+      console.error('[spotify] link: /me failed:', profileRes?.status);
+      res.status(502).json({ error: 'Spotify did not accept the link, try again' }); return;
+    }
+    const profile = await profileRes.json() as { id?: string; images?: { url: string }[] };
+    if (!isText(profile.id)) { res.status(502).json({ error: 'Spotify did not accept the link, try again' }); return; }
 
-      // Spotify credentials only. `spotifyId` (the public handle) and `accessToken` (the app
-      // session) are deliberately absent — conflating them with these is the bug this phase fixes.
-      const spotifyCredentials = {
-        realSpotifyId:         profile.id,
-        spotifyAccessToken:    tokens.access_token,
-        spotifyTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-        refreshToken:          tokens.refresh_token,
-        updatedAt:             new Date(),
-      };
-
-      // realSpotifyId is sparse+unique, so any previous owner of this Spotify identity has to
-      // release it before we can claim it. Their account and reviews survive — they just lose
-      // the Spotify link, exactly as DELETE /users/me/spotify would leave them.
-      const releasePreviousOwner = (keepId: unknown) => User.updateOne(
-        { realSpotifyId: profile.id, _id: { $ne: keepId } },
+    // realSpotifyId is sparse+unique, so any previous owner of this Spotify identity has to release it before
+    // we can claim it. Their account and reviews survive — they just lose the Spotify link, exactly as
+    // DELETE /users/me/spotify would leave them. Read their session first, to evict their cached copy after.
+    const me = req.user!;
+    const previous = await User.findOne({ realSpotifyId: profile.id, _id: { $ne: me._id } }).select('accessToken');
+    if (previous) {
+      await User.updateOne(
+        { _id: previous._id },
         {
           $unset: { realSpotifyId: '', spotifyAccessToken: '', spotifyTokenExpiresAt: '' },
           $set:   { refreshToken: '', updatedAt: new Date() },
         },
       );
-
-      if (linkId || linkToken) {
-        // "Connect Spotify" from an active session — find by the stable spotifyId (preferred)
-        // or by accessToken as legacy fallback (mobile).
-        const linkedUser = linkId
-          ? await User.findOne({ spotifyId: linkId })
-          : await User.findOne({ accessToken: linkToken });
-        if (linkedUser) {
-          await releasePreviousOwner(linkedUser._id);
-          await User.updateOne(
-            { _id: linkedUser._id },
-            { $set: { ...spotifyCredentials, avatarUrl: profile.images?.[0]?.url ?? linkedUser.avatarUrl } },
-          );
-          // spotifyId and accessToken untouched: the profile handle stays stable and the client
-          // keeps the session it already holds.
-          //
-          // Evict the cached user anyway. The middleware hands out the same object for 4 minutes,
-          // and spotifyHeaders() nulls `spotifyAccessToken` on it when a refresh fails. Without
-          // this, someone who reconnects after a revoked token keeps hitting a cached copy that
-          // says "no Spotify" — Now Playing and top artists stay dead for minutes after a
-          // successful reconnect, then start working on their own.
-          invalidateToken(linkedUser.accessToken as string);
-          publicSpotifyId = linkedUser.spotifyId as string;
-        }
-      } else {
-        // Fresh Spotify login (the mobile path). The client has no session yet, and the Spotify
-        // token is no longer usable as one, so this branch mints an app session token.
-        sessionToken     = crypto.randomBytes(40).toString('hex');
-        sessionExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
-        const session = { accessToken: sessionToken, tokenExpiresAt: new Date(sessionExpiresAt) };
-
-        // Match on either field: realSpotifyId is authoritative, but accounts created before this
-        // split — or before the backfill runs — still carry the Spotify id in spotifyId.
-        const existing = await User.findOne({ email: profile.email })
-          ?? await User.findOne({ $or: [{ realSpotifyId: profile.id }, { spotifyId: profile.id }] });
-
-        if (existing) {
-          await releasePreviousOwner(existing._id);
-          await User.updateOne(
-            { _id: existing._id },
-            { $set: { ...spotifyCredentials, ...session, avatarUrl: profile.images?.[0]?.url ?? existing.avatarUrl } },
-          );
-          // This branch replaces accessToken, so evict the old one — otherwise it keeps
-          // resolving from the 4-minute cache after being rotated away.
-          invalidateToken(existing.accessToken as string);
-          publicSpotifyId = existing.spotifyId as string;
-        } else {
-          // Brand-new account. No prior handle exists, so the Spotify id becomes the handle —
-          // and from here it never changes again.
-          await User.create({
-            ...spotifyCredentials,
-            ...session,
-            spotifyId:   profile.id,
-            displayName: profile.display_name,
-            email:       profile.email,
-            avatarUrl:   profile.images?.[0]?.url ?? '',
-          });
-          publicSpotifyId = profile.id;
-        }
-      }
-    } catch (err) {
-      console.error('❌ Could not save user to DB:', err);
+      invalidateToken(previous.accessToken as string);
     }
-  }
 
-  if (sessionToken) {
-    res.redirect(`${successURL}?access_token=${sessionToken}&spotify_id=${publicSpotifyId}&expires_at=${sessionExpiresAt}`);
-  } else {
-    // Link flow. The client keeps the session it already has — re-emitting a token into a URL
-    // and the browser's history is precisely the coupling this phase removes.
-    res.redirect(`${successURL}?linked=1`);
+    // Spotify credentials only. `spotifyId` (the public handle) and `accessToken` (the app session) are
+    // untouched: the handle stays stable and the browser keeps the session it already holds.
+    await User.updateOne(
+      { _id: me._id },
+      {
+        $set: {
+          realSpotifyId:         profile.id,
+          spotifyAccessToken:    tokens.access_token,
+          spotifyTokenExpiresAt: new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000),
+          refreshToken:          tokens.refresh_token ?? '',
+          avatarUrl:             profile.images?.[0]?.url ?? me.avatarUrl,
+          updatedAt:             new Date(),
+        },
+      },
+    );
+    // The middleware hands out the same user object for 4 minutes, and spotifyHeaders() nulls its Spotify token
+    // when a refresh fails. Evict it, or a reconnect looks like "no Spotify" for minutes.
+    invalidateToken(me.accessToken as string);
+
+    res.json({ linked: true });
+  } catch (err) {
+    console.error('[spotify] link: could not save:', err instanceof Error ? err.message : err);
+    res.status(500).json({ error: 'Failed to link Spotify' });
   }
 });
 
 // Reset tokens are stored as a SHA-256 hash. The plaintext exists only in the email we send,
 // so leaking a user document no longer yields a redeemable token.
 const hashResetToken = (t: string) => crypto.createHash('sha256').update(t).digest('hex');
-
-// A non-empty string, nothing else. A JSON body can carry `{"$ne": null}` or `{"$regex": "^a"}` where a string
-// belongs, and these fields go straight into Mongo filters (security H4 / H4b). Wrong types get the same 400 as missing.
-const isText = (v: unknown): v is string => typeof v === 'string' && v !== '';
 
 // One person, one spelling (D16): `Alice@X` and ` alice@x ` are the same account. Dots and +tags are NOT folded: at other
 // providers those are different people. Returns '' for anything that is not a usable email, so callers answer 400.
